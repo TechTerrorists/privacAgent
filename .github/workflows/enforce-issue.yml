@@ -1,0 +1,18 @@
+name: Enforce Linked Issue
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+jobs:
+  check-for-issue:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify PR body contains closing keyword
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.pull_request.body || '';
+            const regex = /(close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\s+#\d+/i;
+            if (!regex.test(body)) {
+              core.setFailed("Merge blocked: You must link an issue using a closing keyword (e.g., 'Closes #123') in the PR description.");
+            }
