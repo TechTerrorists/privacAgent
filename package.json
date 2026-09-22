@@ -1,0 +1,33 @@
+{
+  "name": "privacagent",
+  "version": "0.0.0",
+  "private": true,
+  "description": "On-device visual perception and privacy gateway for browser agents",
+  "type": "module",
+  "packageManager": "pnpm@12.3.4",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "build:chrome": "pnpm --filter @privacagent/extension build:chrome",
+    "build:firefox": "pnpm --filter @privacagent/extension build:firefox",
+    "dev:chrome": "pnpm --filter @privacagent/extension dev:chrome",
+    "dev:firefox": "pnpm --filter @privacagent/extension dev:firefox",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --build --force",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.11.0",
+    "prettier": "^3.9.8",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.70.1",
+    "vitest": "^5.0.1"
+  }
+}
