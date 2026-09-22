@@ -1,0 +1,10 @@
+node_modules/
+dist/
+web-ext-artifacts/
+*.tsbuildinfo
+.venv/
+__pycache__/
+.vitest/
+coverage/
+.DS_Store
+*.log
