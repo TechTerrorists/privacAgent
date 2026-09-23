@@ -12,6 +12,10 @@ import {
   PROTOCOL_VERSION,
   type MessageName,
   type Action,
+  type Element,
+  type BBox,
+  type ElementState,
+  type DocumentId,
 } from './index.js';
 
 interface Fixture {
@@ -92,6 +96,57 @@ describe('wire contract', () => {
       data.elements[0].bbox[0] = number;
       expect(isMessage('ScreenState', data)).toBe(false);
     }
+  });
+
+  it('exposes the B-01 element model with document context and optional state', () => {
+    const fixture = valid.find((c) => c.name === 'b01-element-catalog');
+    const observation = parseMessage('ScreenState', fixture?.payload);
+    const docId: DocumentId = observation.doc_id;
+    const element: Element | undefined = observation.elements.find((e) => e.id === 'e_button');
+    if (!element) throw new Error('Missing button fixture');
+    const bbox: BBox = element.bbox;
+    const source: Element['src'] = element.src;
+    const state: ElementState | undefined = element.state;
+    expect({ docId, id: element.id, bbox, source, state }).toEqual({
+      docId: 'doc_element_catalog',
+      id: 'e_button',
+      bbox: [20, 40, 120, 32],
+      source: 'dom',
+      state: { disabled: false, focused: true, occluded: false },
+    });
+    expect(state?.invalid).toBeUndefined();
+    expect(observation.elements.find((e) => e.id === 'v_help')).not.toHaveProperty('state');
+  });
+
+  it('narrows form-value variants without treating display elements as empty inputs', () => {
+    const fixture = valid.find((c) => c.name === 'b01-element-catalog');
+    const observation = parseMessage('ScreenState', fixture?.payload);
+    const variants = observation.elements.map((element: Element) => {
+      if (!('value_state' in element)) return 'display';
+      switch (element.value_state) {
+        case 'empty': {
+          const value: '' = element.value;
+          expect(value).toBe('');
+          return 'empty';
+        }
+        case 'filled':
+          expect(element.value.length).toBeGreaterThan(0);
+          return 'filled';
+        case 'redacted':
+          expect([element.value, element.pii_class]).toEqual(['{{EMAIL_1}}', 'email']);
+          return 'redacted';
+      }
+    });
+    expect(variants).toEqual([
+      'display',
+      'display',
+      'filled',
+      'display',
+      'empty',
+      'redacted',
+      'display',
+      'display',
+    ]);
   });
 
   it('uses a standalone browser validator without dynamic evaluation or Node dependencies', () => {

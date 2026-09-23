@@ -4577,5 +4577,477 @@
     "name": "wrong-root-string",
     "message": "ScreenState",
     "payload": "PRIVATE_CANARY"
+  },
+  {
+    "name": "b01-element-invalid-id",
+    "message": "ScreenState",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "doc_element_catalog",
+      "observation_id": 1,
+      "step": 0,
+      "page": {
+        "url": "https://example.test/profile",
+        "title": "Profile",
+        "viewport": {
+          "w": 1280,
+          "h": 720,
+          "scroll_y": 0,
+          "page_h": 1000
+        }
+      },
+      "redaction_scheme": "v1",
+      "mode": "agent",
+      "kind": "full",
+      "elements": [
+        {
+          "id": "node1",
+          "role": "button",
+          "name": "Save settings",
+          "bbox": [20, 40, 120, 32],
+          "src": "dom",
+          "conf": 1,
+          "state": {
+            "disabled": false,
+            "focused": true,
+            "occluded": false
+          }
+        }
+      ],
+      "text_context": [],
+      "suspicious": false
+    }
+  },
+  {
+    "name": "b01-element-missing-source",
+    "message": "ScreenState",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "doc_element_catalog",
+      "observation_id": 1,
+      "step": 0,
+      "page": {
+        "url": "https://example.test/profile",
+        "title": "Profile",
+        "viewport": {
+          "w": 1280,
+          "h": 720,
+          "scroll_y": 0,
+          "page_h": 1000
+        }
+      },
+      "redaction_scheme": "v1",
+      "mode": "agent",
+      "kind": "full",
+      "elements": [
+        {
+          "id": "e_button",
+          "role": "button",
+          "name": "Save settings",
+          "bbox": [20, 40, 120, 32],
+          "conf": 1,
+          "state": {
+            "disabled": false,
+            "focused": true,
+            "occluded": false
+          }
+        }
+      ],
+      "text_context": [],
+      "suspicious": false
+    }
+  },
+  {
+    "name": "b01-element-unknown-source",
+    "message": "ScreenState",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "doc_element_catalog",
+      "observation_id": 1,
+      "step": 0,
+      "page": {
+        "url": "https://example.test/profile",
+        "title": "Profile",
+        "viewport": {
+          "w": 1280,
+          "h": 720,
+          "scroll_y": 0,
+          "page_h": 1000
+        }
+      },
+      "redaction_scheme": "v1",
+      "mode": "agent",
+      "kind": "full",
+      "elements": [
+        {
+          "id": "e_button",
+          "role": "button",
+          "name": "Save settings",
+          "bbox": [20, 40, 120, 32],
+          "src": "ocr",
+          "conf": 1,
+          "state": {
+            "disabled": false,
+            "focused": true,
+            "occluded": false
+          }
+        }
+      ],
+      "text_context": [],
+      "suspicious": false
+    }
+  },
+  {
+    "name": "b01-element-negative-confidence",
+    "message": "ScreenState",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "doc_element_catalog",
+      "observation_id": 1,
+      "step": 0,
+      "page": {
+        "url": "https://example.test/profile",
+        "title": "Profile",
+        "viewport": {
+          "w": 1280,
+          "h": 720,
+          "scroll_y": 0,
+          "page_h": 1000
+        }
+      },
+      "redaction_scheme": "v1",
+      "mode": "agent",
+      "kind": "full",
+      "elements": [
+        {
+          "id": "e_button",
+          "role": "button",
+          "name": "Save settings",
+          "bbox": [20, 40, 120, 32],
+          "src": "dom",
+          "conf": -0.1,
+          "state": {
+            "disabled": false,
+            "focused": true,
+            "occluded": false
+          }
+        }
+      ],
+      "text_context": [],
+      "suspicious": false
+    }
+  },
+  {
+    "name": "b01-element-negative-height",
+    "message": "ScreenState",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "doc_element_catalog",
+      "observation_id": 1,
+      "step": 0,
+      "page": {
+        "url": "https://example.test/profile",
+        "title": "Profile",
+        "viewport": {
+          "w": 1280,
+          "h": 720,
+          "scroll_y": 0,
+          "page_h": 1000
+        }
+      },
+      "redaction_scheme": "v1",
+      "mode": "agent",
+      "kind": "full",
+      "elements": [
+        {
+          "id": "e_button",
+          "role": "button",
+          "name": "Save settings",
+          "bbox": [20, 40, 120, -1],
+          "src": "dom",
+          "conf": 1,
+          "state": {
+            "disabled": false,
+            "focused": true,
+            "occluded": false
+          }
+        }
+      ],
+      "text_context": [],
+      "suspicious": false
+    }
+  },
+  {
+    "name": "b01-state-invalid-string",
+    "message": "ScreenState",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "doc_element_catalog",
+      "observation_id": 1,
+      "step": 0,
+      "page": {
+        "url": "https://example.test/profile",
+        "title": "Profile",
+        "viewport": {
+          "w": 1280,
+          "h": 720,
+          "scroll_y": 0,
+          "page_h": 1000
+        }
+      },
+      "redaction_scheme": "v1",
+      "mode": "agent",
+      "kind": "full",
+      "elements": [
+        {
+          "id": "e_button",
+          "role": "button",
+          "name": "Save settings",
+          "bbox": [20, 40, 120, 32],
+          "src": "dom",
+          "conf": 1,
+          "state": {
+            "invalid": "true"
+          }
+        }
+      ],
+      "text_context": [],
+      "suspicious": false
+    }
+  },
+  {
+    "name": "b01-state-occluded-null",
+    "message": "ScreenState",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "doc_element_catalog",
+      "observation_id": 1,
+      "step": 0,
+      "page": {
+        "url": "https://example.test/profile",
+        "title": "Profile",
+        "viewport": {
+          "w": 1280,
+          "h": 720,
+          "scroll_y": 0,
+          "page_h": 1000
+        }
+      },
+      "redaction_scheme": "v1",
+      "mode": "agent",
+      "kind": "full",
+      "elements": [
+        {
+          "id": "e_button",
+          "role": "button",
+          "name": "Save settings",
+          "bbox": [20, 40, 120, 32],
+          "src": "dom",
+          "conf": 1,
+          "state": {
+            "occluded": null
+          }
+        }
+      ],
+      "text_context": [],
+      "suspicious": false
+    }
+  },
+  {
+    "name": "b01-state-unknown-property",
+    "message": "ScreenState",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "doc_element_catalog",
+      "observation_id": 1,
+      "step": 0,
+      "page": {
+        "url": "https://example.test/profile",
+        "title": "Profile",
+        "viewport": {
+          "w": 1280,
+          "h": 720,
+          "scroll_y": 0,
+          "page_h": 1000
+        }
+      },
+      "redaction_scheme": "v1",
+      "mode": "agent",
+      "kind": "full",
+      "elements": [
+        {
+          "id": "e_button",
+          "role": "button",
+          "name": "Save settings",
+          "bbox": [20, 40, 120, 32],
+          "src": "dom",
+          "conf": 1,
+          "state": {
+            "visible": true
+          }
+        }
+      ],
+      "text_context": [],
+      "suspicious": false
+    }
+  },
+  {
+    "name": "b01-state-checked-number",
+    "message": "ScreenState",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "doc_element_catalog",
+      "observation_id": 1,
+      "step": 0,
+      "page": {
+        "url": "https://example.test/profile",
+        "title": "Profile",
+        "viewport": {
+          "w": 1280,
+          "h": 720,
+          "scroll_y": 0,
+          "page_h": 1000
+        }
+      },
+      "redaction_scheme": "v1",
+      "mode": "agent",
+      "kind": "full",
+      "elements": [
+        {
+          "id": "e_button",
+          "role": "button",
+          "name": "Save settings",
+          "bbox": [20, 40, 120, 32],
+          "src": "dom",
+          "conf": 1,
+          "state": {
+            "checked": 1
+          }
+        }
+      ],
+      "text_context": [],
+      "suspicious": false
+    }
+  },
+  {
+    "name": "b01-element-null-state",
+    "message": "ScreenState",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "doc_element_catalog",
+      "observation_id": 1,
+      "step": 0,
+      "page": {
+        "url": "https://example.test/profile",
+        "title": "Profile",
+        "viewport": {
+          "w": 1280,
+          "h": 720,
+          "scroll_y": 0,
+          "page_h": 1000
+        }
+      },
+      "redaction_scheme": "v1",
+      "mode": "agent",
+      "kind": "full",
+      "elements": [
+        {
+          "id": "e_button",
+          "role": "button",
+          "name": "Save settings",
+          "bbox": [20, 40, 120, 32],
+          "src": "dom",
+          "conf": 1,
+          "state": null
+        }
+      ],
+      "text_context": [],
+      "suspicious": false
+    }
+  },
+  {
+    "name": "b01-element-duplicate-doc-id",
+    "message": "ScreenState",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "doc_element_catalog",
+      "observation_id": 1,
+      "step": 0,
+      "page": {
+        "url": "https://example.test/profile",
+        "title": "Profile",
+        "viewport": {
+          "w": 1280,
+          "h": 720,
+          "scroll_y": 0,
+          "page_h": 1000
+        }
+      },
+      "redaction_scheme": "v1",
+      "mode": "agent",
+      "kind": "full",
+      "elements": [
+        {
+          "id": "e_button",
+          "role": "button",
+          "name": "Save settings",
+          "bbox": [20, 40, 120, 32],
+          "src": "dom",
+          "conf": 1,
+          "state": {
+            "disabled": false,
+            "focused": true,
+            "occluded": false
+          },
+          "doc_id": "doc_other"
+        }
+      ],
+      "text_context": [],
+      "suspicious": false
+    }
   }
 ]

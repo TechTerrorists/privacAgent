@@ -31,10 +31,13 @@ export type TabId = string;
 export type SessionId = string;
 export type ScreenState = FullScreenState | DiffScreenState;
 /**
- * Opaque identifier; consumers must not infer authorization from its spelling.
+ * Opaque document identity carried by the enclosing observation. Element IDs are meaningful only with this ID; navigation or SPA route changes require a new identity. Its spelling does not imply authorization.
  */
 export type DocumentId = string;
 export type Element = DisplayElement | EmptyElement | FilledElement | RedactedElement;
+/**
+ * Document-scoped element ID: e for DOM-backed, v for vision-only. Interpret with the enclosing observation's doc_id; source provenance is recorded separately in src.
+ */
 export type ElementId = string;
 /**
  * [x, y, width, height] in CSS page coordinates; crop-region boxes use crop pixels.
@@ -231,6 +234,9 @@ export interface DisplayElement {
   image?: 'face_redacted' | 'masked';
   suspicious?: boolean;
 }
+/**
+ * Observed control state. Omitted flags are unknown or not applicable, not false. B-03 supplies semantic state; B-04 supplies occlusion. These flags do not authorize execution.
+ */
 export interface ElementState {
   disabled?: boolean;
   checked?: boolean;
@@ -239,6 +245,14 @@ export interface ElementState {
   required?: boolean;
   readonly?: boolean;
   focused?: boolean;
+  /**
+   * Whether the control is reported invalid by DOM or accessibility semantics.
+   */
+  invalid?: boolean;
+  /**
+   * Whether the visibility/occlusion check found the element covered by another element.
+   */
+  occluded?: boolean;
 }
 export interface EmptyElement {
   id: ElementId;

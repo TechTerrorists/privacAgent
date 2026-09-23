@@ -77,3 +77,28 @@ def test_unknown_message_name_is_a_payload_free_error():
 def test_all_messages_reject_unknown_versions():
     for case in VALID:
         assert not is_message(case["message"], {**case["payload"], "protocol": "2.0"})
+
+
+def test_element_model_retains_document_context_and_explicit_false_state():
+    case = next(c for c in VALID if c["name"] == "b01-element-catalog")
+    observation = parse_message("ScreenState", case["payload"]).root
+    doc_id: models.DocumentId = observation.doc_id
+    element: models.Element = next(
+        e for e in observation.elements if e.root.id.root == "e_button"
+    )
+    bbox: models.BBox = element.root.bbox
+    assert isinstance(element.root.state, models.ElementState)
+    state: models.ElementState = element.root.state
+    assert doc_id.root == "doc_element_catalog"
+    assert bbox.model_dump(mode="json") == [20, 40, 120, 32]
+    assert state.model_dump(exclude_unset=True) == {
+        "disabled": False,
+        "focused": True,
+        "occluded": False,
+    }
+    # Default None on a generated model must not invent explicit wire nulls.
+    assert "invalid" not in state.model_fields_set
+    help_element = next(
+        e.root for e in observation.elements if e.root.id.root == "v_help"
+    )
+    assert "state" not in help_element.model_dump(exclude_unset=True)
