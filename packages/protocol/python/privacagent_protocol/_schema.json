@@ -1,0 +1,2089 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://privacagent.invalid/protocol/1.0",
+  "title": "WireMessage",
+  "description": "E-01 wire contract. All strings derived from a task or page require local sanitization before egress. Structural validation is not egress authorization.",
+  "oneOf": [
+    {
+      "$ref": "#/definitions/SessionStartRequest"
+    },
+    {
+      "$ref": "#/definitions/SessionStartResponse"
+    },
+    {
+      "$ref": "#/definitions/SessionEndRequest"
+    },
+    {
+      "$ref": "#/definitions/SessionEndResponse"
+    },
+    {
+      "$ref": "#/definitions/ScreenState"
+    },
+    {
+      "$ref": "#/definitions/Action"
+    },
+    {
+      "$ref": "#/definitions/EscalateRequest"
+    },
+    {
+      "$ref": "#/definitions/EscalateResponse"
+    },
+    {
+      "$ref": "#/definitions/FeedbackRequest"
+    },
+    {
+      "$ref": "#/definitions/FeedbackResponse"
+    },
+    {
+      "$ref": "#/definitions/ProtocolError"
+    }
+  ],
+  "definitions": {
+    "SessionId": {
+      "title": "SessionId",
+      "type": "string",
+      "maxLength": 80,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "description": "Opaque identifier; consumers must not infer authorization from its spelling."
+    },
+    "TaskId": {
+      "title": "TaskId",
+      "type": "string",
+      "maxLength": 80,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "description": "Opaque identifier; consumers must not infer authorization from its spelling."
+    },
+    "DocumentId": {
+      "title": "DocumentId",
+      "type": "string",
+      "maxLength": 80,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "description": "Opaque identifier; consumers must not infer authorization from its spelling."
+    },
+    "ActionId": {
+      "title": "ActionId",
+      "type": "string",
+      "maxLength": 80,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "description": "Opaque identifier; consumers must not infer authorization from its spelling."
+    },
+    "TabId": {
+      "title": "TabId",
+      "type": "string",
+      "maxLength": 80,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "description": "Opaque identifier; consumers must not infer authorization from its spelling."
+    },
+    "CropId": {
+      "title": "CropId",
+      "type": "string",
+      "maxLength": 80,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "description": "Opaque identifier; consumers must not infer authorization from its spelling."
+    },
+    "ElementId": {
+      "title": "ElementId",
+      "type": "string",
+      "maxLength": 80,
+      "pattern": "^[ev][A-Za-z0-9_-]+$"
+    },
+    "ProtocolVersion": {
+      "title": "ProtocolVersion",
+      "type": "string",
+      "const": "1.0"
+    },
+    "Mode": {
+      "title": "Mode",
+      "type": "string",
+      "enum": ["ask", "guide", "agent", "background"]
+    },
+    "PiiClass": {
+      "title": "PiiClass",
+      "type": "string",
+      "enum": [
+        "secret",
+        "name",
+        "email",
+        "phone",
+        "address",
+        "card",
+        "bank_account",
+        "aadhaar",
+        "pan",
+        "ifsc",
+        "upi",
+        "iban",
+        "ip",
+        "dob",
+        "api_key",
+        "jwt",
+        "face",
+        "location",
+        "organization",
+        "amount",
+        "other"
+      ]
+    },
+    "Placeholder": {
+      "title": "Placeholder",
+      "type": "string",
+      "maxLength": 100,
+      "pattern": "^\\{\\{(?:[A-Z][A-Z0-9_]*_[1-9][0-9]*|SECRET|TEXT_WITHHELD)\\}\\}$"
+    },
+    "BBox": {
+      "title": "BBox",
+      "type": "array",
+      "items": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "number",
+          "minimum": 0
+        },
+        {
+          "type": "number",
+          "minimum": 0
+        }
+      ],
+      "minItems": 4,
+      "maxItems": 4,
+      "additionalItems": false,
+      "description": "[x, y, width, height] in CSS page coordinates; crop-region boxes use crop pixels."
+    },
+    "ElementState": {
+      "title": "ElementState",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "disabled": {
+          "type": "boolean"
+        },
+        "checked": {
+          "type": "boolean"
+        },
+        "selected": {
+          "type": "boolean"
+        },
+        "expanded": {
+          "type": "boolean"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "readonly": {
+          "type": "boolean"
+        },
+        "focused": {
+          "type": "boolean"
+        }
+      },
+      "required": []
+    },
+    "DisplayElement": {
+      "title": "DisplayElement",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/ElementId"
+        },
+        "role": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_-]*$"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "bbox": {
+          "$ref": "#/definitions/BBox"
+        },
+        "src": {
+          "type": "string",
+          "enum": ["dom", "vision", "fused", "server_vlm"]
+        },
+        "conf": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "state": {
+          "$ref": "#/definitions/ElementState"
+        },
+        "input_type": {
+          "type": "string",
+          "enum": [
+            "text",
+            "search",
+            "tel",
+            "url",
+            "email",
+            "password",
+            "number",
+            "date",
+            "datetime-local",
+            "month",
+            "week",
+            "time",
+            "color",
+            "range",
+            "checkbox",
+            "radio",
+            "file",
+            "hidden",
+            "submit",
+            "reset",
+            "button",
+            "image"
+          ]
+        },
+        "landmark": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "image": {
+          "type": "string",
+          "enum": ["face_redacted", "masked"]
+        },
+        "suspicious": {
+          "type": "boolean"
+        }
+      },
+      "required": ["id", "role", "name", "bbox", "src", "conf"]
+    },
+    "EmptyElement": {
+      "title": "EmptyElement",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/ElementId"
+        },
+        "role": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_-]*$"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "bbox": {
+          "$ref": "#/definitions/BBox"
+        },
+        "src": {
+          "type": "string",
+          "enum": ["dom", "vision", "fused", "server_vlm"]
+        },
+        "conf": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "state": {
+          "$ref": "#/definitions/ElementState"
+        },
+        "input_type": {
+          "type": "string",
+          "enum": [
+            "text",
+            "search",
+            "tel",
+            "url",
+            "email",
+            "password",
+            "number",
+            "date",
+            "datetime-local",
+            "month",
+            "week",
+            "time",
+            "color",
+            "range",
+            "checkbox",
+            "radio",
+            "file",
+            "hidden",
+            "submit",
+            "reset",
+            "button",
+            "image"
+          ]
+        },
+        "landmark": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "image": {
+          "type": "string",
+          "enum": ["face_redacted", "masked"]
+        },
+        "suspicious": {
+          "type": "boolean"
+        },
+        "value_state": {
+          "const": "empty",
+          "type": "string"
+        },
+        "value": {
+          "const": "",
+          "type": "string"
+        }
+      },
+      "required": ["id", "role", "name", "bbox", "src", "conf", "value_state", "value"]
+    },
+    "FilledElement": {
+      "title": "FilledElement",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/ElementId"
+        },
+        "role": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_-]*$"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "bbox": {
+          "$ref": "#/definitions/BBox"
+        },
+        "src": {
+          "type": "string",
+          "enum": ["dom", "vision", "fused", "server_vlm"]
+        },
+        "conf": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "state": {
+          "$ref": "#/definitions/ElementState"
+        },
+        "input_type": {
+          "type": "string",
+          "enum": [
+            "text",
+            "search",
+            "tel",
+            "url",
+            "email",
+            "password",
+            "number",
+            "date",
+            "datetime-local",
+            "month",
+            "week",
+            "time",
+            "color",
+            "range",
+            "checkbox",
+            "radio",
+            "file",
+            "hidden",
+            "submit",
+            "reset",
+            "button",
+            "image"
+          ]
+        },
+        "landmark": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "image": {
+          "type": "string",
+          "enum": ["face_redacted", "masked"]
+        },
+        "suspicious": {
+          "type": "boolean"
+        },
+        "value_state": {
+          "const": "filled",
+          "type": "string"
+        },
+        "value": {
+          "type": "string",
+          "maxLength": 4096,
+          "minLength": 1
+        }
+      },
+      "required": ["id", "role", "name", "bbox", "src", "conf", "value_state", "value"]
+    },
+    "RedactedElement": {
+      "title": "RedactedElement",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/ElementId"
+        },
+        "role": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_-]*$"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "bbox": {
+          "$ref": "#/definitions/BBox"
+        },
+        "src": {
+          "type": "string",
+          "enum": ["dom", "vision", "fused", "server_vlm"]
+        },
+        "conf": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "state": {
+          "$ref": "#/definitions/ElementState"
+        },
+        "input_type": {
+          "type": "string",
+          "enum": [
+            "text",
+            "search",
+            "tel",
+            "url",
+            "email",
+            "password",
+            "number",
+            "date",
+            "datetime-local",
+            "month",
+            "week",
+            "time",
+            "color",
+            "range",
+            "checkbox",
+            "radio",
+            "file",
+            "hidden",
+            "submit",
+            "reset",
+            "button",
+            "image"
+          ]
+        },
+        "landmark": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "image": {
+          "type": "string",
+          "enum": ["face_redacted", "masked"]
+        },
+        "suspicious": {
+          "type": "boolean"
+        },
+        "value_state": {
+          "const": "redacted",
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/definitions/Placeholder"
+        },
+        "pii_class": {
+          "$ref": "#/definitions/PiiClass"
+        }
+      },
+      "required": ["id", "role", "name", "bbox", "src", "conf", "value_state", "value", "pii_class"]
+    },
+    "Element": {
+      "title": "Element",
+      "oneOf": [
+        {
+          "$ref": "#/definitions/DisplayElement"
+        },
+        {
+          "$ref": "#/definitions/EmptyElement"
+        },
+        {
+          "$ref": "#/definitions/FilledElement"
+        },
+        {
+          "$ref": "#/definitions/RedactedElement"
+        }
+      ]
+    },
+    "Viewport": {
+      "title": "Viewport",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "w": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000
+        },
+        "h": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000
+        },
+        "scroll_x": {
+          "type": "number"
+        },
+        "scroll_y": {
+          "type": "number"
+        },
+        "page_w": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000000
+        },
+        "page_h": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000000
+        }
+      },
+      "required": ["w", "h", "scroll_y", "page_h"]
+    },
+    "Page": {
+      "title": "Page",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "type": "string",
+          "maxLength": 2048,
+          "pattern": "^https?://[^\\s]+$"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "viewport": {
+          "$ref": "#/definitions/Viewport"
+        }
+      },
+      "required": ["url", "title", "viewport"]
+    },
+    "ClientCapabilities": {
+      "title": "ClientCapabilities",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "browser": {
+          "type": "string",
+          "enum": ["chrome", "firefox"]
+        },
+        "backend": {
+          "type": "string",
+          "enum": ["webgpu", "wasm-simd-threads", "wasm-simd", "wasm", "none"]
+        },
+        "detectors": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["dom", "rules", "ner", "ocr", "face", "ui", "barcode", "script"]
+          },
+          "minItems": 0,
+          "maxItems": 8
+        },
+        "crops": {
+          "type": "boolean"
+        }
+      },
+      "required": ["browser", "backend", "detectors", "crops"]
+    },
+    "SessionStartRequest": {
+      "title": "SessionStartRequest",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "$ref": "#/definitions/ProtocolVersion"
+        },
+        "task_id": {
+          "$ref": "#/definitions/TaskId"
+        },
+        "task_version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "task": {
+          "type": "string",
+          "maxLength": 4096,
+          "minLength": 1
+        },
+        "allowed_domains": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 253,
+            "pattern": "^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$"
+          },
+          "minItems": 1,
+          "maxItems": 32
+        },
+        "capabilities": {
+          "$ref": "#/definitions/ClientCapabilities"
+        },
+        "mode": {
+          "$ref": "#/definitions/Mode"
+        },
+        "voice": {
+          "type": "boolean"
+        },
+        "granted_tabs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/TabId"
+          },
+          "minItems": 0,
+          "maxItems": 8
+        },
+        "read_only": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "protocol",
+        "task_id",
+        "task_version",
+        "task",
+        "allowed_domains",
+        "capabilities",
+        "mode",
+        "read_only"
+      ]
+    },
+    "SessionStartResponse": {
+      "title": "SessionStartResponse",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "$ref": "#/definitions/ProtocolVersion"
+        },
+        "session_id": {
+          "$ref": "#/definitions/SessionId"
+        },
+        "task_id": {
+          "$ref": "#/definitions/TaskId"
+        },
+        "task_version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "expires_in_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1800
+        }
+      },
+      "required": ["protocol", "session_id", "task_id", "task_version", "expires_in_seconds"]
+    },
+    "SessionEndRequest": {
+      "title": "SessionEndRequest",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "$ref": "#/definitions/ProtocolVersion"
+        },
+        "session_id": {
+          "$ref": "#/definitions/SessionId"
+        },
+        "task_id": {
+          "$ref": "#/definitions/TaskId"
+        },
+        "task_version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": ["protocol", "session_id", "task_id", "task_version", "seq"]
+    },
+    "SessionEndResponse": {
+      "title": "SessionEndResponse",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "$ref": "#/definitions/ProtocolVersion"
+        },
+        "session_id": {
+          "$ref": "#/definitions/SessionId"
+        },
+        "task_id": {
+          "$ref": "#/definitions/TaskId"
+        },
+        "task_version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "status": {
+          "type": "string",
+          "const": "ended"
+        }
+      },
+      "required": ["protocol", "session_id", "task_id", "task_version", "seq", "status"]
+    },
+    "ActionResult": {
+      "title": "ActionResult",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "action_id": {
+          "$ref": "#/definitions/ActionId"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["ok", "failed", "mismatch", "unknown"]
+        },
+        "page_changed": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "target_missing",
+            "target_changed",
+            "stale_observation",
+            "binding_denied",
+            "unsupported_control",
+            "expectation_failed",
+            "timeout",
+            "cancelled",
+            "permission_denied",
+            "egress_blocked",
+            "execution_error"
+          ]
+        }
+      },
+      "required": ["action_id", "status", "page_changed"]
+    },
+    "UserTurn": {
+      "title": "UserTurn",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "type": "string",
+          "enum": ["voice", "text"]
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "interrupt": {
+          "type": "boolean"
+        }
+      },
+      "required": ["source", "text", "interrupt"]
+    },
+    "UserInteraction": {
+      "title": "UserInteraction",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["click", "input", "navigate"]
+        },
+        "target": {
+          "$ref": "#/definitions/ElementId"
+        },
+        "after_step": {
+          "$ref": "#/definitions/ActionId"
+        }
+      },
+      "required": ["type", "after_step"]
+    },
+    "TabDigest": {
+      "title": "TabDigest",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tab": {
+          "$ref": "#/definitions/TabId"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "digest": {
+          "type": "string",
+          "maxLength": 4096
+        }
+      },
+      "required": ["tab", "title", "digest"]
+    },
+    "FullScreenState": {
+      "title": "FullScreenState",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "$ref": "#/definitions/ProtocolVersion"
+        },
+        "session_id": {
+          "$ref": "#/definitions/SessionId"
+        },
+        "task_id": {
+          "$ref": "#/definitions/TaskId"
+        },
+        "task_version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "doc_id": {
+          "$ref": "#/definitions/DocumentId"
+        },
+        "observation_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "step": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "page": {
+          "$ref": "#/definitions/Page"
+        },
+        "redaction_scheme": {
+          "type": "string",
+          "const": "v1"
+        },
+        "mode": {
+          "$ref": "#/definitions/Mode"
+        },
+        "elements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Element"
+          },
+          "minItems": 0,
+          "maxItems": 300
+        },
+        "text_context": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "minItems": 0,
+          "maxItems": 100
+        },
+        "suspicious": {
+          "type": "boolean"
+        },
+        "last_action_result": {
+          "$ref": "#/definitions/ActionResult"
+        },
+        "user_turn": {
+          "$ref": "#/definitions/UserTurn"
+        },
+        "user_interaction": {
+          "$ref": "#/definitions/UserInteraction"
+        },
+        "tabs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/TabDigest"
+          },
+          "minItems": 0,
+          "maxItems": 8
+        },
+        "kind": {
+          "type": "string",
+          "const": "full"
+        }
+      },
+      "required": [
+        "protocol",
+        "session_id",
+        "task_id",
+        "task_version",
+        "seq",
+        "doc_id",
+        "observation_id",
+        "step",
+        "page",
+        "redaction_scheme",
+        "mode",
+        "elements",
+        "text_context",
+        "suspicious",
+        "kind"
+      ]
+    },
+    "DiffScreenState": {
+      "title": "DiffScreenState",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "$ref": "#/definitions/ProtocolVersion"
+        },
+        "session_id": {
+          "$ref": "#/definitions/SessionId"
+        },
+        "task_id": {
+          "$ref": "#/definitions/TaskId"
+        },
+        "task_version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "doc_id": {
+          "$ref": "#/definitions/DocumentId"
+        },
+        "observation_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "step": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "page": {
+          "$ref": "#/definitions/Page"
+        },
+        "redaction_scheme": {
+          "type": "string",
+          "const": "v1"
+        },
+        "mode": {
+          "$ref": "#/definitions/Mode"
+        },
+        "elements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Element"
+          },
+          "minItems": 0,
+          "maxItems": 300
+        },
+        "text_context": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "minItems": 0,
+          "maxItems": 100
+        },
+        "suspicious": {
+          "type": "boolean"
+        },
+        "last_action_result": {
+          "$ref": "#/definitions/ActionResult"
+        },
+        "user_turn": {
+          "$ref": "#/definitions/UserTurn"
+        },
+        "user_interaction": {
+          "$ref": "#/definitions/UserInteraction"
+        },
+        "tabs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/TabDigest"
+          },
+          "minItems": 0,
+          "maxItems": 8
+        },
+        "kind": {
+          "type": "string",
+          "const": "diff"
+        },
+        "base_observation_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "removed": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ElementId"
+          },
+          "minItems": 0,
+          "maxItems": 300
+        }
+      },
+      "required": [
+        "protocol",
+        "session_id",
+        "task_id",
+        "task_version",
+        "seq",
+        "doc_id",
+        "observation_id",
+        "step",
+        "page",
+        "redaction_scheme",
+        "mode",
+        "elements",
+        "text_context",
+        "suspicious",
+        "kind",
+        "base_observation_id",
+        "removed"
+      ]
+    },
+    "ScreenState": {
+      "title": "ScreenState",
+      "oneOf": [
+        {
+          "$ref": "#/definitions/FullScreenState"
+        },
+        {
+          "$ref": "#/definitions/DiffScreenState"
+        }
+      ]
+    },
+    "ValueExpectation": {
+      "title": "ValueExpectation",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "element": {
+          "$ref": "#/definitions/ElementId"
+        },
+        "value_equals": {
+          "type": "string",
+          "maxLength": 4096
+        }
+      },
+      "required": ["element", "value_equals"]
+    },
+    "AppearExpectation": {
+      "title": "AppearExpectation",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "appear": {
+          "$ref": "#/definitions/ElementId"
+        }
+      },
+      "required": ["appear"]
+    },
+    "DisappearExpectation": {
+      "title": "DisappearExpectation",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "disappear": {
+          "$ref": "#/definitions/ElementId"
+        }
+      },
+      "required": ["disappear"]
+    },
+    "UrlExpectation": {
+      "title": "UrlExpectation",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "url_equals": {
+          "type": "string",
+          "maxLength": 2048,
+          "pattern": "^https?://[^\\s]+$"
+        }
+      },
+      "required": ["url_equals"]
+    },
+    "Expectation": {
+      "title": "Expectation",
+      "oneOf": [
+        {
+          "$ref": "#/definitions/ValueExpectation"
+        },
+        {
+          "$ref": "#/definitions/AppearExpectation"
+        },
+        {
+          "$ref": "#/definitions/DisappearExpectation"
+        },
+        {
+          "$ref": "#/definitions/UrlExpectation"
+        }
+      ]
+    },
+    "ClickCommand": {
+      "title": "ClickCommand",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "click"
+        },
+        "target": {
+          "$ref": "#/definitions/ElementId"
+        }
+      },
+      "required": ["type", "target"]
+    },
+    "TypeCommand": {
+      "title": "TypeCommand",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "type"
+        },
+        "target": {
+          "$ref": "#/definitions/ElementId"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "clear_first": {
+          "type": "boolean"
+        }
+      },
+      "required": ["type", "target", "text", "clear_first"]
+    },
+    "SelectCommand": {
+      "title": "SelectCommand",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "select"
+        },
+        "target": {
+          "$ref": "#/definitions/ElementId"
+        },
+        "option": {
+          "type": "string",
+          "maxLength": 4096
+        }
+      },
+      "required": ["type", "target", "option"]
+    },
+    "ScrollAmountCommand": {
+      "title": "ScrollAmountCommand",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "scroll"
+        },
+        "direction": {
+          "type": "string",
+          "enum": ["up", "down", "left", "right"]
+        },
+        "amount": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000
+        }
+      },
+      "required": ["type", "direction", "amount"]
+    },
+    "ScrollTargetCommand": {
+      "title": "ScrollTargetCommand",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "scroll"
+        },
+        "to_element": {
+          "$ref": "#/definitions/ElementId"
+        }
+      },
+      "required": ["type", "to_element"]
+    },
+    "PressKeyCommand": {
+      "title": "PressKeyCommand",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "press_key"
+        },
+        "key": {
+          "type": "string",
+          "enum": ["Enter", "Tab", "Escape"]
+        }
+      },
+      "required": ["type", "key"]
+    },
+    "WaitDurationCommand": {
+      "title": "WaitDurationCommand",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "wait"
+        },
+        "ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 30000
+        }
+      },
+      "required": ["type", "ms"]
+    },
+    "WaitUntilCommand": {
+      "title": "WaitUntilCommand",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "wait"
+        },
+        "until": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/AppearExpectation"
+            },
+            {
+              "$ref": "#/definitions/DisappearExpectation"
+            }
+          ]
+        }
+      },
+      "required": ["type", "until"]
+    },
+    "NavigateCommand": {
+      "title": "NavigateCommand",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "navigate"
+        },
+        "url": {
+          "type": "string",
+          "maxLength": 2048,
+          "pattern": "^https?://[^\\s]+$"
+        }
+      },
+      "required": ["type", "url"]
+    },
+    "ExtractCommand": {
+      "title": "ExtractCommand",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "extract"
+        },
+        "target": {
+          "$ref": "#/definitions/ElementId"
+        },
+        "field": {
+          "type": "string",
+          "enum": ["name", "value", "text_context"]
+        }
+      },
+      "required": ["type", "target", "field"]
+    },
+    "AskUserCommand": {
+      "title": "AskUserCommand",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "ask_user"
+        },
+        "question": {
+          "type": "string",
+          "maxLength": 4096,
+          "minLength": 1
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 256
+          },
+          "minItems": 1,
+          "maxItems": 10
+        }
+      },
+      "required": ["type", "question"]
+    },
+    "EscalateCommand": {
+      "title": "EscalateCommand",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "escalate"
+        },
+        "targets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ElementId"
+          },
+          "minItems": 1,
+          "maxItems": 2
+        },
+        "question": {
+          "type": "string",
+          "maxLength": 4096,
+          "minLength": 1
+        }
+      },
+      "required": ["type", "targets", "question"]
+    },
+    "DoneCommand": {
+      "title": "DoneCommand",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "done"
+        },
+        "summary": {
+          "type": "string",
+          "maxLength": 4096
+        }
+      },
+      "required": ["type", "summary"]
+    },
+    "SpeechText": {
+      "title": "SpeechText",
+      "type": "string",
+      "maxLength": 1000,
+      "pattern": "^\\s*(?:\\S+\\s+){0,24}\\S+\\s*$"
+    },
+    "PointCommand": {
+      "title": "PointCommand",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "point"
+        },
+        "target": {
+          "$ref": "#/definitions/ElementId"
+        },
+        "say": {
+          "$ref": "#/definitions/SpeechText"
+        },
+        "style": {
+          "type": "string",
+          "enum": ["pointer", "circle", "spotlight"]
+        },
+        "advance_on": {
+          "type": "string",
+          "enum": ["click", "input", "navigate"]
+        }
+      },
+      "required": ["type", "target", "say", "style", "advance_on"]
+    },
+    "Annotation": {
+      "title": "Annotation",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["circle", "arrow", "badge", "label", "spotlight"]
+        },
+        "target": {
+          "$ref": "#/definitions/ElementId"
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 256
+        }
+      },
+      "required": ["kind", "target"]
+    },
+    "AnnotateCommand": {
+      "title": "AnnotateCommand",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "annotate"
+        },
+        "shapes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Annotation"
+          },
+          "minItems": 1,
+          "maxItems": 30
+        },
+        "say": {
+          "$ref": "#/definitions/SpeechText"
+        }
+      },
+      "required": ["type", "shapes", "say"]
+    },
+    "SayCommand": {
+      "title": "SayCommand",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "say"
+        },
+        "text": {
+          "$ref": "#/definitions/SpeechText"
+        }
+      },
+      "required": ["type", "text"]
+    },
+    "Citation": {
+      "title": "Citation",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tab": {
+          "$ref": "#/definitions/TabId"
+        },
+        "doc_id": {
+          "$ref": "#/definitions/DocumentId"
+        },
+        "element": {
+          "$ref": "#/definitions/ElementId"
+        }
+      },
+      "required": ["tab", "doc_id"]
+    },
+    "AnswerCommand": {
+      "title": "AnswerCommand",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "answer"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "citations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Citation"
+          },
+          "minItems": 0,
+          "maxItems": 30
+        }
+      },
+      "required": ["type", "text", "citations"]
+    },
+    "SwitchTabCommand": {
+      "title": "SwitchTabCommand",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "switch_tab"
+        },
+        "tab": {
+          "$ref": "#/definitions/TabId"
+        }
+      },
+      "required": ["type", "tab"]
+    },
+    "ReportCommand": {
+      "title": "ReportCommand",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "report"
+        },
+        "summary": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "minItems": 0,
+          "maxItems": 100
+        }
+      },
+      "required": ["type", "summary", "items"]
+    },
+    "ActionCommand": {
+      "title": "ActionCommand",
+      "oneOf": [
+        {
+          "$ref": "#/definitions/ClickCommand"
+        },
+        {
+          "$ref": "#/definitions/TypeCommand"
+        },
+        {
+          "$ref": "#/definitions/SelectCommand"
+        },
+        {
+          "$ref": "#/definitions/ScrollAmountCommand"
+        },
+        {
+          "$ref": "#/definitions/ScrollTargetCommand"
+        },
+        {
+          "$ref": "#/definitions/PressKeyCommand"
+        },
+        {
+          "$ref": "#/definitions/WaitDurationCommand"
+        },
+        {
+          "$ref": "#/definitions/WaitUntilCommand"
+        },
+        {
+          "$ref": "#/definitions/NavigateCommand"
+        },
+        {
+          "$ref": "#/definitions/ExtractCommand"
+        },
+        {
+          "$ref": "#/definitions/AskUserCommand"
+        },
+        {
+          "$ref": "#/definitions/EscalateCommand"
+        },
+        {
+          "$ref": "#/definitions/DoneCommand"
+        },
+        {
+          "$ref": "#/definitions/PointCommand"
+        },
+        {
+          "$ref": "#/definitions/AnnotateCommand"
+        },
+        {
+          "$ref": "#/definitions/SayCommand"
+        },
+        {
+          "$ref": "#/definitions/AnswerCommand"
+        },
+        {
+          "$ref": "#/definitions/SwitchTabCommand"
+        },
+        {
+          "$ref": "#/definitions/ReportCommand"
+        }
+      ]
+    },
+    "Progress": {
+      "title": "Progress",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "step": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "subgoal": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "remaining_estimate": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        }
+      },
+      "required": ["step", "subgoal", "remaining_estimate"]
+    },
+    "Action": {
+      "title": "Action",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "$ref": "#/definitions/ProtocolVersion"
+        },
+        "session_id": {
+          "$ref": "#/definitions/SessionId"
+        },
+        "task_id": {
+          "$ref": "#/definitions/TaskId"
+        },
+        "task_version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "doc_id": {
+          "$ref": "#/definitions/DocumentId"
+        },
+        "observation_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "action_id": {
+          "$ref": "#/definitions/ActionId"
+        },
+        "action": {
+          "$ref": "#/definitions/ActionCommand"
+        },
+        "expect": {
+          "$ref": "#/definitions/Expectation"
+        },
+        "consequential": {
+          "type": "boolean"
+        },
+        "risk": {
+          "type": "string",
+          "enum": ["low", "medium", "high"]
+        },
+        "thought": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "progress": {
+          "$ref": "#/definitions/Progress"
+        }
+      },
+      "required": [
+        "protocol",
+        "session_id",
+        "task_id",
+        "task_version",
+        "seq",
+        "doc_id",
+        "observation_id",
+        "action_id",
+        "action",
+        "consequential",
+        "risk"
+      ]
+    },
+    "CropRegion": {
+      "title": "CropRegion",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bbox": {
+          "$ref": "#/definitions/BBox"
+        },
+        "content_class": {
+          "type": "string",
+          "enum": [
+            "ui_chrome",
+            "known_icon",
+            "supported_text",
+            "chart",
+            "face",
+            "avatar",
+            "photo",
+            "video",
+            "document_image",
+            "handwriting",
+            "map",
+            "barcode",
+            "unsupported_text",
+            "unclassified"
+          ]
+        },
+        "masked": {
+          "type": "boolean"
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["ui", "icon", "ocr", "rules", "ner", "face", "barcode", "script", "policy"]
+          },
+          "minItems": 0,
+          "maxItems": 9
+        }
+      },
+      "required": ["bbox", "content_class", "masked", "checks"]
+    },
+    "RedactedCrop": {
+      "title": "RedactedCrop",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "crop_id": {
+          "$ref": "#/definitions/CropId"
+        },
+        "target": {
+          "$ref": "#/definitions/ElementId"
+        },
+        "bbox": {
+          "$ref": "#/definitions/BBox"
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 512
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 512
+        },
+        "media_type": {
+          "type": "string",
+          "const": "image/jpeg"
+        },
+        "data_base64": {
+          "type": "string",
+          "maxLength": 1048576,
+          "minLength": 4,
+          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+        },
+        "regions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CropRegion"
+          },
+          "minItems": 1,
+          "maxItems": 1000
+        }
+      },
+      "required": [
+        "crop_id",
+        "target",
+        "bbox",
+        "width",
+        "height",
+        "media_type",
+        "data_base64",
+        "regions"
+      ],
+      "description": "Only fully redacted crops are eligible. D-11/D-14 must verify decoded dimensions, coverage, masks and content; this schema cannot prove image safety."
+    },
+    "EscalateRequest": {
+      "title": "EscalateRequest",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "$ref": "#/definitions/ProtocolVersion"
+        },
+        "session_id": {
+          "$ref": "#/definitions/SessionId"
+        },
+        "task_id": {
+          "$ref": "#/definitions/TaskId"
+        },
+        "task_version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "doc_id": {
+          "$ref": "#/definitions/DocumentId"
+        },
+        "observation_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "question": {
+          "type": "string",
+          "maxLength": 4096,
+          "minLength": 1
+        },
+        "redaction_scheme": {
+          "type": "string",
+          "const": "v1"
+        },
+        "crops": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/RedactedCrop"
+          },
+          "minItems": 1,
+          "maxItems": 2
+        }
+      },
+      "required": [
+        "protocol",
+        "session_id",
+        "task_id",
+        "task_version",
+        "seq",
+        "doc_id",
+        "observation_id",
+        "question",
+        "redaction_scheme",
+        "crops"
+      ]
+    },
+    "VisualInterpretation": {
+      "title": "VisualInterpretation",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "element_id": {
+          "$ref": "#/definitions/ElementId"
+        },
+        "role": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_-]*$"
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "state": {
+          "$ref": "#/definitions/ElementState"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "src": {
+          "type": "string",
+          "const": "server_vlm"
+        }
+      },
+      "required": ["element_id", "role", "label", "state", "confidence", "src"]
+    },
+    "EscalateResponse": {
+      "title": "EscalateResponse",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "$ref": "#/definitions/ProtocolVersion"
+        },
+        "session_id": {
+          "$ref": "#/definitions/SessionId"
+        },
+        "task_id": {
+          "$ref": "#/definitions/TaskId"
+        },
+        "task_version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "doc_id": {
+          "$ref": "#/definitions/DocumentId"
+        },
+        "observation_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "interpretations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/VisualInterpretation"
+          },
+          "minItems": 1,
+          "maxItems": 2
+        }
+      },
+      "required": [
+        "protocol",
+        "session_id",
+        "task_id",
+        "task_version",
+        "seq",
+        "doc_id",
+        "observation_id",
+        "interpretations"
+      ]
+    },
+    "FeedbackRequest": {
+      "title": "FeedbackRequest",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "$ref": "#/definitions/ProtocolVersion"
+        },
+        "session_id": {
+          "$ref": "#/definitions/SessionId"
+        },
+        "task_id": {
+          "$ref": "#/definitions/TaskId"
+        },
+        "task_version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "doc_id": {
+          "$ref": "#/definitions/DocumentId"
+        },
+        "observation_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "result": {
+          "$ref": "#/definitions/ActionResult"
+        }
+      },
+      "required": [
+        "protocol",
+        "session_id",
+        "task_id",
+        "task_version",
+        "seq",
+        "doc_id",
+        "observation_id",
+        "result"
+      ]
+    },
+    "FeedbackResponse": {
+      "title": "FeedbackResponse",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "$ref": "#/definitions/ProtocolVersion"
+        },
+        "session_id": {
+          "$ref": "#/definitions/SessionId"
+        },
+        "task_id": {
+          "$ref": "#/definitions/TaskId"
+        },
+        "task_version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "status": {
+          "type": "string",
+          "const": "accepted"
+        }
+      },
+      "required": ["protocol", "session_id", "task_id", "task_version", "seq", "status"]
+    },
+    "ProtocolError": {
+      "title": "ProtocolError",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "$ref": "#/definitions/ProtocolVersion"
+        },
+        "session_id": {
+          "$ref": "#/definitions/SessionId"
+        },
+        "task_id": {
+          "$ref": "#/definitions/TaskId"
+        },
+        "task_version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "code": {
+          "type": "string",
+          "enum": [
+            "resync_required",
+            "invalid_request",
+            "unsupported_version",
+            "session_expired",
+            "unauthorized",
+            "rate_limited",
+            "unavailable"
+          ]
+        },
+        "retryable": {
+          "type": "boolean"
+        }
+      },
+      "required": ["protocol", "code", "retryable"],
+      "description": "Errors before session creation omit session correlation fields. Include known correlation fields for established sessions."
+    }
+  }
+}

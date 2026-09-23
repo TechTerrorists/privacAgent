@@ -8,6 +8,7 @@ export default tseslint.config(
       '**/node_modules/**',
       '**/web-ext-artifacts/**',
       '**/*.tsbuildinfo',
+      'packages/protocol/src/generated/**',
       '.venv/**',
     ],
   },
@@ -31,6 +32,12 @@ export default tseslint.config(
   },
   // Feature A-06 adds the rule that fails the build when `fetch`/XHR is called
   // outside the single network chokepoint in the background context.
+  {
+    files: ['packages/protocol/scripts/*.mjs'],
+    languageOptions: {
+      globals: { console: 'readonly', process: 'readonly' },
+    },
+  },
   {
     files: ['**/*.config.ts', '**/*.config.js', '**/vite.config.ts'],
     languageOptions: {

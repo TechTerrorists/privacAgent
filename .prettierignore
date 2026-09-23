@@ -3,4 +3,6 @@ node_modules/
 web-ext-artifacts/
 pnpm-lock.yaml
 .venv/
+.pytest_cache/
+uv.lock
 docs/

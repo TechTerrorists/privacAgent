@@ -1,6 +1,21 @@
 privacy focused optimized browser agent extension
 
-please use uv package manager to manage packages and create virtual environments
+Use pnpm for JavaScript/TypeScript and uv for Python dependencies and virtual environments.
+
+Current foundation: A-01 extension scaffold and E-01 shared protocol package. See
+[the protocol package guide](packages/protocol/README.md) for schemas, imports, generation,
+validation boundaries and team setup.
+
+```sh
+pnpm install --frozen-lockfile
+uv sync --locked --python 3.12
+pnpm protocol:check
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm format:check
+pnpm build
+```
 
 Development Workflow
 

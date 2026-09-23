@@ -1,0 +1,1077 @@
+[
+  {
+    "name": "session-start",
+    "message": "SessionStartRequest",
+    "payload": {
+      "protocol": "1.0",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "task": "Update my email to {{EMAIL_1}}",
+      "allowed_domains": ["example.test"],
+      "capabilities": {
+        "browser": "chrome",
+        "backend": "wasm",
+        "detectors": ["dom", "rules"],
+        "crops": false
+      },
+      "mode": "agent",
+      "read_only": false
+    }
+  },
+  {
+    "name": "session-started",
+    "message": "SessionStartResponse",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "expires_in_seconds": 1800
+    }
+  },
+  {
+    "name": "session-end",
+    "message": "SessionEndRequest",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1
+    }
+  },
+  {
+    "name": "session-ended",
+    "message": "SessionEndResponse",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "status": "ended"
+    }
+  },
+  {
+    "name": "full-screen",
+    "message": "ScreenState",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "step": 0,
+      "page": {
+        "url": "https://example.test/profile",
+        "title": "Profile",
+        "viewport": {
+          "w": 1280,
+          "h": 720,
+          "scroll_y": 0,
+          "page_h": 1000
+        }
+      },
+      "redaction_scheme": "v1",
+      "mode": "agent",
+      "kind": "full",
+      "elements": [
+        {
+          "id": "e1",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "redacted",
+          "value": "{{EMAIL_1}}",
+          "pii_class": "email",
+          "state": {
+            "required": true
+          },
+          "suspicious": false
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e3",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "empty",
+          "value": ""
+        },
+        {
+          "id": "e4",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "filled",
+          "value": "Public label"
+        },
+        {
+          "id": "v1",
+          "role": "textbox",
+          "name": "Settings",
+          "bbox": [20, 40, 200, 32],
+          "src": "vision",
+          "conf": 1
+        }
+      ],
+      "text_context": ["Welcome, {{NAME_1}}", "नमस्ते {{NAME_1}}"],
+      "suspicious": false
+    }
+  },
+  {
+    "name": "diff-screen",
+    "message": "ScreenState",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 2,
+      "doc_id": "d_demo",
+      "observation_id": 2,
+      "step": 0,
+      "page": {
+        "url": "https://example.test/profile",
+        "title": "Profile",
+        "viewport": {
+          "w": 1280,
+          "h": 720,
+          "scroll_y": 0,
+          "page_h": 1000
+        }
+      },
+      "redaction_scheme": "v1",
+      "mode": "agent",
+      "kind": "diff",
+      "elements": [
+        {
+          "id": "e1",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "redacted",
+          "value": "{{EMAIL_1}}",
+          "pii_class": "email",
+          "state": {
+            "required": true
+          },
+          "suspicious": false
+        }
+      ],
+      "text_context": ["Welcome, {{NAME_1}}", "नमस्ते {{NAME_1}}"],
+      "suspicious": false,
+      "base_observation_id": 1,
+      "removed": ["e2"]
+    }
+  },
+  {
+    "name": "typed-action",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "type",
+        "target": "e1",
+        "text": "{{EMAIL_1}}",
+        "clear_first": true
+      },
+      "expect": {
+        "element": "e1",
+        "value_equals": "{{EMAIL_1}}"
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "command-0-click",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "click",
+        "target": "e2"
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "command-1-select",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "select",
+        "target": "e1",
+        "option": "Public option"
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "command-2-scroll",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "scroll",
+        "direction": "down",
+        "amount": 400
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "command-3-scroll",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "scroll",
+        "to_element": "e2"
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "command-4-press_key",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "press_key",
+        "key": "Enter"
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "command-5-wait",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "wait",
+        "ms": 300
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "command-6-wait",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "wait",
+        "until": {
+          "appear": "e2"
+        }
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "command-7-navigate",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "navigate",
+        "url": "https://example.test/next"
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "command-8-extract",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "extract",
+        "target": "e1",
+        "field": "value"
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "command-9-ask_user",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "ask_user",
+        "question": "Continue?",
+        "options": ["Yes", "No"]
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "command-10-escalate",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "escalate",
+        "targets": ["v1"],
+        "question": "What does this icon mean?"
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "command-11-done",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "done",
+        "summary": "Finished"
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "command-12-point",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "point",
+        "target": "e2",
+        "say": "Choose Save",
+        "style": "pointer",
+        "advance_on": "click"
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "command-13-annotate",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "annotate",
+        "shapes": [
+          {
+            "kind": "circle",
+            "target": "e2",
+            "label": "Save"
+          }
+        ],
+        "say": "Use this button"
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "command-14-say",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "say",
+        "text": "Please review the form"
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "command-15-answer",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "answer",
+        "text": "The button saves the form.",
+        "citations": [
+          {
+            "tab": "tab_demo",
+            "doc_id": "d_demo",
+            "element": "e2"
+          }
+        ]
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "command-16-switch_tab",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "switch_tab",
+        "tab": "tab_demo"
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "command-17-report",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "report",
+        "summary": "Checked status",
+        "items": ["No changes"]
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "expect-appear",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "type",
+        "target": "e1",
+        "text": "{{EMAIL_1}}",
+        "clear_first": true
+      },
+      "expect": {
+        "appear": "e2"
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "expect-disappear",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "type",
+        "target": "e1",
+        "text": "{{EMAIL_1}}",
+        "clear_first": true
+      },
+      "expect": {
+        "disappear": "e2"
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "expect-url_equals",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "type",
+        "target": "e1",
+        "text": "{{EMAIL_1}}",
+        "clear_first": true
+      },
+      "expect": {
+        "url_equals": "https://example.test/next"
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "escalate",
+    "message": "EscalateRequest",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "question": "Identify the icon",
+      "redaction_scheme": "v1",
+      "crops": [
+        {
+          "crop_id": "c_demo",
+          "target": "v1",
+          "bbox": [10, 20, 32, 32],
+          "width": 32,
+          "height": 32,
+          "media_type": "image/jpeg",
+          "data_base64": "AAAA",
+          "regions": [
+            {
+              "bbox": [0, 0, 32, 32],
+              "content_class": "ui_chrome",
+              "masked": false,
+              "checks": ["ui"]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "escalated",
+    "message": "EscalateResponse",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "interpretations": [
+        {
+          "element_id": "v1",
+          "role": "button",
+          "label": "Settings",
+          "state": {},
+          "confidence": 0.8,
+          "src": "server_vlm"
+        }
+      ]
+    }
+  },
+  {
+    "name": "feedback-ok",
+    "message": "FeedbackRequest",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "result": {
+        "action_id": "a_demo",
+        "status": "ok",
+        "page_changed": false
+      }
+    }
+  },
+  {
+    "name": "feedback-failed",
+    "message": "FeedbackRequest",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "result": {
+        "action_id": "a_demo",
+        "status": "failed",
+        "page_changed": false
+      }
+    }
+  },
+  {
+    "name": "feedback-mismatch",
+    "message": "FeedbackRequest",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "result": {
+        "action_id": "a_demo",
+        "status": "mismatch",
+        "page_changed": false
+      }
+    }
+  },
+  {
+    "name": "feedback-unknown",
+    "message": "FeedbackRequest",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "result": {
+        "action_id": "a_demo",
+        "status": "unknown",
+        "page_changed": false
+      }
+    }
+  },
+  {
+    "name": "feedback-accepted",
+    "message": "FeedbackResponse",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "status": "accepted"
+    }
+  },
+  {
+    "name": "resync-error",
+    "message": "ProtocolError",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "code": "resync_required",
+      "retryable": true
+    }
+  },
+  {
+    "name": "secret-withheld",
+    "message": "ScreenState",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "step": 0,
+      "page": {
+        "url": "https://example.test/profile",
+        "title": "Profile",
+        "viewport": {
+          "w": 1280,
+          "h": 720,
+          "scroll_y": 0,
+          "page_h": 1000
+        }
+      },
+      "redaction_scheme": "v1",
+      "mode": "agent",
+      "kind": "full",
+      "elements": [
+        {
+          "id": "e1",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "redacted",
+          "value": "{{SECRET}}",
+          "pii_class": "secret",
+          "state": {
+            "required": true
+          },
+          "suspicious": false
+        }
+      ],
+      "text_context": ["Welcome, {{NAME_1}}", "नमस्ते {{NAME_1}}"],
+      "suspicious": false
+    }
+  },
+  {
+    "name": "text-withheld",
+    "message": "ScreenState",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "step": 0,
+      "page": {
+        "url": "https://example.test/profile",
+        "title": "Profile",
+        "viewport": {
+          "w": 1280,
+          "h": 720,
+          "scroll_y": 0,
+          "page_h": 1000
+        }
+      },
+      "redaction_scheme": "v1",
+      "mode": "agent",
+      "kind": "full",
+      "elements": [
+        {
+          "id": "e1",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "redacted",
+          "value": "{{TEXT_WITHHELD}}",
+          "pii_class": "other",
+          "state": {
+            "required": true
+          },
+          "suspicious": false
+        }
+      ],
+      "text_context": ["Welcome, {{NAME_1}}", "नमस्ते {{NAME_1}}"],
+      "suspicious": false
+    }
+  },
+  {
+    "name": "guide-turn",
+    "message": "ScreenState",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "step": 0,
+      "page": {
+        "url": "https://example.test/profile",
+        "title": "Profile",
+        "viewport": {
+          "w": 1280,
+          "h": 720,
+          "scroll_y": 0,
+          "page_h": 1000
+        }
+      },
+      "redaction_scheme": "v1",
+      "mode": "guide",
+      "kind": "full",
+      "elements": [
+        {
+          "id": "e1",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "redacted",
+          "value": "{{EMAIL_1}}",
+          "pii_class": "email",
+          "state": {
+            "required": true
+          },
+          "suspicious": false
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e3",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "empty",
+          "value": ""
+        },
+        {
+          "id": "e4",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "filled",
+          "value": "Public label"
+        },
+        {
+          "id": "v1",
+          "role": "textbox",
+          "name": "Settings",
+          "bbox": [20, 40, 200, 32],
+          "src": "vision",
+          "conf": 1
+        }
+      ],
+      "text_context": ["Welcome, {{NAME_1}}", "नमस्ते {{NAME_1}}"],
+      "suspicious": false,
+      "user_turn": {
+        "source": "voice",
+        "text": "Show me Save",
+        "interrupt": false
+      },
+      "user_interaction": {
+        "type": "click",
+        "target": "e2",
+        "after_step": "a_demo"
+      },
+      "tabs": [
+        {
+          "tab": "tab_demo",
+          "title": "Profile",
+          "digest": "A profile form"
+        }
+      ]
+    }
+  },
+  {
+    "name": "json-integral-number",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1.0,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "type",
+        "target": "e1",
+        "text": "{{EMAIL_1}}",
+        "clear_first": true
+      },
+      "expect": {
+        "element": "e1",
+        "value_equals": "{{EMAIL_1}}"
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "pre-session-error",
+    "message": "ProtocolError",
+    "payload": {
+      "protocol": "1.0",
+      "code": "unsupported_version",
+      "retryable": false
+    }
+  },
+  {
+    "name": "prd-opaque-identifiers",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_41",
+      "observation_id": 1,
+      "action_id": "a3",
+      "action": {
+        "type": "type",
+        "target": "e1",
+        "text": "{{EMAIL_1}}",
+        "clear_first": true
+      },
+      "expect": {
+        "element": "e1",
+        "value_equals": "{{EMAIL_1}}"
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  }
+]

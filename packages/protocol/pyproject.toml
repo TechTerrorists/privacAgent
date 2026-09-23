@@ -1,0 +1,13 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "privacagent-protocol"
+version = "0.1.0"
+description = "E-01 shared browser-agent protocol and Pydantic models"
+requires-python = ">=3.12"
+dependencies = ["pydantic>=2.12,<3", "jsonschema>=4.25,<5"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["python/privacagent_protocol"]

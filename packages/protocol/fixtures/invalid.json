@@ -1,0 +1,4581 @@
+[
+  {
+    "name": "unknown-version-screen",
+    "message": "ScreenState",
+    "payload": {
+      "protocol": "2.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "step": 0,
+      "page": {
+        "url": "https://example.test/profile",
+        "title": "Profile",
+        "viewport": {
+          "w": 1280,
+          "h": 720,
+          "scroll_y": 0,
+          "page_h": 1000
+        }
+      },
+      "redaction_scheme": "v1",
+      "mode": "agent",
+      "kind": "full",
+      "elements": [
+        {
+          "id": "e1",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "redacted",
+          "value": "{{EMAIL_1}}",
+          "pii_class": "email",
+          "state": {
+            "required": true
+          },
+          "suspicious": false
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e3",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "empty",
+          "value": ""
+        },
+        {
+          "id": "e4",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "filled",
+          "value": "Public label"
+        },
+        {
+          "id": "v1",
+          "role": "textbox",
+          "name": "Settings",
+          "bbox": [20, 40, 200, 32],
+          "src": "vision",
+          "conf": 1
+        }
+      ],
+      "text_context": ["Welcome, {{NAME_1}}", "नमस्ते {{NAME_1}}"],
+      "suspicious": false
+    }
+  },
+  {
+    "name": "extra-html-screen",
+    "message": "ScreenState",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "step": 0,
+      "page": {
+        "url": "https://example.test/profile",
+        "title": "Profile",
+        "viewport": {
+          "w": 1280,
+          "h": 720,
+          "scroll_y": 0,
+          "page_h": 1000
+        }
+      },
+      "redaction_scheme": "v1",
+      "mode": "agent",
+      "kind": "full",
+      "elements": [
+        {
+          "id": "e1",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "redacted",
+          "value": "{{EMAIL_1}}",
+          "pii_class": "email",
+          "state": {
+            "required": true
+          },
+          "suspicious": false
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e3",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "empty",
+          "value": ""
+        },
+        {
+          "id": "e4",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "filled",
+          "value": "Public label"
+        },
+        {
+          "id": "v1",
+          "role": "textbox",
+          "name": "Settings",
+          "bbox": [20, 40, 200, 32],
+          "src": "vision",
+          "conf": 1
+        }
+      ],
+      "text_context": ["Welcome, {{NAME_1}}", "नमस्ते {{NAME_1}}"],
+      "suspicious": false,
+      "html": "<input value=\"PRIVATE_CANARY\">"
+    }
+  },
+  {
+    "name": "unknown-version-action",
+    "message": "Action",
+    "payload": {
+      "protocol": "2.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "type",
+        "target": "e1",
+        "text": "{{EMAIL_1}}",
+        "clear_first": true
+      },
+      "expect": {
+        "element": "e1",
+        "value_equals": "{{EMAIL_1}}"
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "extra-html-action",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "type",
+        "target": "e1",
+        "text": "{{EMAIL_1}}",
+        "clear_first": true
+      },
+      "expect": {
+        "element": "e1",
+        "value_equals": "{{EMAIL_1}}"
+      },
+      "consequential": false,
+      "risk": "low",
+      "html": "<input value=\"PRIVATE_CANARY\">"
+    }
+  },
+  {
+    "name": "unknown-version-session",
+    "message": "SessionStartRequest",
+    "payload": {
+      "protocol": "2.0",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "task": "Update my email to {{EMAIL_1}}",
+      "allowed_domains": ["example.test"],
+      "capabilities": {
+        "browser": "chrome",
+        "backend": "wasm",
+        "detectors": ["dom", "rules"],
+        "crops": false
+      },
+      "mode": "agent",
+      "read_only": false
+    }
+  },
+  {
+    "name": "extra-html-session",
+    "message": "SessionStartRequest",
+    "payload": {
+      "protocol": "1.0",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "task": "Update my email to {{EMAIL_1}}",
+      "allowed_domains": ["example.test"],
+      "capabilities": {
+        "browser": "chrome",
+        "backend": "wasm",
+        "detectors": ["dom", "rules"],
+        "crops": false
+      },
+      "mode": "agent",
+      "read_only": false,
+      "html": "<input value=\"PRIVATE_CANARY\">"
+    }
+  },
+  {
+    "name": "missing-doc",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "type",
+        "target": "e1",
+        "text": "{{EMAIL_1}}",
+        "clear_first": true
+      },
+      "expect": {
+        "element": "e1",
+        "value_equals": "{{EMAIL_1}}"
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "missing-observation",
+    "message": "ScreenState",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "step": 0,
+      "page": {
+        "url": "https://example.test/profile",
+        "title": "Profile",
+        "viewport": {
+          "w": 1280,
+          "h": 720,
+          "scroll_y": 0,
+          "page_h": 1000
+        }
+      },
+      "redaction_scheme": "v1",
+      "mode": "agent",
+      "kind": "full",
+      "elements": [
+        {
+          "id": "e1",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "redacted",
+          "value": "{{EMAIL_1}}",
+          "pii_class": "email",
+          "state": {
+            "required": true
+          },
+          "suspicious": false
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e3",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "empty",
+          "value": ""
+        },
+        {
+          "id": "e4",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "filled",
+          "value": "Public label"
+        },
+        {
+          "id": "v1",
+          "role": "textbox",
+          "name": "Settings",
+          "bbox": [20, 40, 200, 32],
+          "src": "vision",
+          "conf": 1
+        }
+      ],
+      "text_context": ["Welcome, {{NAME_1}}", "नमस्ते {{NAME_1}}"],
+      "suspicious": false
+    }
+  },
+  {
+    "name": "missing-task-version",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "type",
+        "target": "e1",
+        "text": "{{EMAIL_1}}",
+        "clear_first": true
+      },
+      "expect": {
+        "element": "e1",
+        "value_equals": "{{EMAIL_1}}"
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "missing-seq",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "type",
+        "target": "e1",
+        "text": "{{EMAIL_1}}",
+        "clear_first": true
+      },
+      "expect": {
+        "element": "e1",
+        "value_equals": "{{EMAIL_1}}"
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "sequence-string",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": "1",
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "type",
+        "target": "e1",
+        "text": "{{EMAIL_1}}",
+        "clear_first": true
+      },
+      "expect": {
+        "element": "e1",
+        "value_equals": "{{EMAIL_1}}"
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "sequence-bool",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": true,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "type",
+        "target": "e1",
+        "text": "{{EMAIL_1}}",
+        "clear_first": true
+      },
+      "expect": {
+        "element": "e1",
+        "value_equals": "{{EMAIL_1}}"
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "sequence-fraction",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1.5,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "type",
+        "target": "e1",
+        "text": "{{EMAIL_1}}",
+        "clear_first": true
+      },
+      "expect": {
+        "element": "e1",
+        "value_equals": "{{EMAIL_1}}"
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "sequence-unsafe-int",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 9007199254740992,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "type",
+        "target": "e1",
+        "text": "{{EMAIL_1}}",
+        "clear_first": true
+      },
+      "expect": {
+        "element": "e1",
+        "value_equals": "{{EMAIL_1}}"
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "null-expect",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "type",
+        "target": "e1",
+        "text": "{{EMAIL_1}}",
+        "clear_first": true
+      },
+      "expect": null,
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "wrong-command",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "execute_script",
+        "target": "e1",
+        "text": "{{EMAIL_1}}",
+        "clear_first": true
+      },
+      "expect": {
+        "element": "e1",
+        "value_equals": "{{EMAIL_1}}"
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "click-extra-text",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "click",
+        "target": "e1",
+        "text": "PRIVATE_CANARY"
+      },
+      "expect": {
+        "element": "e1",
+        "value_equals": "{{EMAIL_1}}"
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "missing-type-text",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "type",
+        "target": "e1",
+        "clear_first": true
+      },
+      "expect": {
+        "element": "e1",
+        "value_equals": "{{EMAIL_1}}"
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "unknown-target-prefix",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "type",
+        "target": "x1",
+        "text": "{{EMAIL_1}}",
+        "clear_first": true
+      },
+      "expect": {
+        "element": "e1",
+        "value_equals": "{{EMAIL_1}}"
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "javascript-navigation",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "navigate",
+        "url": "javascript:alert(1)"
+      },
+      "expect": {
+        "element": "e1",
+        "value_equals": "{{EMAIL_1}}"
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "scroll-ambiguous",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "scroll",
+        "direction": "down",
+        "amount": 50,
+        "to_element": "e1"
+      },
+      "expect": {
+        "element": "e1",
+        "value_equals": "{{EMAIL_1}}"
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "wait-ambiguous",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "wait",
+        "ms": 300,
+        "until": {
+          "appear": "e2"
+        }
+      },
+      "expect": {
+        "element": "e1",
+        "value_equals": "{{EMAIL_1}}"
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "negative-wait",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "wait",
+        "ms": -1
+      },
+      "expect": {
+        "element": "e1",
+        "value_equals": "{{EMAIL_1}}"
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "unsupported-key",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "press_key",
+        "key": "F12"
+      },
+      "expect": {
+        "element": "e1",
+        "value_equals": "{{EMAIL_1}}"
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "speech-too-long",
+    "message": "Action",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "action_id": "a_demo",
+      "action": {
+        "type": "say",
+        "text": "word word word word word word word word word word word word word word word word word word word word word word word word word word"
+      },
+      "expect": {
+        "element": "e1",
+        "value_equals": "{{EMAIL_1}}"
+      },
+      "consequential": false,
+      "risk": "low"
+    }
+  },
+  {
+    "name": "missing-pii-class",
+    "message": "ScreenState",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "step": 0,
+      "page": {
+        "url": "https://example.test/profile",
+        "title": "Profile",
+        "viewport": {
+          "w": 1280,
+          "h": 720,
+          "scroll_y": 0,
+          "page_h": 1000
+        }
+      },
+      "redaction_scheme": "v1",
+      "mode": "agent",
+      "kind": "full",
+      "elements": [
+        {
+          "id": "e1",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "redacted",
+          "value": "{{EMAIL_1}}",
+          "state": {
+            "required": true
+          },
+          "suspicious": false
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e3",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "empty",
+          "value": ""
+        },
+        {
+          "id": "e4",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "filled",
+          "value": "Public label"
+        },
+        {
+          "id": "v1",
+          "role": "textbox",
+          "name": "Settings",
+          "bbox": [20, 40, 200, 32],
+          "src": "vision",
+          "conf": 1
+        }
+      ],
+      "text_context": ["Welcome, {{NAME_1}}", "नमस्ते {{NAME_1}}"],
+      "suspicious": false
+    }
+  },
+  {
+    "name": "redacted-literal",
+    "message": "ScreenState",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "step": 0,
+      "page": {
+        "url": "https://example.test/profile",
+        "title": "Profile",
+        "viewport": {
+          "w": 1280,
+          "h": 720,
+          "scroll_y": 0,
+          "page_h": 1000
+        }
+      },
+      "redaction_scheme": "v1",
+      "mode": "agent",
+      "kind": "full",
+      "elements": [
+        {
+          "id": "e1",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "redacted",
+          "value": "PRIVATE_CANARY",
+          "pii_class": "email",
+          "state": {
+            "required": true
+          },
+          "suspicious": false
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e3",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "empty",
+          "value": ""
+        },
+        {
+          "id": "e4",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "filled",
+          "value": "Public label"
+        },
+        {
+          "id": "v1",
+          "role": "textbox",
+          "name": "Settings",
+          "bbox": [20, 40, 200, 32],
+          "src": "vision",
+          "conf": 1
+        }
+      ],
+      "text_context": ["Welcome, {{NAME_1}}", "नमस्ते {{NAME_1}}"],
+      "suspicious": false
+    }
+  },
+  {
+    "name": "empty-with-value",
+    "message": "ScreenState",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "step": 0,
+      "page": {
+        "url": "https://example.test/profile",
+        "title": "Profile",
+        "viewport": {
+          "w": 1280,
+          "h": 720,
+          "scroll_y": 0,
+          "page_h": 1000
+        }
+      },
+      "redaction_scheme": "v1",
+      "mode": "agent",
+      "kind": "full",
+      "elements": [
+        {
+          "id": "e1",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "redacted",
+          "value": "{{EMAIL_1}}",
+          "pii_class": "email",
+          "state": {
+            "required": true
+          },
+          "suspicious": false
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e3",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "empty",
+          "value": "PRIVATE_CANARY"
+        },
+        {
+          "id": "e4",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "filled",
+          "value": "Public label"
+        },
+        {
+          "id": "v1",
+          "role": "textbox",
+          "name": "Settings",
+          "bbox": [20, 40, 200, 32],
+          "src": "vision",
+          "conf": 1
+        }
+      ],
+      "text_context": ["Welcome, {{NAME_1}}", "नमस्ते {{NAME_1}}"],
+      "suspicious": false
+    }
+  },
+  {
+    "name": "filled-without-value",
+    "message": "ScreenState",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "step": 0,
+      "page": {
+        "url": "https://example.test/profile",
+        "title": "Profile",
+        "viewport": {
+          "w": 1280,
+          "h": 720,
+          "scroll_y": 0,
+          "page_h": 1000
+        }
+      },
+      "redaction_scheme": "v1",
+      "mode": "agent",
+      "kind": "full",
+      "elements": [
+        {
+          "id": "e1",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "redacted",
+          "value": "{{EMAIL_1}}",
+          "pii_class": "email",
+          "state": {
+            "required": true
+          },
+          "suspicious": false
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e3",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "empty",
+          "value": ""
+        },
+        {
+          "id": "e4",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "filled"
+        },
+        {
+          "id": "v1",
+          "role": "textbox",
+          "name": "Settings",
+          "bbox": [20, 40, 200, 32],
+          "src": "vision",
+          "conf": 1
+        }
+      ],
+      "text_context": ["Welcome, {{NAME_1}}", "नमस्ते {{NAME_1}}"],
+      "suspicious": false
+    }
+  },
+  {
+    "name": "nested-raw-attribute",
+    "message": "ScreenState",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "step": 0,
+      "page": {
+        "url": "https://example.test/profile",
+        "title": "Profile",
+        "viewport": {
+          "w": 1280,
+          "h": 720,
+          "scroll_y": 0,
+          "page_h": 1000
+        }
+      },
+      "redaction_scheme": "v1",
+      "mode": "agent",
+      "kind": "full",
+      "elements": [
+        {
+          "id": "e1",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "redacted",
+          "value": "{{EMAIL_1}}",
+          "pii_class": "email",
+          "state": {
+            "required": true
+          },
+          "suspicious": false,
+          "attributes": {
+            "value": "PRIVATE_CANARY"
+          }
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e3",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "empty",
+          "value": ""
+        },
+        {
+          "id": "e4",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "filled",
+          "value": "Public label"
+        },
+        {
+          "id": "v1",
+          "role": "textbox",
+          "name": "Settings",
+          "bbox": [20, 40, 200, 32],
+          "src": "vision",
+          "conf": 1
+        }
+      ],
+      "text_context": ["Welcome, {{NAME_1}}", "नमस्ते {{NAME_1}}"],
+      "suspicious": false
+    }
+  },
+  {
+    "name": "raw-page-html",
+    "message": "ScreenState",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "step": 0,
+      "page": {
+        "url": "https://example.test/profile",
+        "title": "Profile",
+        "viewport": {
+          "w": 1280,
+          "h": 720,
+          "scroll_y": 0,
+          "page_h": 1000
+        },
+        "html": "PRIVATE_CANARY"
+      },
+      "redaction_scheme": "v1",
+      "mode": "agent",
+      "kind": "full",
+      "elements": [
+        {
+          "id": "e1",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "redacted",
+          "value": "{{EMAIL_1}}",
+          "pii_class": "email",
+          "state": {
+            "required": true
+          },
+          "suspicious": false
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e3",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "empty",
+          "value": ""
+        },
+        {
+          "id": "e4",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "filled",
+          "value": "Public label"
+        },
+        {
+          "id": "v1",
+          "role": "textbox",
+          "name": "Settings",
+          "bbox": [20, 40, 200, 32],
+          "src": "vision",
+          "conf": 1
+        }
+      ],
+      "text_context": ["Welcome, {{NAME_1}}", "नमस्ते {{NAME_1}}"],
+      "suspicious": false
+    }
+  },
+  {
+    "name": "negative-bbox-width",
+    "message": "ScreenState",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "step": 0,
+      "page": {
+        "url": "https://example.test/profile",
+        "title": "Profile",
+        "viewport": {
+          "w": 1280,
+          "h": 720,
+          "scroll_y": 0,
+          "page_h": 1000
+        }
+      },
+      "redaction_scheme": "v1",
+      "mode": "agent",
+      "kind": "full",
+      "elements": [
+        {
+          "id": "e1",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, -1, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "redacted",
+          "value": "{{EMAIL_1}}",
+          "pii_class": "email",
+          "state": {
+            "required": true
+          },
+          "suspicious": false
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e3",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, -1, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "empty",
+          "value": ""
+        },
+        {
+          "id": "e4",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, -1, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "filled",
+          "value": "Public label"
+        },
+        {
+          "id": "v1",
+          "role": "textbox",
+          "name": "Settings",
+          "bbox": [20, 40, -1, 32],
+          "src": "vision",
+          "conf": 1
+        }
+      ],
+      "text_context": ["Welcome, {{NAME_1}}", "नमस्ते {{NAME_1}}"],
+      "suspicious": false
+    }
+  },
+  {
+    "name": "bbox-wrong-length",
+    "message": "ScreenState",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "step": 0,
+      "page": {
+        "url": "https://example.test/profile",
+        "title": "Profile",
+        "viewport": {
+          "w": 1280,
+          "h": 720,
+          "scroll_y": 0,
+          "page_h": 1000
+        }
+      },
+      "redaction_scheme": "v1",
+      "mode": "agent",
+      "kind": "full",
+      "elements": [
+        {
+          "id": "e1",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [1, 2, 3],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "redacted",
+          "value": "{{EMAIL_1}}",
+          "pii_class": "email",
+          "state": {
+            "required": true
+          },
+          "suspicious": false
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e3",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "empty",
+          "value": ""
+        },
+        {
+          "id": "e4",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "filled",
+          "value": "Public label"
+        },
+        {
+          "id": "v1",
+          "role": "textbox",
+          "name": "Settings",
+          "bbox": [20, 40, 200, 32],
+          "src": "vision",
+          "conf": 1
+        }
+      ],
+      "text_context": ["Welcome, {{NAME_1}}", "नमस्ते {{NAME_1}}"],
+      "suspicious": false
+    }
+  },
+  {
+    "name": "confidence-over-one",
+    "message": "ScreenState",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "step": 0,
+      "page": {
+        "url": "https://example.test/profile",
+        "title": "Profile",
+        "viewport": {
+          "w": 1280,
+          "h": 720,
+          "scroll_y": 0,
+          "page_h": 1000
+        }
+      },
+      "redaction_scheme": "v1",
+      "mode": "agent",
+      "kind": "full",
+      "elements": [
+        {
+          "id": "e1",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1.1,
+          "value_state": "redacted",
+          "value": "{{EMAIL_1}}",
+          "pii_class": "email",
+          "state": {
+            "required": true
+          },
+          "suspicious": false
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e3",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "empty",
+          "value": ""
+        },
+        {
+          "id": "e4",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "filled",
+          "value": "Public label"
+        },
+        {
+          "id": "v1",
+          "role": "textbox",
+          "name": "Settings",
+          "bbox": [20, 40, 200, 32],
+          "src": "vision",
+          "conf": 1
+        }
+      ],
+      "text_context": ["Welcome, {{NAME_1}}", "नमस्ते {{NAME_1}}"],
+      "suspicious": false
+    }
+  },
+  {
+    "name": "null-element-name",
+    "message": "ScreenState",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "step": 0,
+      "page": {
+        "url": "https://example.test/profile",
+        "title": "Profile",
+        "viewport": {
+          "w": 1280,
+          "h": 720,
+          "scroll_y": 0,
+          "page_h": 1000
+        }
+      },
+      "redaction_scheme": "v1",
+      "mode": "agent",
+      "kind": "full",
+      "elements": [
+        {
+          "id": "e1",
+          "role": "textbox",
+          "name": null,
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "redacted",
+          "value": "{{EMAIL_1}}",
+          "pii_class": "email",
+          "state": {
+            "required": true
+          },
+          "suspicious": false
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e3",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "empty",
+          "value": ""
+        },
+        {
+          "id": "e4",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "filled",
+          "value": "Public label"
+        },
+        {
+          "id": "v1",
+          "role": "textbox",
+          "name": "Settings",
+          "bbox": [20, 40, 200, 32],
+          "src": "vision",
+          "conf": 1
+        }
+      ],
+      "text_context": ["Welcome, {{NAME_1}}", "नमस्ते {{NAME_1}}"],
+      "suspicious": false
+    }
+  },
+  {
+    "name": "too-many-elements",
+    "message": "ScreenState",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "step": 0,
+      "page": {
+        "url": "https://example.test/profile",
+        "title": "Profile",
+        "viewport": {
+          "w": 1280,
+          "h": 720,
+          "scroll_y": 0,
+          "page_h": 1000
+        }
+      },
+      "redaction_scheme": "v1",
+      "mode": "agent",
+      "kind": "full",
+      "elements": [
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        }
+      ],
+      "text_context": ["Welcome, {{NAME_1}}", "नमस्ते {{NAME_1}}"],
+      "suspicious": false
+    }
+  },
+  {
+    "name": "diff-missing-base",
+    "message": "ScreenState",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "step": 0,
+      "page": {
+        "url": "https://example.test/profile",
+        "title": "Profile",
+        "viewport": {
+          "w": 1280,
+          "h": 720,
+          "scroll_y": 0,
+          "page_h": 1000
+        }
+      },
+      "redaction_scheme": "v1",
+      "mode": "agent",
+      "kind": "diff",
+      "elements": [
+        {
+          "id": "e1",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "redacted",
+          "value": "{{EMAIL_1}}",
+          "pii_class": "email",
+          "state": {
+            "required": true
+          },
+          "suspicious": false
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e3",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "empty",
+          "value": ""
+        },
+        {
+          "id": "e4",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "filled",
+          "value": "Public label"
+        },
+        {
+          "id": "v1",
+          "role": "textbox",
+          "name": "Settings",
+          "bbox": [20, 40, 200, 32],
+          "src": "vision",
+          "conf": 1
+        }
+      ],
+      "text_context": ["Welcome, {{NAME_1}}", "नमस्ते {{NAME_1}}"],
+      "suspicious": false,
+      "removed": [],
+      "base_observation_id": null
+    }
+  },
+  {
+    "name": "full-with-diff-fields",
+    "message": "ScreenState",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "step": 0,
+      "page": {
+        "url": "https://example.test/profile",
+        "title": "Profile",
+        "viewport": {
+          "w": 1280,
+          "h": 720,
+          "scroll_y": 0,
+          "page_h": 1000
+        }
+      },
+      "redaction_scheme": "v1",
+      "mode": "agent",
+      "kind": "full",
+      "elements": [
+        {
+          "id": "e1",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "redacted",
+          "value": "{{EMAIL_1}}",
+          "pii_class": "email",
+          "state": {
+            "required": true
+          },
+          "suspicious": false
+        },
+        {
+          "id": "e2",
+          "role": "button",
+          "name": "Save",
+          "bbox": [20, 90, 80, 32],
+          "src": "dom",
+          "conf": 1
+        },
+        {
+          "id": "e3",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "empty",
+          "value": ""
+        },
+        {
+          "id": "e4",
+          "role": "textbox",
+          "name": "Email",
+          "bbox": [20, 40, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "value_state": "filled",
+          "value": "Public label"
+        },
+        {
+          "id": "v1",
+          "role": "textbox",
+          "name": "Settings",
+          "bbox": [20, 40, 200, 32],
+          "src": "vision",
+          "conf": 1
+        }
+      ],
+      "text_context": ["Welcome, {{NAME_1}}", "नमस्ते {{NAME_1}}"],
+      "suspicious": false,
+      "removed": ["e1"]
+    }
+  },
+  {
+    "name": "too-many-crops",
+    "message": "EscalateRequest",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "question": "Identify icon",
+      "redaction_scheme": "v1",
+      "crops": [
+        {
+          "crop_id": "c_demo",
+          "target": "v1",
+          "bbox": [10, 20, 32, 32],
+          "width": 32,
+          "height": 32,
+          "media_type": "image/jpeg",
+          "data_base64": "AAAA",
+          "regions": [
+            {
+              "bbox": [0, 0, 32, 32],
+              "content_class": "ui_chrome",
+              "masked": false,
+              "checks": ["ui"]
+            }
+          ]
+        },
+        {
+          "crop_id": "c_demo",
+          "target": "v1",
+          "bbox": [10, 20, 32, 32],
+          "width": 32,
+          "height": 32,
+          "media_type": "image/jpeg",
+          "data_base64": "AAAA",
+          "regions": [
+            {
+              "bbox": [0, 0, 32, 32],
+              "content_class": "ui_chrome",
+              "masked": false,
+              "checks": ["ui"]
+            }
+          ]
+        },
+        {
+          "crop_id": "c_demo",
+          "target": "v1",
+          "bbox": [10, 20, 32, 32],
+          "width": 32,
+          "height": 32,
+          "media_type": "image/jpeg",
+          "data_base64": "AAAA",
+          "regions": [
+            {
+              "bbox": [0, 0, 32, 32],
+              "content_class": "ui_chrome",
+              "masked": false,
+              "checks": ["ui"]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "oversized-crop",
+    "message": "EscalateRequest",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "question": "Identify icon",
+      "redaction_scheme": "v1",
+      "crops": [
+        {
+          "crop_id": "c_demo",
+          "target": "v1",
+          "bbox": [10, 20, 32, 32],
+          "width": 513,
+          "height": 32,
+          "media_type": "image/jpeg",
+          "data_base64": "AAAA",
+          "regions": [
+            {
+              "bbox": [0, 0, 32, 32],
+              "content_class": "ui_chrome",
+              "masked": false,
+              "checks": ["ui"]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "crop-no-manifest",
+    "message": "EscalateRequest",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "question": "Identify icon",
+      "redaction_scheme": "v1",
+      "crops": [
+        {
+          "crop_id": "c_demo",
+          "target": "v1",
+          "bbox": [10, 20, 32, 32],
+          "width": 32,
+          "height": 32,
+          "media_type": "image/jpeg",
+          "data_base64": "AAAA"
+        }
+      ]
+    }
+  },
+  {
+    "name": "crop-raw-pixels-field",
+    "message": "EscalateRequest",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "question": "Identify icon",
+      "redaction_scheme": "v1",
+      "crops": [
+        {
+          "crop_id": "c_demo",
+          "target": "v1",
+          "bbox": [10, 20, 32, 32],
+          "width": 32,
+          "height": 32,
+          "media_type": "image/jpeg",
+          "data_base64": "AAAA",
+          "regions": [
+            {
+              "bbox": [0, 0, 32, 32],
+              "content_class": "ui_chrome",
+              "masked": false,
+              "checks": ["ui"]
+            }
+          ],
+          "pixels": [1, 2, 3]
+        }
+      ]
+    }
+  },
+  {
+    "name": "crop-invalid-base64",
+    "message": "EscalateRequest",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "question": "Identify icon",
+      "redaction_scheme": "v1",
+      "crops": [
+        {
+          "crop_id": "c_demo",
+          "target": "v1",
+          "bbox": [10, 20, 32, 32],
+          "width": 32,
+          "height": 32,
+          "media_type": "image/jpeg",
+          "data_base64": "***!",
+          "regions": [
+            {
+              "bbox": [0, 0, 32, 32],
+              "content_class": "ui_chrome",
+              "masked": false,
+              "checks": ["ui"]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "crop-wrong-media-type",
+    "message": "EscalateRequest",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "question": "Identify icon",
+      "redaction_scheme": "v1",
+      "crops": [
+        {
+          "crop_id": "c_demo",
+          "target": "v1",
+          "bbox": [10, 20, 32, 32],
+          "width": 32,
+          "height": 32,
+          "media_type": "image/png",
+          "data_base64": "AAAA",
+          "regions": [
+            {
+              "bbox": [0, 0, 32, 32],
+              "content_class": "ui_chrome",
+              "masked": false,
+              "checks": ["ui"]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "unknown-privacy-region",
+    "message": "EscalateRequest",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "question": "Identify icon",
+      "redaction_scheme": "v1",
+      "crops": [
+        {
+          "crop_id": "c_demo",
+          "target": "v1",
+          "bbox": [10, 20, 32, 32],
+          "width": 32,
+          "height": 32,
+          "media_type": "image/jpeg",
+          "data_base64": "AAAA",
+          "regions": [
+            {
+              "bbox": [0, 0, 32, 32],
+              "content_class": "unknown-safe",
+              "masked": false,
+              "checks": ["ui"]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "raw-feedback-error",
+    "message": "FeedbackRequest",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "d_demo",
+      "observation_id": 1,
+      "result": {
+        "action_id": "a_demo",
+        "status": "failed",
+        "page_changed": false,
+        "error": "PRIVATE_CANARY"
+      }
+    }
+  },
+  {
+    "name": "unbounded-session-ttl",
+    "message": "SessionStartResponse",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "expires_in_seconds": 1801
+    }
+  },
+  {
+    "name": "null-voice",
+    "message": "SessionStartRequest",
+    "payload": {
+      "protocol": "1.0",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "task": "Update my email to {{EMAIL_1}}",
+      "allowed_domains": ["example.test"],
+      "capabilities": {
+        "browser": "chrome",
+        "backend": "wasm",
+        "detectors": ["dom", "rules"],
+        "crops": false
+      },
+      "mode": "agent",
+      "read_only": false,
+      "voice": null
+    }
+  },
+  {
+    "name": "too-many-tabs",
+    "message": "SessionStartRequest",
+    "payload": {
+      "protocol": "1.0",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "task": "Update my email to {{EMAIL_1}}",
+      "allowed_domains": ["example.test"],
+      "capabilities": {
+        "browser": "chrome",
+        "backend": "wasm",
+        "detectors": ["dom", "rules"],
+        "crops": false
+      },
+      "mode": "agent",
+      "read_only": false,
+      "granted_tabs": [
+        "tab_demo",
+        "tab_demo",
+        "tab_demo",
+        "tab_demo",
+        "tab_demo",
+        "tab_demo",
+        "tab_demo",
+        "tab_demo",
+        "tab_demo"
+      ]
+    }
+  },
+  {
+    "name": "wrong-root-null",
+    "message": "ScreenState",
+    "payload": null
+  },
+  {
+    "name": "wrong-root-array",
+    "message": "ScreenState",
+    "payload": []
+  },
+  {
+    "name": "wrong-root-string",
+    "message": "ScreenState",
+    "payload": "PRIVATE_CANARY"
+  }
+]
