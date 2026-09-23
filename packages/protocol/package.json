@@ -1,0 +1,29 @@
+{
+  "name": "@privacagent/protocol",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "E-01: shared wire schemas, generated types and runtime validators",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./schema": "./schemas/protocol.schema.json"
+  },
+  "files": [
+    "dist",
+    "schemas"
+  ],
+  "scripts": {
+    "build": "tsc --build",
+    "generate": "node scripts/generate.mjs",
+    "generate:check": "node scripts/generate.mjs --check",
+    "test:python": "uv run --locked --project ../.. pytest tests"
+  },
+  "devDependencies": {
+    "ajv": "^8.20.0",
+    "esbuild": "^0.28.2",
+    "json-schema-to-typescript": "^16.0.0"
+  }
+}
