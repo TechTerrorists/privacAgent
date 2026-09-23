@@ -10,7 +10,10 @@ by this package.
 
 ## Team setup
 
-From the repository root, with Node 22+, the pinned pnpm version, Python 3.12 and uv:
+For first-time tool installation, browser loading and troubleshooting, start with the
+[development environment guide](../../docs/development.md).
+
+From the repository root, with Node 22.13+ (22.x), the pinned pnpm version, Python 3.12 and uv:
 
 ```sh
 pnpm install --frozen-lockfile
