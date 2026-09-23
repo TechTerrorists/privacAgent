@@ -58,7 +58,7 @@
       "type": "string",
       "maxLength": 80,
       "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$",
-      "description": "Opaque identifier; consumers must not infer authorization from its spelling."
+      "description": "Opaque document identity carried by the enclosing observation. Element IDs are meaningful only with this ID; navigation or SPA route changes require a new identity. Its spelling does not imply authorization."
     },
     "ActionId": {
       "title": "ActionId",
@@ -85,7 +85,8 @@
       "title": "ElementId",
       "type": "string",
       "maxLength": 80,
-      "pattern": "^[ev][A-Za-z0-9_-]+$"
+      "pattern": "^[ev][A-Za-z0-9_-]+$",
+      "description": "Document-scoped element ID: e for DOM-backed, v for vision-only. Interpret with the enclosing observation's doc_id; source provenance is recorded separately in src."
     },
     "ProtocolVersion": {
       "title": "ProtocolVersion",
@@ -157,6 +158,7 @@
     "ElementState": {
       "title": "ElementState",
       "type": "object",
+      "description": "Observed control state. Omitted flags are unknown or not applicable, not false. B-03 supplies semantic state; B-04 supplies occlusion. These flags do not authorize execution.",
       "additionalProperties": false,
       "properties": {
         "disabled": {
@@ -179,6 +181,14 @@
         },
         "focused": {
           "type": "boolean"
+        },
+        "invalid": {
+          "type": "boolean",
+          "description": "Whether the control is reported invalid by DOM or accessibility semantics."
+        },
+        "occluded": {
+          "type": "boolean",
+          "description": "Whether the visibility/occlusion check found the element covered by another element."
         }
       },
       "required": []

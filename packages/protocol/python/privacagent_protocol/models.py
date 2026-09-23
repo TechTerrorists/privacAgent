@@ -44,7 +44,7 @@ class DocumentId(RootModel[StrictStr]):
     root: Annotated[
         StrictStr,
         Field(
-            description='Opaque identifier; consumers must not infer authorization from its spelling.',
+            description='Opaque document identity carried by the enclosing observation. Element IDs are meaningful only with this ID; navigation or SPA route changes require a new identity. Its spelling does not imply authorization.',
             max_length=80,
             pattern='^[A-Za-z0-9][A-Za-z0-9_-]*$',
             title='DocumentId',
@@ -91,7 +91,12 @@ class CropId(RootModel[StrictStr]):
 class ElementId(RootModel[StrictStr]):
     root: Annotated[
         StrictStr,
-        Field(max_length=80, pattern='^[ev][A-Za-z0-9_-]+$', title='ElementId'),
+        Field(
+            description="Document-scoped element ID: e for DOM-backed, v for vision-only. Interpret with the enclosing observation's doc_id; source provenance is recorded separately in src.",
+            max_length=80,
+            pattern='^[ev][A-Za-z0-9_-]+$',
+            title='ElementId',
+        ),
     ]
 
 
@@ -190,6 +195,10 @@ class BBox(RootModel[list[StrictFloat | BBoxItem]]):
 
 
 class ElementState(BaseModel):
+    """
+    Observed control state. Omitted flags are unknown or not applicable, not false. B-03 supplies semantic state; B-04 supplies occlusion. These flags do not authorize execution.
+    """
+
     model_config = ConfigDict(
         extra='forbid',
     )
@@ -200,6 +209,18 @@ class ElementState(BaseModel):
     required: StrictBool | None = None
     readonly: StrictBool | None = None
     focused: StrictBool | None = None
+    invalid: Annotated[
+        StrictBool | None,
+        Field(
+            description='Whether the control is reported invalid by DOM or accessibility semantics.'
+        ),
+    ] = None
+    occluded: Annotated[
+        StrictBool | None,
+        Field(
+            description='Whether the visibility/occlusion check found the element covered by another element.'
+        ),
+    ] = None
 
 
 class DisplayElement(BaseModel):

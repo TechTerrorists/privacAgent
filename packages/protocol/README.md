@@ -8,6 +8,10 @@ Protocol **1.0** is the initial, unpublished wire contract. The package version 
 **0.1.0**. No server, networking, PII detector, executor or Egress Guard is implemented
 by this package.
 
+The [B-01 element model guide](element-model.md) maps the shared types to the DOM,
+vision, privacy and overlay consumers, including geometry, document identity, state
+semantics, fixtures and compatibility notes.
+
 ## Team setup
 
 For first-time tool installation, browser loading and troubleshooting, start with the

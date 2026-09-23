@@ -1073,5 +1073,188 @@
       "consequential": false,
       "risk": "low"
     }
+  },
+  {
+    "name": "b01-element-catalog",
+    "message": "ScreenState",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 1,
+      "doc_id": "doc_element_catalog",
+      "observation_id": 1,
+      "step": 0,
+      "page": {
+        "url": "https://example.test/profile",
+        "title": "Profile",
+        "viewport": {
+          "w": 1280,
+          "h": 720,
+          "scroll_y": 0,
+          "page_h": 1000
+        }
+      },
+      "redaction_scheme": "v1",
+      "mode": "agent",
+      "kind": "full",
+      "elements": [
+        {
+          "id": "e_button",
+          "role": "button",
+          "name": "Save settings",
+          "bbox": [20, 40, 120, 32],
+          "src": "dom",
+          "conf": 1,
+          "state": {
+            "disabled": false,
+            "focused": true,
+            "occluded": false
+          }
+        },
+        {
+          "id": "e_checkbox",
+          "role": "checkbox",
+          "name": "Enable reminders",
+          "input_type": "checkbox",
+          "bbox": [20, 90, 20, 20],
+          "src": "dom",
+          "conf": 1,
+          "state": {
+            "checked": true,
+            "required": false,
+            "invalid": false
+          }
+        },
+        {
+          "id": "e_select",
+          "role": "combobox",
+          "name": "Theme",
+          "bbox": [20, 130, 160, 32],
+          "src": "dom",
+          "conf": 1,
+          "state": {
+            "expanded": false,
+            "required": true
+          },
+          "value_state": "filled",
+          "value": "Dark"
+        },
+        {
+          "id": "e_option",
+          "role": "option",
+          "name": "Dark",
+          "bbox": [20, 170, 160, 24],
+          "src": "dom",
+          "conf": 1,
+          "state": {
+            "selected": true
+          }
+        },
+        {
+          "id": "e_empty",
+          "role": "textbox",
+          "name": "Display label",
+          "input_type": "text",
+          "bbox": [20, 220, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "state": {
+            "invalid": true,
+            "required": true,
+            "readonly": false
+          },
+          "value_state": "empty",
+          "value": ""
+        },
+        {
+          "id": "e_redacted",
+          "role": "textbox",
+          "name": "Email",
+          "input_type": "email",
+          "bbox": [20, 270, 200, 32],
+          "src": "fused",
+          "conf": 0.9,
+          "state": {
+            "readonly": true
+          },
+          "value_state": "redacted",
+          "value": "{{EMAIL_1}}",
+          "pii_class": "email"
+        },
+        {
+          "id": "v_settings",
+          "role": "button",
+          "name": "Settings",
+          "bbox": [-10.5, 800.25, 32, 32],
+          "src": "vision",
+          "conf": 0,
+          "state": {
+            "occluded": true
+          }
+        },
+        {
+          "id": "v_help",
+          "role": "button",
+          "name": "Help",
+          "bbox": [240, 800.25, 32, 32],
+          "src": "server_vlm",
+          "conf": 0.8
+        }
+      ],
+      "text_context": [],
+      "suspicious": false
+    }
+  },
+  {
+    "name": "b01-element-state-diff",
+    "message": "ScreenState",
+    "payload": {
+      "protocol": "1.0",
+      "session_id": "s_demo",
+      "task_id": "t_demo",
+      "task_version": 1,
+      "seq": 2,
+      "doc_id": "doc_element_catalog",
+      "observation_id": 2,
+      "step": 1,
+      "page": {
+        "url": "https://example.test/profile",
+        "title": "Profile",
+        "viewport": {
+          "w": 1280,
+          "h": 720,
+          "scroll_y": 0,
+          "page_h": 1000
+        }
+      },
+      "redaction_scheme": "v1",
+      "mode": "agent",
+      "kind": "diff",
+      "elements": [
+        {
+          "id": "e_empty",
+          "role": "textbox",
+          "name": "Display label",
+          "input_type": "text",
+          "bbox": [20, 220, 200, 32],
+          "src": "dom",
+          "conf": 1,
+          "state": {
+            "invalid": false,
+            "required": true,
+            "readonly": false,
+            "occluded": false
+          },
+          "value_state": "filled",
+          "value": "Work"
+        }
+      ],
+      "text_context": [],
+      "suspicious": false,
+      "base_observation_id": 1,
+      "removed": ["e_option"]
+    }
   }
 ]

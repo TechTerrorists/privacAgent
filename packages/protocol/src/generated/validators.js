@@ -2638,6 +2638,32 @@ function validate66(
   validate66.errors = vErrors;
   return errors === 0;
 }
+var schema26 = {
+  title: 'ElementState',
+  type: 'object',
+  description:
+    'Observed control state. Omitted flags are unknown or not applicable, not false. B-03 supplies semantic state; B-04 supplies occlusion. These flags do not authorize execution.',
+  additionalProperties: false,
+  properties: {
+    disabled: { type: 'boolean' },
+    checked: { type: 'boolean' },
+    selected: { type: 'boolean' },
+    expanded: { type: 'boolean' },
+    required: { type: 'boolean' },
+    readonly: { type: 'boolean' },
+    focused: { type: 'boolean' },
+    invalid: {
+      type: 'boolean',
+      description: 'Whether the control is reported invalid by DOM or accessibility semantics.',
+    },
+    occluded: {
+      type: 'boolean',
+      description:
+        'Whether the visibility/occlusion check found the element covered by another element.',
+    },
+  },
+  required: [],
+};
 function validate68(
   data,
   { instancePath = '', parentData, parentDataProperty, rootData = data } = {}
@@ -2648,15 +2674,7 @@ function validate68(
     if (data && typeof data == 'object' && !Array.isArray(data)) {
       const _errs1 = errors;
       for (const key0 of Object.keys(data)) {
-        if (!(
-          key0 === 'disabled' ||
-          key0 === 'checked' ||
-          key0 === 'selected' ||
-          key0 === 'expanded' ||
-          key0 === 'required' ||
-          key0 === 'readonly' ||
-          key0 === 'focused'
-        )) {
+        if (!func0.call(schema26.properties, key0)) {
           validate68.errors = [
             {
               instancePath,
@@ -2802,6 +2820,46 @@ function validate68(
                       var valid0 = _errs14 === errors;
                     } else {
                       var valid0 = true;
+                    }
+                    if (valid0) {
+                      if (data.invalid !== void 0 && func0.call(data, 'invalid')) {
+                        const _errs16 = errors;
+                        if (typeof data.invalid !== 'boolean') {
+                          validate68.errors = [
+                            {
+                              instancePath: instancePath + '/invalid',
+                              schemaPath: '#/properties/invalid/type',
+                              keyword: 'type',
+                              params: { type: 'boolean' },
+                              message: 'must be boolean',
+                            },
+                          ];
+                          return false;
+                        }
+                        var valid0 = _errs16 === errors;
+                      } else {
+                        var valid0 = true;
+                      }
+                      if (valid0) {
+                        if (data.occluded !== void 0 && func0.call(data, 'occluded')) {
+                          const _errs18 = errors;
+                          if (typeof data.occluded !== 'boolean') {
+                            validate68.errors = [
+                              {
+                                instancePath: instancePath + '/occluded',
+                                schemaPath: '#/properties/occluded/type',
+                                keyword: 'type',
+                                params: { type: 'boolean' },
+                                message: 'must be boolean',
+                              },
+                            ];
+                            return false;
+                          }
+                          var valid0 = _errs18 === errors;
+                        } else {
+                          var valid0 = true;
+                        }
+                      }
                     }
                   }
                 }
