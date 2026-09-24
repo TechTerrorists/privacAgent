@@ -10,6 +10,8 @@ export default tseslint.config(
       '**/*.tsbuildinfo',
       'packages/protocol/src/generated/**',
       '.venv/**',
+      'test-results/**',
+      'playwright-report/**',
     ],
   },
   js.configs.recommended,

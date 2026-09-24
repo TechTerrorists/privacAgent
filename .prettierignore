@@ -6,3 +6,5 @@ pnpm-lock.yaml
 .pytest_cache/
 uv.lock
 docs/**/*.pdf
+test-results/
+playwright-report/

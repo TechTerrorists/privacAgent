@@ -18,15 +18,19 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "tsc --build --force",
+    "typecheck": "tsc --build --force && tsc -p packages/extension/tests/tsconfig.json",
     "test": "vitest run && uv run --locked pytest",
     "protocol:generate": "pnpm --filter @privacagent/protocol generate",
     "protocol:check": "pnpm --filter @privacagent/protocol generate:check",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:browser": "playwright test",
+    "bench:dom": "playwright test --grep benchmark"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.63.0",
     "@types/node": "^26.6.2",
+    "esbuild": "^0.28.2",
     "eslint": "^10.11.0",
     "prettier": "^3.9.8",
     "typescript": "^5.9.3",
