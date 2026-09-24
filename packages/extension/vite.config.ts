@@ -1,6 +1,7 @@
 import { defineConfig, type Plugin, type UserConfig } from 'vite';
 import { crx, type ManifestV3Export } from '@crxjs/vite-plugin';
 import { createManifest, type Browser, type Manifest } from './src/manifest.js';
+import { CONTENT_SCRIPT_PATH } from './vite.content.config.js';
 import pkg from './package.json' with { type: 'json' };
 
 const VERSION = pkg.version;
@@ -11,10 +12,12 @@ const isBrowser = (mode: string): mode is Browser => mode === 'chrome' || mode =
  * Entry points, keyed by the path they are emitted at. The keys double as
  * output filenames (`entryFileNames: '[name].js'`), which is what lets the
  * Firefox manifest keep the same paths as the source tree.
+ *
+ * The content script is absent on purpose: it needs classic-script output and
+ * is built by vite.content.config.ts in a second pass.
  */
 const ENTRIES = {
   'src/background/index': 'src/background/index.ts',
-  'src/content/index': 'src/content/index.ts',
   'src/ui/sidepanel': 'src/ui/sidepanel.html',
 } as const;
 
@@ -61,13 +64,7 @@ export default defineConfig(({ mode }): UserConfig => {
   const shared = {
     define: {
       __BROWSER__: JSON.stringify(mode),
-      // The two toolchains emit the content script under different names:
-      // @crxjs writes a loader that keeps the `.ts` path, the Firefox build
-      // emits plain `.js`. Callers of `scripting.executeScript` use this
-      // constant instead of hard-coding either one.
-      __CONTENT_SCRIPT_PATH__: JSON.stringify(
-        mode === 'chrome' ? 'src/content/index.ts' : 'src/content/index.js'
-      ),
+      __CONTENT_SCRIPT_PATH__: JSON.stringify(CONTENT_SCRIPT_PATH),
     },
     build: {
       outDir: `dist/${mode}`,
