@@ -25,7 +25,6 @@ from typing import Any
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from jsonschema import Draft7Validator
 from pydantic import ValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -41,6 +40,7 @@ from .config import Settings
 from .errors import (
     HTTP_STATUS_BY_CODE,
     ProtocolReject,
+    RejectReason,
     build_protocol_error,
 )
 from .fixtures import builtin_scenarios
@@ -61,83 +61,26 @@ _configured_debug_path: str | None = None
 def _configure_debug_file_logging(path: str) -> None:
     """Attach a single DEBUG file handler (idempotent) for reject diagnostics.
 
-    The log records which check failed (stage, JSON paths, schema keywords) —
+    The log records only fixed stage and reason codes —
     never request-body values, page text, or other payload content.
     """
     global _configured_debug_path
-    if not path:
-        return
-    target = str(Path(path).resolve())
+    target = str(Path(path).resolve()) if path else None
     if _configured_debug_path == target:
         return
     for handler in list(logger.handlers):
         if isinstance(handler, logging.FileHandler):
             logger.removeHandler(handler)
             handler.close()
+    if target is None:
+        _configured_debug_path = None
+        return
     file_handler = logging.FileHandler(target, encoding="utf-8")
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(logging.Formatter(_LOG_FORMAT))
     logger.setLevel(logging.DEBUG)
     logger.addHandler(file_handler)
     _configured_debug_path = target
-
-
-def _json_path(parts: Any) -> str:
-    out = "$"
-    for part in parts:
-        if isinstance(part, int):
-            out += f"[{part}]"
-        else:
-            out += f".{part}"
-    return out
-
-
-def _schema_error_lines(errors: list[Any], limit: int = 8) -> list[str]:
-    lines: list[str] = []
-    for err in errors:
-        if len(lines) >= limit:
-            lines.append(f"+{len(errors) - limit} more")
-            break
-        loc = _json_path(err.absolute_path)
-        keyword = err.validator
-        if keyword == "required":
-            prop = err.message.split("'")[1] if "'" in err.message else "?"
-            lines.append(f"{loc}: missing required '{prop}'")
-        elif keyword == "additionalProperties":
-            lines.append(f"{loc}: {err.message}")
-        else:
-            lines.append(f"{loc}: failed '{keyword}'")
-    return lines
-
-
-def _explain_parse_failure(message_name: str, body: Any) -> str:
-    """Payload-free description of why ``parse_message`` rejected ``body``.
-
-    Only JSON paths and schema keywords are reported — never field values,
-    so page-derived strings cannot reach the debug log through this helper.
-    """
-    try:
-        json.dumps(body, allow_nan=False)
-    except (TypeError, ValueError) as exc:
-        return f"stage=parse_message detail=non_json_value type={type(exc).__name__}"
-    try:
-        schema = get_schema(message_name)
-        raw_errors = list(Draft7Validator(schema).iter_errors(body))
-    except Exception:
-        return "stage=parse_message detail=schema_check_failed"
-    flat: list[Any] = []
-    for err in raw_errors:
-        if err.validator in ("oneOf", "anyOf") and err.context:
-            flat.extend(err.context)
-        else:
-            flat.append(err)
-    if not flat:
-        return (
-            "stage=parse_message detail=model_validate_failed "
-            "(schema passed; Pydantic model rejected)"
-        )
-    lines = _schema_error_lines(flat)
-    return "stage=parse_message detail=schema_errors " + "; ".join(lines)
 
 
 def _rewrite_schema_refs(value: Any) -> None:
@@ -173,9 +116,7 @@ def _request_body(message_name: str, example: dict[str, Any]) -> dict[str, Any]:
 def _success_response(
     message_name: str, example: dict[str, Any] | None = None
 ) -> dict[str, Any]:
-    media: dict[str, Any] = {
-        "schema": {"$ref": f"#/components/schemas/{message_name}"}
-    }
+    media: dict[str, Any] = {"schema": {"$ref": f"#/components/schemas/{message_name}"}}
     if example is not None:
         media["example"] = example
     return {
@@ -249,8 +190,7 @@ def _dedupe_session_path_parameters(schema: dict[str, Any]) -> None:
                 (
                     p
                     for p in session_params
-                    if isinstance(p.get("schema"), dict)
-                    and "$ref" in p["schema"]
+                    if isinstance(p.get("schema"), dict) and "$ref" in p["schema"]
                 ),
                 session_params[-1],
             )
@@ -464,29 +404,24 @@ def create_app(
     # --- helpers ---------------------------------------------------------
 
     async def read_json(request: Request) -> Any:
-        raw = await request.body()
-        if len(raw) > settings.max_body_bytes:
-            raise ProtocolReject(
-                "invalid_request",
-                reason=(
-                    "stage=read_json detail=body_too_large "
-                    f"bytes={len(raw)} max={settings.max_body_bytes}"
-                ),
-            )
+        raw = bytearray()
+        async for chunk in request.stream():
+            if len(raw) + len(chunk) > settings.max_body_bytes:
+                raise ProtocolReject(
+                    "invalid_request", reason=RejectReason.BODY_TOO_LARGE
+                )
+            raw.extend(chunk)
         try:
             return json.loads(raw.decode("utf-8"))
         except UnicodeDecodeError:
             raise ProtocolReject(
                 "invalid_request",
-                reason="stage=read_json detail=not_utf8",
+                reason=RejectReason.NOT_UTF8,
             ) from None
-        except json.JSONDecodeError as exc:
+        except json.JSONDecodeError:
             raise ProtocolReject(
                 "invalid_request",
-                reason=(
-                    "stage=read_json detail=malformed_json "
-                    f"line={exc.lineno} col={exc.colno}"
-                ),
+                reason=RejectReason.MALFORMED_JSON,
             ) from None
 
     def version_code(body: Any) -> str:
@@ -504,20 +439,16 @@ def create_app(
         except ProtocolValidationError:
             raise ProtocolReject(
                 version_code(body),
-                reason=_explain_parse_failure(message_name, body),
+                reason=RejectReason.INVALID_SCHEMA,
             ) from None
 
     def validate_path_session_id(path_session_id: str) -> None:
         try:
             models.SessionId.model_validate(path_session_id)
-        except ValidationError as exc:
-            kinds = ",".join(sorted({e["type"] for e in exc.errors()}))
+        except ValidationError:
             raise ProtocolReject(
                 "invalid_request",
-                reason=(
-                    "stage=path_param detail=invalid_session_id "
-                    f"violations={kinds}"
-                ),
+                reason=RejectReason.INVALID_SESSION_ID,
             ) from None
 
     def checked_response(message_name: str, payload: dict[str, Any]) -> JSONResponse:
@@ -529,10 +460,7 @@ def create_app(
             raise ProtocolReject(
                 "unavailable",
                 correlation=_correlation_of_payload(payload),
-                reason=(
-                    "stage=checked_response detail=response_off_contract "
-                    f"message={message_name}"
-                ),
+                reason=RejectReason.RESPONSE_OFF_CONTRACT,
             ) from None
         return JSONResponse(content=model.model_dump(mode="json", exclude_unset=True))
 
@@ -605,16 +533,13 @@ def create_app(
             raise ProtocolReject(
                 "invalid_request",
                 correlation=established_correlation(record, node),
-                reason="stage=path_body_match detail=body_missing_session_id",
+                reason=RejectReason.BODY_MISSING_SESSION_ID,
             )
         if body_session_id.root != path_session_id:
             raise ProtocolReject(
                 "invalid_request",
                 correlation=established_correlation(record, node),
-                reason=(
-                    "stage=path_body_match detail=session_id_mismatch "
-                    f"path={path_session_id} body={body_session_id.root}"
-                ),
+                reason=RejectReason.SESSION_ID_MISMATCH,
             )
 
     def require_task_identity(node: Any, record: SessionRecord) -> None:
@@ -628,7 +553,7 @@ def create_app(
             raise ProtocolReject(
                 "invalid_request",
                 correlation=correlation,
-                reason="stage=task_identity detail=body_missing_task_fields",
+                reason=RejectReason.BODY_MISSING_TASK_FIELDS,
             )
         if (
             node_task_id.root != record.task_id
@@ -637,11 +562,7 @@ def create_app(
             raise ProtocolReject(
                 "invalid_request",
                 correlation=correlation,
-                reason=(
-                    "stage=task_identity detail=task_mismatch "
-                    f"session={record.task_id}@{record.task_version} "
-                    f"body={node_task_id.root}@{node_task_version}"
-                ),
+                reason=RejectReason.TASK_MISMATCH,
             )
 
     def store_get(session_id: str) -> SessionRecord:
@@ -651,13 +572,13 @@ def create_app(
             raise ProtocolReject(
                 "unavailable",
                 correlation={"session_id": session_id},
-                reason="stage=store_get detail=redis_error",
+                reason=RejectReason.STORE_GET_REDIS_ERROR,
             ) from None
         if record is None:
             raise ProtocolReject(
                 "session_expired",
                 correlation={"session_id": session_id},
-                reason="stage=store_get detail=session_not_found",
+                reason=RejectReason.SESSION_NOT_FOUND,
             )
         return record
 
@@ -683,14 +604,14 @@ def create_app(
             raise ProtocolReject(
                 "unavailable",
                 correlation={"session_id": session_id},
-                reason="stage=store_advance detail=redis_error",
+                reason=RejectReason.STORE_ADVANCE_REDIS_ERROR,
             ) from None
         if not ok:
             # Key expired or was deleted between store_get and advance.
             raise ProtocolReject(
                 "session_expired",
                 correlation={"session_id": session_id},
-                reason="stage=store_advance detail=session_vanished",
+                reason=RejectReason.SESSION_VANISHED,
             )
 
     # --- routes ----------------------------------------------------------
@@ -736,7 +657,7 @@ def create_app(
         except SessionStoreError:
             raise ProtocolReject(
                 "unavailable",
-                reason="stage=store_create detail=redis_error",
+                reason=RejectReason.STORE_CREATE_REDIS_ERROR,
             ) from None
 
         # Report the TTL the store actually applied (may differ from settings
@@ -749,12 +670,7 @@ def create_app(
             "task_version": record.task_version,
             "expires_in_seconds": store_ttl,
         }
-        logger.debug(
-            "OK route=POST /v1/sessions session_id=%s task_id=%s@%s",
-            session_id,
-            record.task_id,
-            record.task_version,
-        )
+        logger.debug("OK route=POST /v1/sessions")
         return checked_response("SessionStartResponse", payload)
 
     @app.post(
@@ -777,7 +693,9 @@ def create_app(
                 "invalid_request", "Schema, version, path/body, or task mismatch"
             ),
             **_error_response("unsupported_version", "Protocol version is not 1.0"),
-            **_error_response("resync_required", "Diff Screen State submitted; send a full state"),
+            **_error_response(
+                "resync_required", "Diff Screen State submitted; send a full state"
+            ),
             **_error_response("session_expired", "Session missing or TTL-expired"),
             **_error_response("unavailable", "Store or planner failure"),
         },
@@ -799,7 +717,7 @@ def create_app(
             raise ProtocolReject(
                 "resync_required",
                 correlation=established_correlation(record, node),
-                reason="stage=step detail=diff_state_requires_full_resync",
+                reason=RejectReason.DIFF_STATE_REQUIRES_FULL_RESYNC,
             )
 
         try:
@@ -809,7 +727,7 @@ def create_app(
             raise ProtocolReject(
                 "unavailable",
                 correlation=established_correlation(record, node),
-                reason="stage=planner detail=action_off_contract",
+                reason=RejectReason.ACTION_OFF_CONTRACT,
             ) from None
 
         store_advance(
@@ -820,13 +738,10 @@ def create_app(
             plan_step=record.plan_step + 1,
             last_action_id=action.action_id.root,
         )
-        logger.debug(
-            "OK route=POST .../step session_id=%s seq=%s action_id=%s",
-            session_id,
-            node.seq,
-            action.action_id.root,
+        logger.debug("OK route=POST .../step")
+        return checked_response(
+            "Action", action.model_dump(mode="json", exclude_unset=True)
         )
-        return checked_response("Action", action.model_dump(mode="json", exclude_unset=True))
 
     @app.post(
         "/v1/sessions/{session_id}/feedback",
@@ -843,9 +758,7 @@ def create_app(
             "parameters": _session_path_parameters(),
         },
         responses={
-            "200": _success_response(
-                "FeedbackResponse", _FEEDBACK_RESPONSE_EXAMPLE
-            ),
+            "200": _success_response("FeedbackResponse", _FEEDBACK_RESPONSE_EXAMPLE),
             **_error_response(
                 "invalid_request",
                 "Schema, version, path/body, task, or action_id mismatch",
@@ -866,11 +779,14 @@ def create_app(
         # ActionResult.action_id must be the Action this session last issued
         # (E-01 freshness: API-side correlation of feedback to the prior step).
         last_action_id = record.last_action_id
-        if last_action_id is None or feedback_msg.result.action_id.root != last_action_id:
+        if (
+            last_action_id is None
+            or feedback_msg.result.action_id.root != last_action_id
+        ):
             raise ProtocolReject(
                 "invalid_request",
                 correlation=established_correlation(record, feedback_msg),
-                reason="stage=feedback detail=action_id_mismatch",
+                reason=RejectReason.ACTION_ID_MISMATCH,
             )
 
         store_advance(
@@ -889,12 +805,7 @@ def create_app(
             "seq": feedback_msg.seq,
             "status": "accepted",
         }
-        logger.debug(
-            "OK route=POST .../feedback session_id=%s seq=%s status=%s",
-            session_id,
-            feedback_msg.seq,
-            feedback_msg.result.status,
-        )
+        logger.debug("OK route=POST .../feedback")
         return checked_response("FeedbackResponse", payload)
 
     @app.delete(
@@ -936,7 +847,7 @@ def create_app(
             raise ProtocolReject(
                 "unavailable",
                 correlation=established_correlation(record, end),
-                reason="stage=store_delete detail=redis_error",
+                reason=RejectReason.STORE_DELETE_REDIS_ERROR,
             ) from None
 
         payload = {
@@ -947,11 +858,7 @@ def create_app(
             "seq": end.seq,
             "status": "ended",
         }
-        logger.debug(
-            "OK route=DELETE /v1/sessions/{session_id} session_id=%s seq=%s",
-            session_id,
-            end.seq,
-        )
+        logger.debug("OK route=DELETE /v1/sessions/{session_id}")
         return checked_response("SessionEndResponse", payload)
 
     @app.post(
@@ -993,66 +900,59 @@ def create_app(
         raise ProtocolReject(
             "unavailable",
             correlation=established_correlation(record, escalate_msg),
-            reason="stage=escalate detail=vlm_not_implemented_until_e11",
+            reason=RejectReason.VLM_NOT_IMPLEMENTED_UNTIL_E11,
         )
 
     # --- bounded error handlers -----------------------------------------
 
     @app.exception_handler(ProtocolReject)
     async def on_protocol_reject(request: Request, exc: ProtocolReject) -> JSONResponse:
-        logger.debug(
-            "REJECT %s %s %s",
-            request.method,
-            request.url.path,
-            exc.reason or f"stage=unknown code={exc.code}",
-        )
+        logger.debug("REJECT %s", exc.reason.value if exc.reason else "unspecified")
         return checked_error(exc.code, correlation=exc.correlation)
 
     @app.exception_handler(RequestValidationError)
     async def on_request_validation_error(
         request: Request, exc: RequestValidationError
     ) -> JSONResponse:
-        # Should not happen (no bound body models) but never echo input.
-        for item in exc.errors():
-            logger.debug(
-                "REJECT %s %s stage=request_validation loc=%s type=%s",
-                request.method,
-                request.url.path,
-                item.get("loc"),
-                item.get("type"),
-            )
+        logger.debug("REJECT stage=request_validation")
         return checked_error("invalid_request")
 
     @app.exception_handler(StarletteHTTPException)
     async def on_http_exception(
         request: Request, exc: StarletteHTTPException
     ) -> JSONResponse:
-        # Unknown routes and method mismatches still get a bounded ProtocolError
-        # whose HTTP status matches the documented mapping for its code
-        # (invalid_request → 400, rate_limited → 429). Never invent a status
-        # that contradicts errors.HTTP_STATUS_BY_CODE.
         code = "rate_limited" if exc.status_code == 429 else "invalid_request"
-        logger.debug(
-            "REJECT %s %s stage=http_exception status=%s detail=%s",
-            request.method,
-            request.url.path,
-            exc.status_code,
-            str(exc.detail)[:200],
-        )
+        logger.debug("REJECT stage=http_exception")
         return checked_error(code)
 
-    @app.exception_handler(Exception)
-    async def on_unhandled(request: Request, exc: Exception) -> JSONResponse:
-        # Last-resort bounded error. Log the exception class name only — never
-        # arguments or tracebacks, which could carry page-derived strings.
-        logger.warning("unhandled server error: %s", type(exc).__name__)
-        logger.debug(
-            "REJECT %s %s stage=unhandled type=%s",
-            request.method,
-            request.url.path,
-            type(exc).__name__,
-        )
-        return checked_error("unavailable")
+    class BoundedErrorsMiddleware:
+        """Contain exceptions before Starlette re-raises them to server logging."""
+
+        def __init__(self, app):
+            self.app = app
+
+        async def __call__(self, scope, receive, send):
+            if scope["type"] != "http":
+                return await self.app(scope, receive, send)
+            started = False
+
+            async def tracked_send(message):
+                nonlocal started
+                if message["type"] == "http.response.start":
+                    started = True
+                await send(message)
+
+            try:
+                await self.app(scope, receive, tracked_send)
+            except Exception:
+                logger.warning("REJECT stage=unhandled")
+                if started:
+                    # A partial response cannot be replaced. Keep its exception
+                    # data out of the server's traceback as well.
+                    raise RuntimeError("Response interrupted") from None
+                await checked_error("unavailable")(scope, receive, send)
+
+    app.add_middleware(BoundedErrorsMiddleware)
 
     fastapi_openapi = app.openapi
 

@@ -863,9 +863,9 @@ def test_debug_log_records_stage_reasons_without_payload(
     text = log_path.read_text(encoding="utf-8")
     assert "stage=path_body_match" in text
     assert "session_id_mismatch" in text
-    assert f"path={sid}" in text
+    assert sid not in text
     assert "stage=parse_message" in text
-    assert "missing required 'observation_id'" in text
+    assert "detail=invalid_schema" in text
     # Stage detail must never appear in HTTP bodies.
     assert "session_id_mismatch" not in resp.text
     # Task text / page values must not be copied into the log.

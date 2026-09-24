@@ -29,8 +29,8 @@ Also implemented:
   tasks (`t_profile_upd`, `t_search_demo`). Unknown tasks get a bounded `done`.
   Inject a real planner later via `create_app(planner=…)` (the `Planner`
   protocol is already defined).
-- **Debug log** — payload-free reject reasons (JSON paths and schema keywords
-  only) written to `PA_DEBUG_LOG`.
+- **Debug log** — fixed diagnostic stage and reason codes (no request paths, keys,
+  identifiers, or exception contents) written to `PA_DEBUG_LOG`.
 
 Not implemented: real LLM planner, VLM escalation (E-11), diff Screen State
 reconstruction (E-07/E-08), prompt assembly, auth, rate limiting, SSE streaming.
@@ -60,7 +60,7 @@ docker run --name pa-redis -p 6379:6379 -d redis:7-alpine
 
 uv python install 3.12                      # once, if not present
 uv sync --locked --python 3.12
-uv run --locked uvicorn privacagent_agent_api.app:app --port 8000
+uv run --locked uvicorn privacagent_agent_api.app:app --port 8000 --no-access-log
 ```
 
 Swagger UI, ReDoc, and the OpenAPI schema are at `/docs`, `/redoc`, and
@@ -75,7 +75,7 @@ must match or the request is rejected as `invalid_request`.
 | ------------------- | -------------------------- | ------------------------------------------ |
 | `PA_REDIS_URL`      | `redis://127.0.0.1:6379/0` | Redis connection URL                       |
 | `PA_SESSION_TTL`    | `1800`                     | Session TTL in seconds (1–1800, protocol cap) |
-| `PA_MAX_BODY_BYTES` | `5242880`                  | Request body cap                           |
+| `PA_MAX_BODY_BYTES` | `5242880`                  | Streaming request body cap                           |
 | `PA_DEBUG_LOG`      | `debug.log`                | Stage-level reject log (empty disables)    |
 
 ### Tests
@@ -189,7 +189,13 @@ route, etc.) still return a `ProtocolError` body with the code from this table.
 
 This server only ever handles sanitized Screen State. It stores no DOM, no
 screenshots, and no vault mappings; it logs no payloads and never echoes
-request bodies. The debug log records stage names and schema paths only.
+request bodies. The debug log records only fixed stage and reason codes. Request bodies are
+counted as chunks arrive and rejected before buffering a chunk that exceeds
+`PA_MAX_BODY_BYTES`, regardless of `Content-Length`. The Python launcher disables
+Uvicorn access logs because URLs can contain personal data; retain
+`--no-access-log` when launching Uvicorn directly. Unexpected route exceptions
+are contained before the server can log their contents. Any deployment proxy
+must likewise avoid logging request URLs or bodies.
 Validation runs exclusively through the E-01 boundary (`parse_message`); both
 success responses and `ProtocolError` bodies are re-validated immediately
 before send.
