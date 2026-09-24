@@ -243,47 +243,173 @@ test('timer fallback finishes the same walk', async ({ page }) => {
   expect(result.chunks).toBeGreaterThan(1);
 });
 
-test('rejects a queued frame document that navigates before traversal', async ({ page }) => {
-  const result = await page.evaluate(async () => {
-    const frame = document.createElement('iframe');
-    const loaded = new Promise<void>((resolve) => {
-      frame.onload = () => resolve();
-    });
-    frame.srcdoc = '<button>Old document</button>';
-    document.body.append(frame);
-    await loaded;
-    const child = frame.contentDocument!;
-    const createWalker = child.createTreeWalker.bind(child);
-    let queued = false;
-    let navigated = false;
-    child.createTreeWalker = (root, show, filter) => {
-      queued = true;
-      return createWalker(root, show, filter);
-    };
-    return window.domWalker.walkDocument(document, {
-      maxUnitsPerChunk: 1,
-      scheduler: {
-        now: () => performance.now(),
-        request(callback) {
-          const id = setTimeout(async () => {
-            if (queued && !navigated) {
-              navigated = true;
-              const reloaded = new Promise<void>((resolve) => {
-                frame.onload = () => resolve();
-              });
-              frame.srcdoc = '<button>New document</button>';
-              await reloaded;
-            }
-            callback({ didTimeout: true, timeRemaining: () => 0 });
-          }, 0);
-          return () => clearTimeout(id);
+for (const mutation of ['detach', 'navigate'] as const) {
+  for (const timing of ['queued-frame', 'queued-shadow', 'validation'] as const) {
+    test(`preserves valid roots when child roots ${mutation} during ${timing}`, async ({
+      page,
+    }) => {
+      const result = await page.evaluate(
+        async ({ mutation, timing }) => {
+          document.body.innerHTML = '<button id="top">TOP_TEXT</button>';
+          const loadFrame = async (html: string) => {
+            const frame = document.createElement('iframe');
+            const loaded = new Promise<void>((resolve) => {
+              frame.onload = () => resolve();
+            });
+            frame.srcdoc = html;
+            document.body.append(frame);
+            await loaded;
+            return frame;
+          };
+          const bad = await loadFrame(
+            '<button id="bad" data-private="BAD_ATTRIBUTE">BAD_TEXT</button><div id="host"></div><iframe srcdoc="<button id=nested-bad>BAD_NESTED</button>"></iframe>'
+          );
+          const child = bad.contentDocument!;
+          const shadow = child.querySelector('#host')!.attachShadow({ mode: 'open' });
+          shadow.innerHTML = '<button id="bad-shadow">BAD_SHADOW</button>';
+          const good = await loadFrame('<button id="good">GOOD_TEXT</button>');
+          const cursors: { root: Node; ended: boolean }[] = [];
+          const restores: (() => void)[] = [];
+          for (const doc of [
+            document,
+            child,
+            good.contentDocument!,
+            child.querySelector('iframe')!.contentDocument!,
+          ]) {
+            const original = doc.createTreeWalker.bind(doc);
+            restores.push(() => {
+              doc.createTreeWalker = original;
+            });
+            doc.createTreeWalker = (root, show, filter) => {
+              const walker = original(root, show, filter);
+              const state = { root, ended: false };
+              cursors.push(state);
+              const next = walker.nextNode.bind(walker);
+              walker.nextNode = () => {
+                const node = next();
+                if (!node) state.ended = true;
+                return node;
+              };
+              return walker;
+            };
+          }
+          let mutated = false;
+          let drainedTurns = 0;
+          const result = await window.domWalker.walkDocument(document, {
+            maxUnitsPerChunk: 1,
+            scheduler: {
+              now: () => performance.now(),
+              request(callback) {
+                const id = setTimeout(async () => {
+                  const topEnded = cursors.find((c) => c.root === document)?.ended;
+                  const shadowQueued = cursors.some((c) => c.root === shadow);
+                  if (cursors.length && cursors.every((c) => c.ended)) drainedTurns++;
+                  const ready =
+                    timing === 'queued-frame'
+                      ? topEnded
+                      : timing === 'queued-shadow'
+                        ? shadowQueued
+                        : drainedTurns === 2; // The previous unit entered final validation.
+                  if (ready && !mutated) {
+                    mutated = true;
+                    if (mutation === 'detach') bad.remove();
+                    else {
+                      const reloaded = new Promise<void>((resolve) => {
+                        bad.onload = () => resolve();
+                      });
+                      bad.srcdoc = '<button id="replacement">Replacement</button>';
+                      await reloaded;
+                    }
+                  }
+                  callback({ didTimeout: true, timeRemaining: () => 0 });
+                }, 0);
+                return () => clearTimeout(id);
+              },
+            },
+          });
+          restores.forEach((restore) => restore());
+          if (result.status !== 'complete') return { status: result.status, mutated };
+          return {
+            status: result.status,
+            mutated,
+            ids: result.candidates.map((c) => c.node.id).filter(Boolean),
+            text: result.evidence.textNodes.map((t) => t.node.data).join(' '),
+            attributes: result.evidence.attributeElements
+              .map((a) => a.node.getAttribute('data-private'))
+              .filter(Boolean),
+            contextsValid: result.contexts.every(
+              (c) => c.document === document || c.document === good.contentDocument
+            ),
+            framesValid: result.frames.every(
+              (f) => f.node.isConnected && f.context.document === document
+            ),
+          };
         },
-      },
+        { mutation, timing }
+      );
+      expect(result.status).toBe('complete');
+      expect(result.mutated).toBe(true);
+      expect(result.ids).toEqual(['top', 'good']);
+      expect(result.text).toContain('TOP_TEXT');
+      expect(result.text).toContain('GOOD_TEXT');
+      expect(result.text).not.toContain('BAD_');
+      expect(result.attributes).toEqual([]);
+      expect(result.contextsValid).toBe(true);
+      expect(result.framesValid).toBe(true);
     });
+  }
+}
+
+for (const mutation of ['host', 'cursor'] as const) {
+  test(`discards a child shadow root after its ${mutation} is removed`, async ({ page }) => {
+    const result = await page.evaluate(async (mutation) => {
+      document.body.innerHTML = '<button id="top">Keep</button><div id="host"></div>';
+      const host = document.querySelector('#host')!;
+      const shadow = host.attachShadow({ mode: 'open' });
+      shadow.innerHTML = '<button id="bad">Discard</button><button id="later">Later</button>';
+      const original = document.createTreeWalker.bind(document);
+      let cursor: TreeWalker | undefined;
+      document.createTreeWalker = (root, show, filter) => {
+        const walker = original(root, show, filter);
+        if (root === shadow) cursor = walker;
+        return walker;
+      };
+      let mutated = false;
+      const result = await window.domWalker.walkDocument(document, {
+        maxUnitsPerChunk: 1,
+        scheduler: {
+          now: () => performance.now(),
+          request(callback) {
+            const id = setTimeout(() => {
+              if (!mutated && cursor?.currentNode === shadow.querySelector('#bad')?.firstChild) {
+                mutated = true;
+                if (mutation === 'host') host.remove();
+                else shadow.querySelector('#bad')!.remove();
+              }
+              callback({ didTimeout: true, timeRemaining: () => 0 });
+            }, 0);
+            return () => clearTimeout(id);
+          },
+        },
+      });
+      document.createTreeWalker = original;
+      if (result.status !== 'complete') return { status: result.status, mutated };
+      return {
+        status: result.status,
+        mutated,
+        ids: result.candidates.map((c) => c.node.id),
+        text: result.evidence.textNodes.map((t) => t.node.data).join(' '),
+        contexts: result.contexts.length,
+      };
+    }, mutation);
+    expect(result.status).toBe('complete');
+    expect(result.mutated).toBe(true);
+    expect(result.ids).toEqual(['top']);
+    expect(result.text).toContain('Keep');
+    expect(result.text).not.toContain('Discard');
+    expect(result.contexts).toBe(1);
   });
-  expect(result.status).toBe('stale');
-  expect(result).not.toHaveProperty('evidence');
-});
+}
 
 test('discards accumulated results on mid-walk cancellation and processing error', async ({
   page,

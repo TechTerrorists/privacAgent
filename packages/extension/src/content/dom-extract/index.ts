@@ -34,9 +34,11 @@ export async function walkDocument(
   const visited = new WeakSet<Node>();
   const roots = new WeakSet<Node>();
   const excluded = new WeakSet<Node>();
+  const invalid = new Set<TraversalContext>();
   let queueIndex = 0;
   let validationIndex = 0;
-  let phase: 'walk' | 'validate' = 'walk';
+  let cleanupIndex = 0;
+  let phase: 'walk' | 'validate' | 'cleanup' = 'walk';
 
   const addRoot = (context: TraversalContext) => {
     if (roots.has(context.root)) return;
@@ -48,6 +50,7 @@ export async function walkDocument(
   };
   const current = (context: TraversalContext): boolean => {
     try {
+      if (invalid.has(context) || (context.parent && invalid.has(context.parent))) return false;
       if (context.document.defaultView?.document !== context.document) return false;
       if (
         context.frameElement &&
@@ -55,32 +58,84 @@ export async function walkDocument(
           context.frameElement.contentDocument !== context.document)
       )
         return false;
-      if (context.root.nodeType === 11 && !(context.root as ShadowRoot).host.isConnected)
-        return false;
+      if (context.root.nodeType === 11) {
+        const host = (context.root as ShadowRoot).host;
+        if (!host.isConnected || host.ownerDocument !== context.document) return false;
+      }
       return true;
     } catch {
       return false;
     }
   };
 
+  // One item per unit: discarding a large invalid child must also yield to the scheduler.
+  const compact = <T>(items: T[], keep: (item: T) => boolean) => {
+    let read = 0;
+    let write = 0;
+    return () => {
+      if (read === items.length) {
+        items.length = write;
+        return false;
+      }
+      const item = items[read++]!;
+      if (keep(item)) items[write++] = item;
+      return true;
+    };
+  };
+  const keepNode = ({ node, context }: { node: Node; context: TraversalContext }) =>
+    !invalid.has(context) &&
+    node.isConnected &&
+    node.ownerDocument === context.document &&
+    node.getRootNode() === context.root;
+  const cleanup = [
+    compact(candidates, keepNode),
+    compact(evidence.textNodes, keepNode),
+    compact(evidence.attributeElements, keepNode),
+    compact(frames, keepNode),
+    compact(contexts, (context) => !invalid.has(context)),
+  ];
+  const skip = (context: TraversalContext): true | 'stale' => {
+    if (!context.parent) return 'stale';
+    invalid.add(context);
+    queueIndex++;
+    return true;
+  };
+
   const step = (): boolean | 'stale' => {
     if (pageHidden || win.document !== document) return 'stale';
+    if (phase === 'cleanup') {
+      const clean = cleanup[cleanupIndex];
+      if (!clean) return false;
+      if (!clean()) cleanupIndex++;
+      return true;
+    }
     if (phase === 'validate') {
       const context = contexts[validationIndex++];
-      return context ? (current(context) ? true : 'stale') : false;
+      if (!context) {
+        if (!invalid.size) return false;
+        phase = 'cleanup';
+        return true;
+      }
+      // Discovery order is parent-before-child, propagating invalidation without
+      // an unbounded recursive ancestry scan or retaining invalid descendants.
+      if (!current(context)) {
+        if (!context.parent) return 'stale';
+        invalid.add(context);
+      }
+      return true;
     }
     const job = queue[queueIndex];
     if (!job) {
       phase = 'validate';
       return true;
     }
-    if (!current(job.context)) return 'stale';
+    if (!current(job.context)) return skip(job.context);
     if (
       job.walker.currentNode !== job.context.root &&
       (!job.walker.currentNode.isConnected ||
         job.walker.currentNode.getRootNode() !== job.context.root)
     )
-      return 'stale';
+      return skip(job.context);
     const node = job.walker.nextNode();
     if (!node) {
       queueIndex++;
@@ -91,7 +146,7 @@ export async function walkDocument(
       node.ownerDocument !== job.context.document ||
       node.getRootNode() !== job.context.root
     )
-      return 'stale';
+      return skip(job.context);
     if (visited.has(node)) return true;
     visited.add(node);
     if (node.parentNode && excluded.has(node.parentNode)) {
@@ -167,6 +222,7 @@ export async function walkDocument(
     return { ...result, status: 'complete', candidates, evidence, frames, contexts };
   } finally {
     queue.length = 0;
+    invalid.clear();
     options.signal?.removeEventListener('abort', cancel);
     win.removeEventListener('pagehide', hide);
   }

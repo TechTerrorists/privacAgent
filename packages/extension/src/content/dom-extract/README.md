@@ -21,12 +21,12 @@ if (result.status === 'complete') {
 
 Results are discriminated by `status`:
 
-| Status      | Meaning                                                                                                                               |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `complete`  | Traversal finished for the accessible, loaded roots discovered in this run                                                            |
-| `cancelled` | The caller aborted; no partial candidates/evidence are returned                                                                       |
-| `stale`     | A traversed root/cursor became detached, moved to another root, changed document, or the top document received `pagehide`; re-observe |
-| `error`     | Unexpected processing/scheduling failure; no page-derived exception details or partial data are returned                              |
+| Status      | Meaning                                                                                                  |
+| ----------- | -------------------------------------------------------------------------------------------------------- |
+| `complete`  | Traversal finished for retained valid roots; invalid child roots and their data were skipped             |
+| `cancelled` | The caller aborted; no partial candidates/evidence are returned                                          |
+| `stale`     | The requested document or its traversal cursor was invalidated, or it received `pagehide`; re-observe    |
+| `error`     | Unexpected processing/scheduling failure; no page-derived exception details or partial data are returned |
 
 Invalid scheduling options or a document without a window reject with a fixed programmer
 error. Failures during scheduled processing resolve to `error`. There are no payload logs.
@@ -39,7 +39,9 @@ A completed result contains:
   not a copied attribute bag or the live value of an input. Privacy processing must read
   required attributes and live form values separately in the content context, then send
   only the necessary local evidence to the worker through the future message bus.
-- `frames`: each encountered iframe with `same-origin`, `opaque` or `unloaded` access.
+- `frames`: encountered iframe boundaries with discovery-time `same-origin`, `opaque` or
+  `unloaded` access. A boundary may remain after its child navigates; this does not mean
+  the replacement document was traversed.
 - `contexts`: document/root/frame ancestry, without invented stable IDs.
 - `metrics`: numeric work-unit/chunk counts, active time, elapsed time and longest chunk.
 
@@ -102,8 +104,14 @@ real-time guarantee from the timer check; investigate benchmark/trace overruns.
 
 An unchanged DOM is visited once per reachable node. A changing DOM is best-effort:
 nodes inserted behind a cursor may be missed, and a returned live node may change again.
-Detected cursor/root invalidation returns `stale`; contexts are rechecked in bounded work
-units before completion. B-05/B-06/B-07/B-15 own durable document identity, mutation
+Invalid child roots/cursors are skipped, including shadow roots and descendants of an
+invalid frame. Final validation checks parents before children and removes candidates,
+text/attribute evidence, frame records and contexts belonging to invalid roots. Cleanup
+also runs in bounded work units. Valid sibling roots and top-level results are retained;
+replacement documents are left for the next observation. Invalidation of the requested
+document or its own traversal cursor still returns `stale` and discards the whole result.
+These checks remain best-effort: a root can change again after its validation turn.
+B-05/B-06/B-07/B-15 own durable document identity, mutation
 tracking, settling and action freshness. A successful walk alone authorizes no action.
 
 Abort cancels pending callbacks; all outcomes remove abort/pagehide listeners and clear
@@ -133,6 +141,11 @@ fallback and more than 300 candidates. Routes are fulfilled locally; no live sit
 read. These are DOM-module tests, not proof of extension injection, messaging, executor
 behavior, privacy recall or a complete Firefox add-on integration harness.
 
+Child-root regressions cover frame detachment/navigation before traversal, with queued
+shadow roots and during final validation, plus detached shadow hosts and child cursors.
+They assert that valid top-level/sibling data survives and invalid descendant data is
+discarded. The current suite has 16 cases per engine (32 total).
+
 `pnpm bench:dom` constructs exactly 2,000 DOM nodes, settles initial layout, and records
 six runs with browser/OS/CPU/RAM metadata. Results are attached under `test-results/` and
 printed as numeric benchmark reports. Active time excludes waiting for idle turns;
@@ -142,7 +155,7 @@ Host-dependent timings are reported rather than used as flaky shared-runner asse
 
 ### Recorded local verification
 
-All nine browser cases passed in each engine (18 total). Six benchmark runs per engine
+The initial nine browser cases passed in each engine (18 total). Six benchmark runs per engine
 on Linux 7.1.5, Intel Core Ultra 9 275HX (24 logical CPUs), 62.2 GiB RAM, headless with
 pre-settled layout, produced:
 
