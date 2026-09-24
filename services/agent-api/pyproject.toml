@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "privacagent-agent-api"
+version = "0.1.0"
+description = "E-02 agent API skeleton: FastAPI routes over the shared E-01 protocol with a scripted fake planner"
+requires-python = ">=3.12"
+dependencies = [
+    "privacagent-protocol",
+    "fastapi>=0.115,<1",
+    "uvicorn>=0.30,<1",
+    "redis>=5,<7",
+]
+
+[tool.uv.sources]
+privacagent-protocol = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/privacagent_agent_api"]
