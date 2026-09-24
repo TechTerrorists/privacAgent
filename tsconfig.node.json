@@ -15,6 +15,7 @@
   },
   "include": [
     "vitest.config.ts",
+    "playwright.config.ts",
     "packages/*/vite.config.ts",
     "packages/*/vite.content.config.ts",
     "packages/extension/src/manifest.ts"

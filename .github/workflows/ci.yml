@@ -19,6 +19,18 @@ jobs:
   lint-and-test:
     name: Lint and test
     runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      PA_TEST_REDIS_URL: 'redis://127.0.0.1:6379/15'
     steps:
       - uses: actions/checkout@v5
 
@@ -53,6 +65,25 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+  dom-walker:
+    name: DOM walker browser tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium firefox
+      - run: pnpm test:browser
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dom-walker-browser-results
+          path: test-results/
 
   build:
     name: Build ${{ matrix.target }}
