@@ -50,10 +50,37 @@ describe('createManifest', () => {
     }
   });
 
-  it('never declares <all_urls> even as an optional permission', () => {
+  it('keeps optional host access to web schemes only', () => {
+    // `*://*/*` is deliberately broad, and asserting that the literal string
+    // `<all_urls>` is absent would prove nothing, since the two are equivalent
+    // for http/https. Breadth here is the point: it is what makes per-origin
+    // runtime requests possible at all (A-05), and every grant is still asked
+    // for one origin at a time with a named-site prompt.
+    //
+    // What must not broaden is the *scheme* set. `<all_urls>` and `file://`
+    // reach local files, which no site-scoped grant should ever imply.
+    const ALLOWED_SCHEMES = ['*', 'http', 'https'];
+
     for (const target of ['chrome', 'firefox'] as const) {
       const optional = createManifest(target, VERSION).optional_host_permissions as string[];
+
       expect(optional).not.toContain('<all_urls>');
+      expect(optional.length).toBeGreaterThan(0);
+
+      for (const pattern of optional) {
+        const scheme = pattern.split('://')[0];
+        expect(ALLOWED_SCHEMES).toContain(scheme);
+      }
+    }
+  });
+
+  it('exposes nothing at a stable URL that a page could fingerprint', () => {
+    // `scripting.executeScript` does not need web-accessible files. Anything
+    // listed here would be fetchable by any page at a fixed
+    // chrome-extension://<id>/… URL, revealing the extension before perception
+    // has run. If an entry ever becomes necessary it needs use_dynamic_url.
+    for (const target of ['chrome', 'firefox'] as const) {
+      expect(createManifest(target, VERSION)).not.toHaveProperty('web_accessible_resources');
     }
   });
 

@@ -8,8 +8,8 @@
     "dev:chrome": "vite --mode chrome",
     "dev:firefox": "vite --mode firefox",
     "build": "pnpm build:chrome && pnpm build:firefox",
-    "build:chrome": "vite build --mode chrome",
-    "build:firefox": "vite build --mode firefox",
+    "build:chrome": "vite build --mode chrome && vite build --mode chrome --config vite.content.config.ts",
+    "build:firefox": "vite build --mode firefox && vite build --mode firefox --config vite.content.config.ts",
     "package:firefox": "web-ext build --source-dir dist/firefox --artifacts-dir web-ext-artifacts --overwrite-dest",
     "lint:firefox": "web-ext lint --source-dir dist/firefox --self-hosted"
   },
