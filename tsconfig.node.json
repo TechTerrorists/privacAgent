@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    // Build tooling that runs in Node, never shipped. Checked but not emitted,
+    // and not composite, so these files can reach into package sources (e.g.
+    // vite.config.ts importing src/manifest.ts) without owning their output.
+    "noEmit": true,
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "lib": ["ES2022"],
+    "types": ["node"]
+  },
+  "include": [
+    "vitest.config.ts",
+    "packages/*/vite.config.ts",
+    "packages/*/vite.content.config.ts",
+    "packages/extension/src/manifest.ts"
+  ]
+}

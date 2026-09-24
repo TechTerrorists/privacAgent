@@ -18,12 +18,13 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "tsc --build --force",
+    "typecheck": "tsc --build --force && tsc -p tsconfig.node.json",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/node": "^26.6.2",
     "eslint": "^10.11.0",
     "prettier": "^3.9.8",
     "typescript": "^5.9.3",

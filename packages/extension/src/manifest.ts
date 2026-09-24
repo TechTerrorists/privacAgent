@@ -9,8 +9,16 @@
 
 export type Browser = 'chrome' | 'firefox';
 
-/** Kept loose on purpose: the two dialects do not share one upstream type. */
-export type Manifest = Record<string, unknown>;
+/**
+ * The two MV3 dialects do not share one upstream type, so the tail is loose —
+ * but the keys every manifest must carry are pinned, so a factory that forgets
+ * one fails to compile rather than producing an extension that will not load.
+ */
+export type Manifest = {
+  manifest_version: 3;
+  name: string;
+  version: string;
+} & Record<string, unknown>;
 
 const NAME = 'privacAgent';
 const DESCRIPTION =
@@ -45,14 +53,12 @@ export function createManifest(browser: Browser, version: string): Manifest {
     action: {
       default_title: NAME,
     },
-    web_accessible_resources: [
-      {
-        // The content script is injected on demand via `scripting.executeScript`
-        // rather than declared statically, so it ships as a resource.
-        resources: ['src/content/index.ts'],
-        matches: ['*://*/*'],
-      },
-    ],
+    // Deliberately no `web_accessible_resources`. `scripting.executeScript`
+    // does not need the file to be web-accessible, and exposing anything at a
+    // stable `chrome-extension://<id>/…` URL lets any page fetch it and
+    // fingerprint the extension before perception has run — which would defeat
+    // the point of a product whose premise is that visiting a site reveals
+    // nothing. Anything added here later needs `use_dynamic_url: true`.
   };
 
   if (browser === 'chrome') {
