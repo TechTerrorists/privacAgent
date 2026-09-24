@@ -139,6 +139,9 @@ importers:
 
   packages/extension:
     dependencies:
+      '@privacagent/protocol':
+        specifier: workspace:*
+        version: link:../protocol
       webextension-polyfill:
         specifier: ^0.12.0
         version: 0.12.0

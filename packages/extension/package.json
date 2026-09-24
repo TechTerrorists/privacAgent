@@ -14,6 +14,7 @@
     "lint:firefox": "web-ext lint --source-dir dist/firefox --self-hosted"
   },
   "dependencies": {
+    "@privacagent/protocol": "workspace:*",
     "webextension-polyfill": "^0.12.0"
   },
   "devDependencies": {

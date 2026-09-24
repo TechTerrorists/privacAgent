@@ -1,0 +1,42 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`determinism > matches committed golden output for the documented fixture 1`] = `
+{
+  "engine": "fake",
+  "frame": "image",
+  "items": [
+    {
+      "bbox": [
+        332,
+        198,
+        70,
+        268,
+      ],
+      "cls": "input",
+      "conf": 0.919,
+    },
+    {
+      "bbox": [
+        279,
+        215,
+        241,
+        124,
+      ],
+      "cls": "icon",
+      "conf": 0.4,
+    },
+    {
+      "bbox": [
+        413,
+        605,
+        138,
+        20,
+      ],
+      "cls": "text_block",
+      "conf": 0.803,
+    },
+  ],
+  "status": "ok",
+  "synthetic": true,
+}
+`;
