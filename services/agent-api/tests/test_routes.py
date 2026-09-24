@@ -25,6 +25,7 @@ from helpers import (
     FailDeleteStore,
     FailGetStore,
     MemoryStore,
+    VanishingAdvanceStore,
     end_payload,
     escalate_payload,
     feedback_payload,
@@ -201,7 +202,10 @@ def test_step_rejects_path_body_session_mismatch(client: TestClient) -> None:
     sid = start["session_id"]
     state = email_state("s_someone_else")
     resp = client.post(f"/v1/sessions/{sid}/step", json=state)
-    assert_protocol_error(resp, "invalid_request", 400)
+    data = assert_protocol_error(resp, "invalid_request", 400)
+    # 400 echoes the path session_id so Swagger users can fix the body.
+    assert data.get("session_id") == sid
+    assert "session_id_mismatch" not in resp.text
 
 
 def test_step_unknown_session(client: TestClient) -> None:
@@ -222,17 +226,18 @@ def test_step_after_expiry_without_long_sleep(make_client) -> None:
 
 
 def test_step_success_refreshes_session_ttl(make_client, redis_client) -> None:
-    client = make_client(ttl=2)
+    client = make_client(ttl=5)
     start = start_session(client, EMAIL)
     sid = start["session_id"]
+    assert start["expires_in_seconds"] == 5
     key = f"pa:agent:session:{sid}"
-    time.sleep(1.2)
+    time.sleep(1.5)
     pttl_before = redis_client.pttl(key)
-    assert 0 < pttl_before < 2000
+    assert 1000 < pttl_before < 5000
     resp = client.post(f"/v1/sessions/{sid}/step", json=email_state(sid))
     assert resp.status_code == 200
     pttl_after = redis_client.pttl(key)
-    assert pttl_after > 1500
+    assert pttl_after > 4500
 
 
 def test_step_diff_state_returns_resync_required(client: TestClient) -> None:
@@ -410,20 +415,20 @@ def test_escalate_rejects_path_body_session_mismatch(client: TestClient) -> None
 
 
 def test_escalate_does_not_refresh_session_ttl(make_client, redis_client) -> None:
-    client = make_client(ttl=2)
+    client = make_client(ttl=5)
     start = start_session(client, EMAIL)
     sid = start["session_id"]
     key = f"pa:agent:session:{sid}"
-    time.sleep(1.2)
+    time.sleep(1.5)
     pttl_before = redis_client.pttl(key)
-    assert 0 < pttl_before < 2000
+    assert 1000 < pttl_before < 5000
     payload = escalate_payload(session_id=sid, task_id=EMAIL.task_id, doc_id=DOC_ID)
     resp = client.post(f"/v1/sessions/{sid}/escalate", json=payload)
     assert_protocol_error(resp, "unavailable", 503)
     pttl_after = redis_client.pttl(key)
-    # A refresh would have reset the key to the full 2000 ms TTL.
+    # A refresh would have reset the key to the full 5000 ms TTL.
     assert pttl_after <= pttl_before
-    assert pttl_after < 1500
+    assert pttl_after < 4500
 
 
 # --- openapi / swagger ---------------------------------------------------
@@ -482,6 +487,56 @@ def test_openapi_protocol_error_responses(client: TestClient) -> None:
     assert len(protocol_errors) >= 4
 
 
+def test_openapi_session_path_param_is_documented(client: TestClient) -> None:
+    """Path session_id must be a single SessionId $ref with usage guidance."""
+    spec = client.get("/openapi.json").json()
+    for path in (
+        "/v1/sessions/{session_id}/step",
+        "/v1/sessions/{session_id}/feedback",
+        "/v1/sessions/{session_id}",
+        "/v1/sessions/{session_id}/escalate",
+    ):
+        for method, operation in spec["paths"][path].items():
+            session_params = [
+                p
+                for p in operation.get("parameters", [])
+                if p.get("name") == "session_id" and p.get("in") == "path"
+            ]
+            assert len(session_params) == 1, f"{method} {path} must have one session_id param"
+            param = session_params[0]
+            assert param["required"] is True
+            assert param["schema"].get("$ref") == "#/components/schemas/SessionId"
+            assert "session_id" in param.get("description", "").lower()
+            assert "path" in param.get("description", "").lower()
+
+
+def test_openapi_success_responses_reference_e01_messages(client: TestClient) -> None:
+    """200 responses must declare the E-01 response message and an example."""
+    spec = client.get("/openapi.json").json()
+    expected = {
+        ("/v1/sessions", "post"): "SessionStartResponse",
+        ("/v1/sessions/{session_id}/step", "post"): "Action",
+        ("/v1/sessions/{session_id}/feedback", "post"): "FeedbackResponse",
+        ("/v1/sessions/{session_id}", "delete"): "SessionEndResponse",
+    }
+    for (path, method), message_name in expected.items():
+        media = spec["paths"][path][method]["responses"]["200"]["content"][
+            "application/json"
+        ]
+        assert media["schema"]["$ref"] == f"#/components/schemas/{message_name}"
+        assert is_message(message_name, media["example"]), (
+            f"200 example for {path} must be wire-valid"
+        )
+
+
+def test_openapi_app_description_documents_try_it_out(client: TestClient) -> None:
+    spec = client.get("/openapi.json").json()
+    description = spec["info"]["description"]
+    assert "session_id" in description
+    assert "path" in description
+    assert "body" in description
+
+
 # --- failure mapping -----------------------------------------------------
 
 
@@ -526,14 +581,97 @@ def test_step_store_advance_failure_is_bounded(make_client) -> None:
 
 
 def test_feedback_store_advance_failure_is_bounded(make_client) -> None:
-    client = make_client(store=FailAdvanceStore())
+    store = FailAdvanceStore()
+    client = make_client(store=store)
     start = start_session(client, EMAIL)
     sid = start["session_id"]
+    # Seed a prior step's action_id so feedback passes the action_id check
+    # and actually reaches store_advance.
+    store._data[sid].last_action_id = "a_prior_action"
     resp = client.post(
         f"/v1/sessions/{sid}/feedback",
-        json=feedback_payload(session_id=sid, task_id=EMAIL.task_id),
+        json=feedback_payload(
+            session_id=sid, task_id=EMAIL.task_id, action_id="a_prior_action"
+        ),
     )
     assert_protocol_error(resp, "unavailable", 503)
+
+
+def test_feedback_rejects_stale_action_id(client: TestClient) -> None:
+    start = start_session(client, EMAIL)
+    sid = start["session_id"]
+    resp = client.post(f"/v1/sessions/{sid}/step", json=email_state(sid, seq=1, observation_id=1))
+    first = resp.json()
+    resp = client.post(f"/v1/sessions/{sid}/step", json=email_state(sid, seq=2, observation_id=2))
+    second = resp.json()
+    assert first["action_id"] != second["action_id"]
+    fb = feedback_payload(
+        session_id=sid,
+        task_id=EMAIL.task_id,
+        seq=2,
+        observation_id=2,
+        action_id=first["action_id"],
+    )
+    resp = client.post(f"/v1/sessions/{sid}/feedback", json=fb)
+    data = assert_protocol_error(resp, "invalid_request", 400)
+    assert data["session_id"] == sid
+    assert data["task_id"] == EMAIL.task_id
+
+
+def test_feedback_without_prior_step_rejects_unknown_action_id(client: TestClient) -> None:
+    start = start_session(client, EMAIL)
+    sid = start["session_id"]
+    fb = feedback_payload(session_id=sid, task_id=EMAIL.task_id, action_id="a_demo")
+    resp = client.post(f"/v1/sessions/{sid}/feedback", json=fb)
+    assert_protocol_error(resp, "invalid_request", 400)
+
+
+def test_step_vanishing_advance_reports_session_expired(make_client) -> None:
+    client = make_client(store=VanishingAdvanceStore())
+    start = start_session(client, EMAIL)
+    sid = start["session_id"]
+    resp = client.post(f"/v1/sessions/{sid}/step", json=email_state(sid))
+    data = assert_protocol_error(resp, "session_expired", 404)
+    assert data["session_id"] == sid
+
+
+def test_feedback_vanishing_advance_reports_session_expired(make_client) -> None:
+    store = VanishingAdvanceStore()
+    client = make_client(store=store)
+    start = start_session(client, EMAIL)
+    sid = start["session_id"]
+    store._data[sid].last_action_id = "a_prior_action"
+    resp = client.post(
+        f"/v1/sessions/{sid}/feedback",
+        json=feedback_payload(
+            session_id=sid, task_id=EMAIL.task_id, action_id="a_prior_action"
+        ),
+    )
+    assert_protocol_error(resp, "session_expired", 404)
+
+
+def test_step_path_body_mismatch_on_unknown_session_omits_correlation(
+    client: TestClient,
+) -> None:
+    # Unknown path session must report session_expired without echoing the
+    # body's (untrusted) task identity or seq.
+    state = email_state("s_someone_else")
+    resp = client.post("/v1/sessions/s_never_created/step", json=state)
+    data = assert_protocol_error(resp, "session_expired", 404)
+    assert data.get("session_id") == "s_never_created"
+    assert "task_id" not in data
+    assert "seq" not in data
+
+
+def test_step_task_mismatch_correlation_uses_session_identity(client: TestClient) -> None:
+    start = start_session(client, EMAIL)
+    sid = start["session_id"]
+    state = full_state_payload(SEARCH, sid, seq=1, observation_id=1, doc_id="d_catalog")
+    resp = client.post(f"/v1/sessions/{sid}/step", json=state)
+    data = assert_protocol_error(resp, "invalid_request", 400)
+    assert data["session_id"] == sid
+    assert data["task_id"] == EMAIL.task_id, "must report the session's task, not the body's"
+    assert data["task_version"] == 1
 
 
 def test_end_store_delete_failure_is_bounded(make_client) -> None:
@@ -600,10 +738,35 @@ def test_planner_crash_is_bounded_and_does_not_leak(make_client) -> None:
 
 
 def test_unknown_route_and_method_return_bounded_protocol_bodies(client: TestClient) -> None:
+    # Framework errors (unknown route/method) always use invalid_request → 400
+    # so HTTP status matches errors.HTTP_STATUS_BY_CODE.
     resp = client.get("/v1/sessions")
-    assert_protocol_error(resp, "invalid_request", resp.status_code)
+    assert_protocol_error(resp, "invalid_request", 400)
     resp = client.get("/v1/sessions/not-an-endpoint")
-    assert_protocol_error(resp, "invalid_request", resp.status_code)
+    assert_protocol_error(resp, "invalid_request", 400)
+    resp = client.put(f"/v1/sessions/{start_session(client, EMAIL)['session_id']}/step")
+    assert_protocol_error(resp, "invalid_request", 400)
+
+
+def test_start_expires_in_matches_store_ttl(make_client) -> None:
+    class CustomTtlStore(MemoryStore):
+        ttl = 42
+
+    client = make_client(store=CustomTtlStore())
+    start = start_session(client, EMAIL)
+    assert start["expires_in_seconds"] == 42
+
+
+def test_dead_redis_maps_to_bounded_unavailable(make_client) -> None:
+    from privacagent_agent_api.session_store import RedisSessionStore
+
+    dead = RedisSessionStore.from_url("redis://127.0.0.1:1/0", ttl=1800)
+    client = make_client(store=dead)
+    resp = client.post("/v1/sessions", json=start_request_payload(EMAIL))
+    data = assert_protocol_error(resp, "unavailable", 503)
+    assert "redis" not in resp.text.lower() or data["code"] == "unavailable"
+    resp = client.post("/v1/sessions/s_any/step", json=email_state("s_any"))
+    assert_protocol_error(resp, "unavailable", 503)
 
 
 @pytest.mark.parametrize(
@@ -637,9 +800,9 @@ def test_all_error_bodies_are_schema_valid(client: TestClient, which: str) -> No
             },
         )
     elif which == "unknown-field":
-        payload = email_state(sid)
-        payload["kind"] = "full"
-        resp = client.post(f"/v1/sessions/{sid}/step", json={**email_state(sid), "page": None})
+        resp = client.post(
+            f"/v1/sessions/{sid}/step", json={**email_state(sid), "not_a_field": 1}
+        )
     elif which == "missing-identity":
         payload = email_state(sid)
         del payload["observation_id"]
@@ -650,3 +813,61 @@ def test_all_error_bodies_are_schema_valid(client: TestClient, which: str) -> No
         resp = client.post("/v1/sessions/s_never_created/step", json=email_state("s_never_created"))
     assert resp.status_code >= 400
     assert_protocol_error(resp, resp.json()["code"], resp.status_code)
+
+
+# --- debug logging --------------------------------------------------------
+
+
+def test_debug_log_records_stage_reasons_without_payload(
+    make_client, tmp_path, monkeypatch
+) -> None:
+    """Rejections land in debug.log with stage detail; response stays bare."""
+    import json as _json
+
+    from privacagent_agent_api.config import Settings
+
+    log_path = tmp_path / "debug.log"
+    monkeypatch.setenv("PA_DEBUG_LOG", str(log_path))
+    client = make_client(
+        settings=Settings(
+            redis_url=REDIS_URL,
+            session_ttl=1800,
+            max_body_bytes=5 * 1024 * 1024,
+            debug_log_path=str(log_path),
+        )
+    )
+    start = start_session(client, EMAIL)
+    sid = start["session_id"]
+
+    # Path/body session mismatch — the common Swagger footgun.
+    resp = client.post(
+        f"/v1/sessions/{sid}/step", json=email_state("REPLACE_WITH_SESSION_ID")
+    )
+    assert_protocol_error(resp, "invalid_request", 400)
+    assert "stage=path_body_match" not in resp.text
+    assert "PRIVATE_CANARY" not in resp.text
+    assert resp.json().get("session_id") == sid
+
+    # Schema failure with a canary value that must not appear in the log.
+    bad = email_state(sid)
+    bad["page"] = None
+    resp = client.post(f"/v1/sessions/{sid}/step", json=bad)
+    assert_protocol_error(resp, "invalid_request", 400)
+
+    # Missing required field.
+    missing = email_state(sid)
+    del missing["observation_id"]
+    resp = client.post(f"/v1/sessions/{sid}/step", json=missing)
+    assert_protocol_error(resp, "invalid_request", 400)
+
+    text = log_path.read_text(encoding="utf-8")
+    assert "stage=path_body_match" in text
+    assert "session_id_mismatch" in text
+    assert f"path={sid}" in text
+    assert "stage=parse_message" in text
+    assert "missing required 'observation_id'" in text
+    # Stage detail must never appear in HTTP bodies.
+    assert "session_id_mismatch" not in resp.text
+    # Task text / page values must not be copied into the log.
+    assert EMAIL.task_text not in text
+    assert "https://example.test/profile" not in text

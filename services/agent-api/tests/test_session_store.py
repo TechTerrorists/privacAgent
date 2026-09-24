@@ -47,7 +47,12 @@ def test_advance_updates_context_and_refreshes_ttl(
 ) -> None:
     store.create(make_record("s_adv"))
     assert store.advance(
-        "s_adv", seq=2, doc_id="d_x", observation_id=7, plan_step=3
+        "s_adv",
+        seq=2,
+        doc_id="d_x",
+        observation_id=7,
+        plan_step=3,
+        last_action_id="a_s_adv_2",
     )
     got = store.get("s_adv")
     assert got is not None
@@ -55,9 +60,41 @@ def test_advance_updates_context_and_refreshes_ttl(
     assert got.doc_id == "d_x"
     assert got.observation_id == 7
     assert got.plan_step == 3
+    assert got.last_action_id == "a_s_adv_2"
     # TTL slid forward again after the successful interaction.
     pttl = redis_client.pttl(f"{KEY_PREFIX}s_adv")
     assert pttl > 1_780_000
+
+
+def test_advance_without_action_id_preserves_previous_value(
+    store: RedisSessionStore,
+) -> None:
+    store.create(make_record("s_keep"))
+    assert store.advance(
+        "s_keep", seq=1, doc_id="d", observation_id=1, plan_step=1, last_action_id="a_1"
+    )
+    assert store.advance(
+        "s_keep", seq=2, doc_id="d", observation_id=2, plan_step=1, last_action_id=None
+    )
+    got = store.get("s_keep")
+    assert got is not None
+    assert got.last_action_id == "a_1"
+
+
+def test_create_clears_leftover_fields_from_id_collision(
+    store: RedisSessionStore, redis_client
+) -> None:
+    store.create(make_record("s_dup", task_id="t_old"))
+    assert store.advance(
+        "s_dup", seq=9, doc_id="d_old", observation_id=9, plan_step=9, last_action_id="a_old"
+    )
+    store.create(make_record("s_dup", task_id="t_new"))
+    got = store.get("s_dup")
+    assert got is not None
+    assert got.task_id == "t_new"
+    assert got.plan_step == 0
+    assert got.seq is None
+    assert got.last_action_id is None
 
 
 def test_advance_missing_session_returns_false(store: RedisSessionStore) -> None:

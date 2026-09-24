@@ -39,13 +39,25 @@ _CORRELATION_FIELDS = ("session_id", "task_id", "task_version", "seq")
 
 
 class ProtocolReject(Exception):
-    """Internal signal: raise to have the app return a bounded ProtocolError."""
+    """Internal signal: raise to have the app return a bounded ProtocolError.
 
-    def __init__(self, code: str, *, correlation: Mapping[str, Any] | None = None) -> None:
+    ``reason`` is a payload-free debug string (stage + field paths / check
+    names only) written to the debug log. It is never serialized into the
+    HTTP response body.
+    """
+
+    def __init__(
+        self,
+        code: str,
+        *,
+        correlation: Mapping[str, Any] | None = None,
+        reason: str | None = None,
+    ) -> None:
         if code not in HTTP_STATUS_BY_CODE:
             raise ValueError(f"unknown ProtocolError code: {code}")
         self.code = code
         self.correlation = dict(correlation or {})
+        self.reason = reason
         super().__init__(code)
 
 

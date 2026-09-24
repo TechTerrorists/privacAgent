@@ -106,6 +106,8 @@ def escalate_payload(
 class MemoryStore:
     """In-memory SessionStore used to unit-test route error mapping without Redis."""
 
+    ttl = 1800
+
     def __init__(self) -> None:
         self._data: dict[str, SessionRecord] = {}
 
@@ -123,6 +125,7 @@ class MemoryStore:
         doc_id: str,
         observation_id: int,
         plan_step: int,
+        last_action_id: str | None = None,
     ) -> bool:
         record = self._data.get(session_id)
         if record is None:
@@ -131,6 +134,8 @@ class MemoryStore:
         record.doc_id = doc_id
         record.observation_id = observation_id
         record.plan_step = plan_step
+        if last_action_id is not None:
+            record.last_action_id = last_action_id
         return True
 
     def delete(self, session_id: str) -> bool:
@@ -139,6 +144,8 @@ class MemoryStore:
 
 class FailAlwaysStore:
     """SessionStore that raises SessionStoreError on every operation."""
+
+    ttl = 1800
 
     def create(self, record: SessionRecord) -> None:
         raise SessionStoreError()
@@ -154,6 +161,7 @@ class FailAlwaysStore:
         doc_id: str,
         observation_id: int,
         plan_step: int,
+        last_action_id: str | None = None,
     ) -> bool:
         raise SessionStoreError()
 
@@ -179,8 +187,26 @@ class FailAdvanceStore(MemoryStore):
         doc_id: str,
         observation_id: int,
         plan_step: int,
+        last_action_id: str | None = None,
     ) -> bool:
         raise SessionStoreError()
+
+
+class VanishingAdvanceStore(MemoryStore):
+    """SessionStore whose advance reports the key vanished (returns False)."""
+
+    def advance(
+        self,
+        session_id: str,
+        *,
+        seq: int,
+        doc_id: str,
+        observation_id: int,
+        plan_step: int,
+        last_action_id: str | None = None,
+    ) -> bool:
+        self._data.pop(session_id, None)
+        return False
 
 
 class FailDeleteStore(MemoryStore):

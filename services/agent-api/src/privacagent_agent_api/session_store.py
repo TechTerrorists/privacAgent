@@ -35,6 +35,8 @@ class SessionStoreError(Exception):
 
 
 class SessionStore(TypingProtocol):
+    ttl: int
+
     def create(self, record: "SessionRecord") -> None: ...
 
     def get(self, session_id: str) -> "SessionRecord | None": ...
@@ -47,6 +49,7 @@ class SessionStore(TypingProtocol):
         doc_id: str,
         observation_id: int,
         plan_step: int,
+        last_action_id: str | None = None,
     ) -> bool: ...
 
     def delete(self, session_id: str) -> bool: ...
@@ -62,6 +65,7 @@ class SessionRecord:
     doc_id: str | None = None
     observation_id: int | None = None
     plan_step: int = 0
+    last_action_id: str | None = None
 
 
 _KEY_PREFIX = "pa:agent:session:"
@@ -70,12 +74,17 @@ _KEY_PREFIX = "pa:agent:session:"
 # already expired without its task identity/created_at fields, and a key that
 # disappears mid-advance reports False instead of leaving a partial hash. TTL
 # and the session's tracking fields are therefore always updated atomically.
+# ``last_action_id`` is written only when the caller supplies one (step);
+# feedback re-supplies the previous value so it is not cleared.
 _ADVANCE_SCRIPT = """
 if redis.call('EXISTS', KEYS[1]) == 0 then
   return 0
 end
 redis.call('HSET', KEYS[1], 'seq', ARGV[1], 'doc_id', ARGV[2],
   'observation_id', ARGV[3], 'plan_step', ARGV[4])
+if ARGV[6] ~= '' then
+  redis.call('HSET', KEYS[1], 'last_action_id', ARGV[6])
+end
 redis.call('EXPIRE', KEYS[1], ARGV[5])
 return 1
 """
@@ -90,7 +99,7 @@ class RedisSessionStore:
 
     ``advance`` refreshes the sliding TTL atomically with the field update via
     a single Lua script, so a successful step/feedback always leaves the key
-    with a full 1,800 s expiry and a complete hash. A partially-written or
+    with a full TTL and a complete hash. A partially-written or
     context-less hash is treated as missing by ``get``.
     """
 
@@ -121,6 +130,9 @@ class RedisSessionStore:
         }
         try:
             with self._client.pipeline() as pipe:
+                # Drop any leftover fields from a theoretical id collision so a
+                # new session never inherits seq/plan_step/last_action_id.
+                pipe.delete(key)
                 pipe.hset(key, mapping=mapping)
                 pipe.expire(key, self.ttl)
                 pipe.execute()
@@ -147,6 +159,7 @@ class RedisSessionStore:
             doc_id=data.get("doc_id"),
             observation_id=int(data["observation_id"]) if "observation_id" in data else None,
             plan_step=int(data.get("plan_step", "0")),
+            last_action_id=data.get("last_action_id") or None,
         )
 
     def advance(
@@ -157,6 +170,7 @@ class RedisSessionStore:
         doc_id: str,
         observation_id: int,
         plan_step: int,
+        last_action_id: str | None = None,
     ) -> bool:
         key = self._key(session_id)
         try:
@@ -169,6 +183,7 @@ class RedisSessionStore:
                 str(observation_id),
                 str(plan_step),
                 self.ttl,
+                last_action_id or "",
             )
         except _redis.RedisError as exc:
             raise SessionStoreError() from exc

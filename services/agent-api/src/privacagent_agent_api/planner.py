@@ -27,11 +27,20 @@ FALLBACK_DONE_UNKNOWN_TASK = "Scripted fake planner has no scenario for this tas
 FALLBACK_DONE_FINISHED = "Scripted plan complete"
 FALLBACK_WAIT = {"type": "wait", "ms": 500}
 
-# Keys inside command/expect objects that may name an ElementId. Bounded list
-# on purpose: the fake planner only inspects what it itself emitted.
-_TARGET_KEYS = ("target", "to_element")
-_LIST_KEYS = ("targets",)
-_EXPECT_KEYS = ("element", "appear", "disappear")
+# Keys whose string value is an ElementId (possibly nested: wait.until,
+# annotate.shapes[].target, answer.citations[].element, …). Bounded list on
+# purpose: the fake planner only inspects what it itself emitted.
+_ELEMENT_ID_KEYS = frozenset(
+    {
+        "target",
+        "to_element",
+        "element",
+        "element_id",
+        "appear",
+        "disappear",
+    }
+)
+_LIST_ELEMENT_ID_KEYS = frozenset({"targets"})
 
 
 @dataclass(frozen=True)
@@ -75,19 +84,23 @@ class Planner(Protocol):
 
 def _referenced_element_ids(command: dict[str, Any], expect: dict[str, Any] | None) -> set[str]:
     ids: set[str] = set()
-    for key in _TARGET_KEYS:
-        value = command.get(key)
-        if isinstance(value, str):
-            ids.add(value)
-    for key in _LIST_KEYS:
-        value = command.get(key)
-        if isinstance(value, list):
-            ids.update(item for item in value if isinstance(item, str))
-    if isinstance(expect, dict):
-        for key in _EXPECT_KEYS:
-            value = expect.get(key)
-            if isinstance(value, str):
-                ids.add(value)
+
+    def walk(value: Any) -> None:
+        if isinstance(value, dict):
+            for key, child in value.items():
+                if key in _ELEMENT_ID_KEYS and isinstance(child, str):
+                    ids.add(child)
+                elif key in _LIST_ELEMENT_ID_KEYS and isinstance(child, list):
+                    ids.update(item for item in child if isinstance(item, str))
+                else:
+                    walk(child)
+        elif isinstance(value, list):
+            for item in value:
+                walk(item)
+
+    walk(command)
+    if expect is not None:
+        walk(expect)
     return ids
 
 
@@ -178,5 +191,16 @@ class ScriptedFakePlanner:
 
 
 def action_id_for(record: SessionRecord) -> str:
-    """Deterministic per (task, session step) Action id, bounded to 80 chars."""
-    return f"a_{record.task_id[:44]}_{record.plan_step}"
+    """Deterministic per (session, step) Action id, bounded to 80 chars.
+
+    Includes ``session_id`` so two sessions with the same ``task_id`` cannot
+    collide on ``action_id``. Matches the E-01 ``ActionId`` pattern.
+    """
+    raw = f"a_{record.session_id}_{record.plan_step}"
+    if len(raw) <= 80:
+        return raw
+    step = str(record.plan_step)
+    max_sid = 80 - len("a_") - len("_") - len(step)
+    if max_sid < 1:
+        return raw[:80]
+    return f"a_{record.session_id[:max_sid]}_{step}"

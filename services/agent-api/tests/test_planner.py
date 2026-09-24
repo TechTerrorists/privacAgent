@@ -92,7 +92,66 @@ def test_plan_is_deterministic(planner: ScriptedFakePlanner) -> None:
     first = planner.plan(state_for(scenario), record)
     second = planner.plan(state_for(scenario), record)
     assert first == second
-    assert action_id_for(record) == f"a_{scenario.task_id}_0"
+    assert action_id_for(record) == f"a_{record.session_id}_0"
+    assert first["action_id"] == action_id_for(record)
+
+
+def test_action_id_is_session_scoped_and_schema_valid() -> None:
+    scenario = builtin_scenarios()[0]
+    a = record_for(scenario, session_id="s_one")
+    b = record_for(scenario, session_id="s_two")
+    assert action_id_for(a) != action_id_for(b), (
+        "two sessions with the same task_id must not collide on action_id"
+    )
+    from privacagent_protocol import models
+
+    models.ActionId.model_validate(action_id_for(a))
+    models.ActionId.model_validate(action_id_for(b))
+    long_sid = "s_" + "x" * 100
+    long_id = action_id_for(record_for(scenario, session_id=long_sid, plan_step=99))
+    models.ActionId.model_validate(long_id)
+    assert len(long_id) <= 80
+
+
+def test_nested_element_references_are_detected() -> None:
+    from privacagent_agent_api.planner import _referenced_element_ids
+
+    assert _referenced_element_ids(
+        {"type": "wait", "until": {"appear": "e_later"}}, None
+    ) == {"e_later"}
+    assert _referenced_element_ids(
+        {
+            "type": "annotate",
+            "shapes": [{"kind": "circle", "target": "e_mark"}],
+            "say": "look",
+        },
+        None,
+    ) == {"e_mark"}
+    assert _referenced_element_ids(
+        {"type": "answer", "text": "ok", "citations": [{"tab": "t1", "doc_id": "d1", "element": "e_cite"}]},
+        None,
+    ) == {"e_cite"}
+
+
+def test_nested_missing_element_yields_wait() -> None:
+    scenario = Scenario(
+        name="wait_until_missing",
+        task_id="t_wait_until",
+        task_text="Wait for element",
+        fixture_state=builtin_scenarios()[0].fixture_state,
+        steps=(
+            ScriptedStep(
+                command={"type": "wait", "until": {"appear": "e_never"}},
+            ),
+        ),
+    )
+    planner = ScriptedFakePlanner([scenario])
+    state = state_for(scenario)
+    action = planner.plan(state, record_for(scenario))
+    assert_valid_action(action)
+    assert action["action"]["type"] == "wait"
+    assert "target_missing" in action["thought"]
+    assert "e_never" in action["thought"]
 
 
 def test_exhausted_scenario_returns_done(planner: ScriptedFakePlanner) -> None:

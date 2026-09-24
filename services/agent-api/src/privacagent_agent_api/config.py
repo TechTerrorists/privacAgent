@@ -12,6 +12,7 @@ from dataclasses import dataclass
 PROTOCOL_MAX_SESSION_TTL = 1800
 DEFAULT_REDIS_URL = "redis://127.0.0.1:6379/0"
 DEFAULT_MAX_BODY_BYTES = 5 * 1024 * 1024
+DEFAULT_DEBUG_LOG_PATH = "debug.log"
 
 
 @dataclass(frozen=True)
@@ -19,6 +20,7 @@ class Settings:
     redis_url: str
     session_ttl: int
     max_body_bytes: int
+    debug_log_path: str = DEFAULT_DEBUG_LOG_PATH
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -27,6 +29,9 @@ class Settings:
             session_ttl=int(os.environ.get("PA_SESSION_TTL", str(PROTOCOL_MAX_SESSION_TTL))),
             max_body_bytes=int(
                 os.environ.get("PA_MAX_BODY_BYTES", str(DEFAULT_MAX_BODY_BYTES))
+            ),
+            debug_log_path=os.environ.get(
+                "PA_DEBUG_LOG", DEFAULT_DEBUG_LOG_PATH
             ),
         )
 
