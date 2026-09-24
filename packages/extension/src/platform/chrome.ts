@@ -6,6 +6,7 @@
  */
 
 import browser from 'webextension-polyfill';
+import { UnsupportedPlatformCapabilityError } from './errors.js';
 import type {
   OffscreenDocumentOptions,
   PlatformAdapter,
@@ -40,6 +41,9 @@ export const chromePlatform: PlatformAdapter = {
   },
 
   async setSidePanelOptions(options: SidePanelOptions): Promise<void> {
+    if (options.windowId !== undefined) {
+      throw new UnsupportedPlatformCapabilityError('setSidePanelOptions.windowId', 'chrome');
+    }
     if (typeof chrome !== 'undefined' && chrome.sidePanel?.setOptions) {
       const chromeOptions: chrome.sidePanel.PanelOptions = {};
       if (options.path !== undefined) chromeOptions.path = options.path;

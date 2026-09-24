@@ -40,7 +40,13 @@ export const firefoxPlatform: PlatformAdapter = {
   },
   browser,
 
-  async openSidePanel(_options?: SidePanelOpenOptions): Promise<void> {
+  async openSidePanel(options?: SidePanelOpenOptions): Promise<void> {
+    if (options?.windowId !== undefined) {
+      throw new UnsupportedPlatformCapabilityError('openSidePanel.windowId', 'firefox');
+    }
+    if (options?.tabId !== undefined) {
+      throw new UnsupportedPlatformCapabilityError('openSidePanel.tabId', 'firefox');
+    }
     const sidebarAction = getSidebarAction();
     if (sidebarAction?.open) {
       return sidebarAction.open();
@@ -49,6 +55,9 @@ export const firefoxPlatform: PlatformAdapter = {
   },
 
   async setSidePanelOptions(options: SidePanelOptions): Promise<void> {
+    if (options.enabled !== undefined) {
+      throw new UnsupportedPlatformCapabilityError('setSidePanelOptions.enabled', 'firefox');
+    }
     const sidebarAction = getSidebarAction();
     if (sidebarAction?.setPanel && options.path !== undefined) {
       const details: {

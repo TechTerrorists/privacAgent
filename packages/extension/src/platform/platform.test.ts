@@ -126,6 +126,57 @@ describe('Platform Adapter (A-02)', () => {
       });
     });
 
+    it.each([{ windowId: 99 }, { windowId: 0 }, { tabId: 42 }])(
+      'rejects targeted Firefox opens without opening the active sidebar: %j',
+      async (options) => {
+        const open = vi.fn().mockResolvedValue(undefined);
+        Object.assign(firefoxPlatform.browser, { sidebarAction: { open } });
+
+        const result = firefoxPlatform.openSidePanel(options);
+        await expect(result).rejects.toBeInstanceOf(UnsupportedPlatformCapabilityError);
+        await expect(result).rejects.toMatchObject({
+          browser: 'firefox',
+          capability: 'windowId' in options ? 'openSidePanel.windowId' : 'openSidePanel.tabId',
+        });
+        expect(open).not.toHaveBeenCalled();
+      }
+    );
+
+    it.each([
+      { enabled: false },
+      { enabled: true },
+      { enabled: false, path: 'src/ui/sidepanel.html' },
+      { enabled: true, path: 'src/ui/sidepanel.html' },
+    ])(
+      'rejects unsupported Firefox enabled options without changing the panel: %j',
+      async (options) => {
+        const setPanel = vi.fn().mockResolvedValue(undefined);
+        Object.assign(firefoxPlatform.browser, { sidebarAction: { setPanel } });
+
+        const result = firefoxPlatform.setSidePanelOptions(options);
+        await expect(result).rejects.toBeInstanceOf(UnsupportedPlatformCapabilityError);
+        await expect(result).rejects.toMatchObject({
+          browser: 'firefox',
+          capability: 'setSidePanelOptions.enabled',
+        });
+        expect(setPanel).not.toHaveBeenCalled();
+      }
+    );
+
+    it.each([{ tabId: 42 }, { windowId: 99 }])(
+      'preserves supported Firefox configuration scope: %j',
+      async (scope) => {
+        const setPanel = vi.fn().mockResolvedValue(undefined);
+        Object.assign(firefoxPlatform.browser, { sidebarAction: { setPanel } });
+
+        await firefoxPlatform.setSidePanelOptions({ path: 'src/ui/sidepanel.html', ...scope });
+        expect(setPanel).toHaveBeenCalledExactlyOnceWith({
+          panel: 'src/ui/sidepanel.html',
+          ...scope,
+        });
+      }
+    );
+
     it('preserves asynchronous rejections from sidebarAction.open', async () => {
       const failingMock = vi.fn().mockRejectedValue(new Error('Sidebar cannot open'));
       (
@@ -283,5 +334,36 @@ describe('Platform Adapter (A-02)', () => {
         'chrome.sidePanel.open is not available in the current context'
       );
     });
+
+    it.each([
+      { windowId: 99, path: 'src/ui/sidepanel.html' },
+      { windowId: 0, enabled: false },
+      { windowId: 99, tabId: 42, path: 'src/ui/sidepanel.html' },
+    ])(
+      'rejects window-scoped Chrome configuration without changing defaults: %j',
+      async (options) => {
+        const setOptions = vi.fn().mockResolvedValue(undefined);
+        Object.assign(globalThis.chrome, { sidePanel: { setOptions } });
+
+        const result = chromePlatform.setSidePanelOptions(options);
+        await expect(result).rejects.toBeInstanceOf(UnsupportedPlatformCapabilityError);
+        await expect(result).rejects.toMatchObject({
+          browser: 'chrome',
+          capability: 'setSidePanelOptions.windowId',
+        });
+        expect(setOptions).not.toHaveBeenCalled();
+      }
+    );
+
+    it.each([{ enabled: false }, { tabId: 42, enabled: true, path: 'src/ui/sidepanel.html' }])(
+      'preserves supported Chrome configuration: %j',
+      async (options) => {
+        const setOptions = vi.fn().mockResolvedValue(undefined);
+        Object.assign(globalThis.chrome, { sidePanel: { setOptions } });
+
+        await chromePlatform.setSidePanelOptions(options);
+        expect(setOptions).toHaveBeenCalledExactlyOnceWith(options);
+      }
+    );
   });
 });

@@ -50,7 +50,7 @@ export interface OffscreenDocumentOptions {
  * Options when opening the side panel (Chrome) or sidebar (Firefox).
  */
 export interface SidePanelOpenOptions {
-  /** Window ID to open the side panel in */
+  /** Window ID to open the side panel in (Chrome only; Firefox rejects explicit targets) */
   windowId?: number;
   /** Tab ID to open the side panel for (Chrome only) */
   tabId?: number;
@@ -62,11 +62,11 @@ export interface SidePanelOpenOptions {
 export interface SidePanelOptions {
   /** Path to the HTML document to render in the panel */
   path?: string;
-  /** Whether the side panel is enabled */
+  /** Whether the side panel is enabled (Chrome only; Firefox rejects either boolean) */
   enabled?: boolean;
   /** Tab ID this configuration applies to */
   tabId?: number;
-  /** Window ID this configuration applies to */
+  /** Window ID this configuration applies to (Firefox only; Chrome rejects it) */
   windowId?: number;
 }
 
@@ -85,12 +85,14 @@ export interface PlatformAdapter {
 
   /**
    * Opens the side panel (Chrome) or sidebar (Firefox).
+   * Firefox opens in the active window and rejects explicit window/tab targets.
    * Preserves asynchronous rejection if the browser API fails or context is invalid.
    */
   openSidePanel(options?: SidePanelOpenOptions): Promise<void>;
 
   /**
    * Sets options or document path for the side panel / sidebar.
+   * Unsupported options reject with UnsupportedPlatformCapabilityError before any change.
    */
   setSidePanelOptions(options: SidePanelOptions): Promise<void>;
 

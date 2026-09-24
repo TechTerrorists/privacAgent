@@ -49,6 +49,23 @@ if (platform.capabilities.offscreen) {
 
 Attempting to call an unsupported API (e.g. `platform.createOffscreenDocument()` on Firefox) explicitly rejects with `UnsupportedPlatformCapabilityError` instead of silently succeeding.
 
+Side-panel options also differ by browser. Unsupported options reject **before** any
+native API call, even when combined with supported options:
+
+| Operation                                   | Chrome                              | Firefox                                                 |
+| ------------------------------------------- | ----------------------------------- | ------------------------------------------------------- |
+| `openSidePanel()`                           | Opens in the current window         | Opens in the active window                              |
+| `openSidePanel({ windowId })` / `{ tabId }` | Supported                           | Rejects explicit targets                                |
+| `setSidePanelOptions({ path, tabId })`      | Supported                           | Supported                                               |
+| `setSidePanelOptions({ path, windowId })`   | Rejects window-scoped configuration | Supported                                               |
+| `setSidePanelOptions({ enabled })`          | Supported, with or without `path`   | Rejects both `true` and `false`, with or without `path` |
+
+Firefox path configuration requires `path`; omit `enabled` when setting it. To configure
+the global/default panel, omit both scope IDs. Do not pass both IDs for Firefox configuration.
+Opening a panel must occur in response to a user action as required by the browser.
+For these option errors, `error.capability` identifies the rejected method/option
+(for example, `setSidePanelOptions.windowId`) and `error.browser` identifies the target.
+
 ### 3. Handling Unsupported Capabilities
 
 Always handle capability errors when working with platform-specific operations:
