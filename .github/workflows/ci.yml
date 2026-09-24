@@ -32,6 +32,16 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.12.17'
+
+      - name: Install Python dependencies
+        run: uv sync --locked --python 3.12
+
+      - name: Check generated protocol
+        run: pnpm protocol:check
+
       - name: Check formatting
         run: pnpm format:check
 

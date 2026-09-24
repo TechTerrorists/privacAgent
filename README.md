@@ -1,39 +1,49 @@
-privacy focused optimized browser agent extension
+# privacAgent
 
-please use uv package manager to manage packages and create virtual environments
+A browser agent with on-device perception and privacy filtering. The extension is designed
+to keep raw DOM and screenshots on the user's machine and send only sanitized, structured
+Screen State to the server.
 
-Development Workflow
+Current foundation: **A-01** (Chrome/Firefox extension scaffold) and **E-01** (shared
+TypeScript/Python protocol). The browser UI is a placeholder; the agent and privacy
+pipeline are still to be implemented.
 
-This repository uses a strict Issue-Driven Development workflow. To keep our codebase organized and history traceable, all code changes must be tied to an active issue, and direct commits to the main branch are disabled.
+## Development setup
 
-Please follow these steps for any new features, bug fixes, or chores:
+Start with the **[development environment guide](docs/development.md)** for tool
+installation, first-time setup, loading the extension in Chrome and Firefox, daily
+commands and troubleshooting.
 
-1. Create an Issue
+Once the tools are installed, run these commands from the repository root:
 
-Before writing any code, open an issue detailing the bug or feature. This serves as the central discussion point and source of truth for the work. 2. Branch from the Issue
+```sh
+pnpm install --frozen-lockfile
+uv sync --locked --python 3.12
+pnpm protocol:check
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm format:check
+pnpm build
+pnpm --filter @privacagent/extension lint:firefox
+```
 
-Do not branch directly from main in your terminal. Instead, use the GitHub UI:
+Use **pnpm** for JavaScript/TypeScript and **uv** for Python dependencies and virtual
+environments. The [protocol package guide](packages/protocol/README.md) covers schemas,
+imports, generation and validation boundaries.
 
-    Go to your assigned Issue.
+## Contribution workflow
 
-    Under the Development section on the right sidebar, click Create a branch.
+All changes must be tied to an issue; direct commits to `main` are disabled.
 
-    Checkout that branch locally to begin your work.
+1. Open or use the issue for your work. Reference the feature ID, such as `A-02` or `E-01`.
+2. In the issue's **Development** sidebar, select **Create a branch**, then check out that
+   branch locally using GitHub's instructions. Do not create the branch from `main` in
+   the terminal.
+3. Make your changes, run the checks above, then commit and push to the issue branch.
+4. Open a PR against `main` with a closing keyword in its description, such as
+   `Closes #12` or `Fixes #34`. The **Enforce Linked Issue** workflow checks this.
+5. Merge only after required reviews and status checks pass. GitHub closes the linked
+   issue when the PR is merged.
 
-3. Open a Pull Request
-
-Once your work is complete, push your branch and open a Pull Request against main.
-
-⚠️ Critical Requirement: You must link the issue in your PR description using a supported GitHub closing keyword. For example:
-
-    Closes #12 or Fixes #34
-
-4. Pass Status Checks & Merge
-
-We enforce branch protection rules on main. Your Pull Request cannot be merged unless:
-
-    It contains a closing keyword linking it to an open issue. (Our automated GitHub Action will block the merge if this is missing).
-
-    It passes all required reviews and status checks.
-
-Once merged, GitHub will automatically close the linked issue and prompt you to delete the feature branch.
+Follow-up commits pushed to the same branch automatically appear in its existing PR.

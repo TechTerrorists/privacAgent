@@ -19,7 +19,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --build --force && tsc -p tsconfig.node.json",
-    "test": "vitest run",
+    "test": "vitest run && uv run --locked pytest",
+    "protocol:generate": "pnpm --filter @privacagent/protocol generate",
+    "protocol:check": "pnpm --filter @privacagent/protocol generate:check",
     "test:watch": "vitest"
   },
   "devDependencies": {

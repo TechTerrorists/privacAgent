@@ -8,6 +8,7 @@ export default tseslint.config(
       '**/node_modules/**',
       '**/web-ext-artifacts/**',
       '**/*.tsbuildinfo',
+      'packages/protocol/src/generated/**',
       '.venv/**',
     ],
   },
@@ -37,11 +38,16 @@ export default tseslint.config(
   },
   // Feature A-06 adds the rule that fails the build when `fetch`/XHR is called
   // outside the single network chokepoint in the background context.
-  //
-  // Config files used to opt out of type-aware linting here. They no longer
-  // need to: tsconfig.node.json covers them, so they are both linted and
-  // typechecked like any other source file.
   {
+    files: ['packages/protocol/scripts/*.mjs'],
+    languageOptions: {
+      globals: { console: 'readonly', process: 'readonly' },
+    },
+  },
+  {
+    // Only plain-JS config files opt out of type-aware linting. The `.ts` ones
+    // used to as well; they no longer need to, because tsconfig.node.json
+    // covers them, so they are linted and typechecked like any other source.
     files: ['**/*.config.js'],
     languageOptions: {
       parserOptions: {
