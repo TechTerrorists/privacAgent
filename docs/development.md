@@ -1,8 +1,8 @@
 # Development environment setup
 
 This guide takes a fresh machine from tool installation to building and checking the
-current A-01 extension scaffold and E-01 shared protocol. Run commands from the repository
-root unless a step says otherwise.
+current A-01 extension scaffold, E-01 shared protocol, and E-02 Agent API service. Run
+commands from the repository root unless a step says otherwise.
 
 ## 1. Install the tools
 
@@ -63,8 +63,11 @@ Use **pnpm** for all JavaScript dependency management and **uv** for all Python 
 management and virtual environments. Do not create competing npm, Yarn or Poetry lockfiles
 or install packages into the system Python environment.
 
-The current scaffold needs no `.env` file, API keys, Docker, Redis or GPU. The server and
-model runtime will document their setup when those features land.
+No `.env` file or API keys are needed for any current check. Docker/Redis is required only
+for the full `pnpm test` — the E-02 agent-api suite talks to a real Redis, started with
+`docker run --name pa-redis -p 6379:6379 -d redis:7-alpine`. CI runs the same suite against
+a `redis:7-alpine` service container (see `.github/workflows/ci.yml`). GPU and model
+runtime setup are still not needed (E-03+ has not landed).
 
 ## 2. Clone and check out your issue branch
 
@@ -103,7 +106,8 @@ pnpm --filter @privacagent/extension lint:firefox
 The first installation needs network access to download dependencies and, if missing,
 Python. `uv sync` creates the root `.venv`; manual activation is unnecessary because
 Python commands use `uv run`. `pnpm test` runs both Vitest and pytest, including protocol
-round-trip tests between TypeScript and Python.
+round-trip tests between TypeScript and Python; it needs Redis running (the `docker run`
+command in step 1).
 
 `pnpm protocol:check` verifies that checked-in generated protocol files match the schemas.
 `pnpm build` builds the protocol package and both browser targets. The final command
@@ -165,7 +169,9 @@ A-01 provides the manifests, build tooling and placeholder entry points. The tex
 request. The build-target line confirms that the UI script ran for the selected browser.
 
 E-01 provides schemas, types, validators and fixtures, so it is exercised through the
-protocol checks and tests rather than a browser control. Task input, agent actions,
+protocol checks and tests rather than a browser control. E-02 is exercised through
+`services/agent-api` tests (session endpoints, Redis TTL, scripted fake planner) rather
+than a browser control; the real planner is not wired yet. Task input, agent actions,
 content-script injection, perception and the privacy pipeline are not wired into this
 scaffold yet.
 
@@ -268,22 +274,23 @@ the required checks and reviews pass.
 
 ## 8. Troubleshooting
 
-| Symptom                                                     | What to check                                                                                                                                                                    |
-| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm` or `uv` is not found                                 | Reopen the terminal and check the installer's PATH instructions. Use `command -v pnpm` / `command -v uv` on Linux/macOS, or `Get-Command pnpm` / `Get-Command uv` in PowerShell. |
-| Node engine errors                                          | Use a current Node 22.x release, at least 22.13.0. Check `node --version` in the same terminal that runs pnpm.                                                                   |
-| pnpm version differs from the repository                    | Install 12.3.4 and check which executable your terminal resolves. The root `packageManager` field is the source of truth.                                                        |
-| A frozen or locked install fails                            | Ensure you pulled matching manifests and lockfiles. Preserve the lockfiles; investigate the mismatch before intentionally updating dependencies.                                 |
-| pnpm reports a store permission or SQLite error             | Check `pnpm store path` and that your user can write there. Use a user-owned store; avoid installing repository dependencies with `sudo`.                                        |
-| Python or a Python package is missing                       | Run `uv sync --locked --python 3.12`, then use `uv run --locked` for Python commands. Check `uv run --locked python --version`.                                                  |
-| A TypeScript consumer cannot import `@privacagent/protocol` | Follow the protocol guide to add its workspace dependency, run `pnpm install`, then `pnpm build` so the package export exists.                                                   |
-| Generated protocol drift                                    | For intentional schema changes, run `pnpm protocol:generate` and review the resulting diff; otherwise check that your branch has matching schemas and generated sources.         |
-| The browser cannot find a manifest                          | Run the correct browser build and select its output under `packages/extension/dist/`. Firefox needs the manifest file; Chrome needs the directory.                               |
-| Chrome reports a localhost connection failure               | Development output needs `pnpm dev:chrome` running. Alternatively stop the server, run `pnpm build:chrome`, and reload the extension.                                            |
-| Chrome development port 5173 is occupied                    | Stop your other process using that port before starting this project's development server.                                                                                       |
-| Firefox rejects the extension version or manifest           | Use Firefox 142 or newer and the Firefox build, not the Chrome build.                                                                                                            |
-| Toolbar clicks do nothing or the UI says it is loading      | The current A-01 UI is a placeholder. Follow the browser smoke test above and look for the build-target line.                                                                    |
-| Source changes do not appear                                | Rebuild the correct target, reload the extension, and reopen the UI. Confirm the browser loaded the same clone you are editing.                                                  |
+| Symptom                                                                                  | What to check                                                                                                                                                                    |
+| ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm` or `uv` is not found                                                              | Reopen the terminal and check the installer's PATH instructions. Use `command -v pnpm` / `command -v uv` on Linux/macOS, or `Get-Command pnpm` / `Get-Command uv` in PowerShell. |
+| Node engine errors                                                                       | Use a current Node 22.x release, at least 22.13.0. Check `node --version` in the same terminal that runs pnpm.                                                                   |
+| pnpm version differs from the repository                                                 | Install 12.3.4 and check which executable your terminal resolves. The root `packageManager` field is the source of truth.                                                        |
+| A frozen or locked install fails                                                         | Ensure you pulled matching manifests and lockfiles. Preserve the lockfiles; investigate the mismatch before intentionally updating dependencies.                                 |
+| pnpm reports a store permission or SQLite error                                          | Check `pnpm store path` and that your user can write there. Use a user-owned store; avoid installing repository dependencies with `sudo`.                                        |
+| Python or a Python package is missing                                                    | Run `uv sync --locked --python 3.12`, then use `uv run --locked` for Python commands. Check `uv run --locked python --version`.                                                  |
+| agent-api pytest fails with Redis Connection refused / agent-api tests need a real Redis | Check that the `docker run` container from step 1 is running (`docker ps`), port 6379 is reachable, and `PA_TEST_REDIS_URL` (default `redis://127.0.0.1:6379/15`) points at it.  |
+| A TypeScript consumer cannot import `@privacagent/protocol`                              | Follow the protocol guide to add its workspace dependency, run `pnpm install`, then `pnpm build` so the package export exists.                                                   |
+| Generated protocol drift                                                                 | For intentional schema changes, run `pnpm protocol:generate` and review the resulting diff; otherwise check that your branch has matching schemas and generated sources.         |
+| The browser cannot find a manifest                                                       | Run the correct browser build and select its output under `packages/extension/dist/`. Firefox needs the manifest file; Chrome needs the directory.                               |
+| Chrome reports a localhost connection failure                                            | Development output needs `pnpm dev:chrome` running. Alternatively stop the server, run `pnpm build:chrome`, and reload the extension.                                            |
+| Chrome development port 5173 is occupied                                                 | Stop your other process using that port before starting this project's development server.                                                                                       |
+| Firefox rejects the extension version or manifest                                        | Use Firefox 142 or newer and the Firefox build, not the Chrome build.                                                                                                            |
+| Toolbar clicks do nothing or the UI says it is loading                                   | The current A-01 UI is a placeholder. Follow the browser smoke test above and look for the build-target line.                                                                    |
+| Source changes do not appear                                                             | Rebuild the correct target, reload the extension, and reopen the UI. Confirm the browser loaded the same clone you are editing.                                                  |
 
 When reporting a setup failure, include your OS, tool versions, branch, failing command
 and relevant error output. Use synthetic data and remove credentials or page contents

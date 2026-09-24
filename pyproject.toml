@@ -2,22 +2,23 @@
 name = "privacagent-workspace"
 version = "0.0.0"
 requires-python = ">=3.12"
-dependencies = ["privacagent-protocol"]
+dependencies = ["privacagent-protocol", "privacagent-agent-api"]
 
 [tool.uv]
 package = false
 
 [tool.uv.workspace]
-members = ["packages/protocol"]
+members = ["packages/protocol", "services/agent-api"]
 
 [tool.uv.sources]
 privacagent-protocol = { workspace = true }
+privacagent-agent-api = { workspace = true }
 
 [dependency-groups]
-dev = ["datamodel-code-generator[black,isort]>=0.82,<1", "pytest>=8,<10"]
+dev = ["datamodel-code-generator[black,isort]>=0.82,<1", "pytest>=8,<10", "httpx>=0.27,<1"]
 
 [tool.pytest.ini_options]
-testpaths = ["packages/protocol/tests"]
+testpaths = ["packages/protocol/tests", "services/agent-api/tests"]
 
 [tool.black]
 target-version = ["py312"]
