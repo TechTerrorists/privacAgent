@@ -8,6 +8,7 @@ export default tseslint.config(
       '**/node_modules/**',
       '**/web-ext-artifacts/**',
       '**/*.tsbuildinfo',
+      'packages/protocol/src/generated/**',
       '.venv/**',
     ],
   },
@@ -41,6 +42,12 @@ export default tseslint.config(
   // Config files used to opt out of type-aware linting here. They no longer
   // need to: tsconfig.node.json covers them, so they are both linted and
   // typechecked like any other source file.
+  {
+    files: ['packages/protocol/scripts/*.mjs'],
+    languageOptions: {
+      globals: { console: 'readonly', process: 'readonly' },
+    },
+  },
   {
     files: ['**/*.config.js'],
     languageOptions: {
