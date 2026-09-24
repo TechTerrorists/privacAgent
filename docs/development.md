@@ -231,6 +231,13 @@ After pulling dependency changes, rerun the locked install commands from step 3.
 `pnpm-lock.yaml` and `uv.lock` aligned with their manifests when intentionally adding or
 updating dependencies.
 
+### Browser tests and benchmark
+
+For B-02 browser tests, first run `pnpm exec playwright install chromium firefox`, then
+`pnpm test:browser`. `pnpm bench:dom` reports the synthetic 2,000-node DOM-walker benchmark.
+See the [DOM walker guide](../packages/extension/src/content/dom-extract/README.md) for the
+API, test scope and benchmark limitations. These commands are separate from `pnpm test`.
+
 ## 6. Working on the shared protocol
 
 Read the [protocol package guide](../packages/protocol/README.md) for schema locations,

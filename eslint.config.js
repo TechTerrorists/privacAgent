@@ -10,6 +10,8 @@ export default tseslint.config(
       '**/*.tsbuildinfo',
       'packages/protocol/src/generated/**',
       '.venv/**',
+      'test-results/**',
+      'playwright-report/**',
     ],
   },
   js.configs.recommended,
@@ -18,7 +20,13 @@ export default tseslint.config(
     files: ['**/*.ts'],
     languageOptions: {
       parserOptions: {
-        projectService: true,
+        projectService: {
+          // Build tooling lives outside the package projects; tsconfig.node.json
+          // is what `pnpm typecheck` uses for these, so type-aware linting and
+          // typechecking agree on them.
+          allowDefaultProject: ['*.config.ts', 'packages/*/*.config.ts'],
+          defaultProject: 'tsconfig.node.json',
+        },
         tsconfigRootDir: import.meta.dirname,
       },
     },
@@ -32,6 +40,10 @@ export default tseslint.config(
   },
   // Feature A-06 adds the rule that fails the build when `fetch`/XHR is called
   // outside the single network chokepoint in the background context.
+  //
+  // Config files used to opt out of type-aware linting here. They no longer
+  // need to: tsconfig.node.json covers them, so they are both linted and
+  // typechecked like any other source file.
   {
     files: ['packages/protocol/scripts/*.mjs'],
     languageOptions: {
@@ -39,7 +51,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['**/*.config.ts', '**/*.config.js', '**/vite.config.ts'],
+    files: ['**/*.config.js'],
     languageOptions: {
       parserOptions: {
         projectService: false,

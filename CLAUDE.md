@@ -126,11 +126,26 @@ rest of the tree is created as features land, rather than scaffolded up front.
 - `pnpm build:firefox` → `dist/firefox`, via plain Vite plus a small manifest-emitting
   plugin (`@crxjs` is Chrome-only), then `web-ext` for linting and packaging.
 
+Each target runs **two** Vite passes. The second, `vite.content.config.ts`, builds the
+content script alone as a self-contained IIFE into `content/index.js`, with
+`emptyOutDir: false` so it adds to the first pass's output. This is not optional tidiness:
+`scripting.executeScript` runs a file as a **classic script**, so a bare `import` in that
+bundle throws at injection time. Never give the content script an ESM or code-split output,
+and never fold it back into the main pass.
+
 `src/manifest.ts` is the single source of truth for both MV3 dialects — do not hand-edit a
 generated `dist/*/manifest.json`. Two build constants are injected by `define` and declared
-in `src/env.d.ts`: `__BROWSER__` and `__CONTENT_SCRIPT_PATH__`. Use the latter rather than
-hard-coding the content-script path, because the two toolchains emit it under different
-names.
+in `src/env.d.ts`: `__BROWSER__` and `__CONTENT_SCRIPT_PATH__`; read the path from the
+constant rather than hard-coding it.
+
+The manifest declares **no `web_accessible_resources`**. `executeScript` does not need one,
+and any entry there is fetchable by any page at a stable `chrome-extension://<id>/…` URL,
+which fingerprints the extension before perception has run. If one ever becomes necessary
+it needs `use_dynamic_url: true`.
+
+Build tooling (`vite*.config.ts`, `vitest.config.ts`) is covered by `tsconfig.node.json`,
+so `pnpm typecheck` and type-aware lint both check it. Keep it that way — these files call
+into `src/`, and untyped config is where signature drift hides.
 
 ## Tech stack
 
