@@ -16,6 +16,22 @@ interface StorageAreaLike {
   get(key: string): Promise<Record<string, unknown>>;
 }
 
+/**
+ * The kit ships Tailwind *source*, so the extension's own build has to compile it. If the
+ * Tailwind plugin is ever dropped from the Vite config, the panel still renders every element
+ * and passes the behavioural tests below while shipping no styling at all, so these reads
+ * assert computed styles rather than class names.
+ */
+const readComputed = (page: Page, selector: string, property: string): Promise<string> =>
+  page.evaluate(
+    ([sel, prop]) => {
+      const el = document.querySelector(sel as string);
+      if (!el) throw new Error(`no element matches ${sel as string}`);
+      return getComputedStyle(el).getPropertyValue(prop as string);
+    },
+    [selector, property] as const
+  );
+
 const readStorage = async (key: string): Promise<unknown> => {
   const area = (globalThis as { chrome?: { storage?: { local?: StorageAreaLike } } }).chrome
     ?.storage?.local;
@@ -80,6 +96,32 @@ test.describe('A-10 side panel', () => {
     await expect(page.getByTestId('demo-banner')).toContainText('no network calls');
     await expect(page.getByTestId('start-task')).toBeEnabled();
     await expect(page.getByTestId('stop-task')).toBeDisabled();
+  });
+
+  test('compiles the kit stylesheet and repaints when the theme changes', async () => {
+    // An uncompiled sheet leaves utilities inert: the input would be transparent with square
+    // corners and the token variables would be empty strings.
+    const inputBackground = await readComputed(
+      page,
+      '[data-testid="task-input"]',
+      'background-color'
+    );
+    const inputRadius = await readComputed(page, '[data-testid="task-input"]', 'border-radius');
+    expect(inputBackground).not.toBe('rgba(0, 0, 0, 0)');
+    expect(Number.parseFloat(inputRadius)).toBeGreaterThan(0);
+    expect(await readComputed(page, '#root', '--pa-accent')).toMatch(/^oklch|^#/);
+
+    // The header is token-driven and present on both routes, so it proves a theme swap
+    // repaints through the token variables without depending on which view is mounted.
+    await page.getByTestId('open-settings').click();
+    await page.locator('[data-testid="theme-select"] label', { hasText: 'Light' }).click();
+    const light = await readComputed(page, 'header', 'background-color');
+
+    await page.locator('[data-testid="theme-select"] label', { hasText: 'Dark' }).click();
+    await expect(page.locator('#root')).toHaveAttribute('data-pa-theme', 'dark');
+    const dark = await readComputed(page, 'header', 'background-color');
+
+    expect(dark).not.toBe(light);
   });
 
   test('runs a task, shows the action trace and stops it', async () => {
