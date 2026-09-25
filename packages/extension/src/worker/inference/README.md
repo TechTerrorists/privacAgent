@@ -67,10 +67,20 @@ mistaken for a genuine PII detection during integration.
   at the top-left of the screenshot) or `crop`. Never page or viewport
   coordinates — converting to the page frame is A-08's job, applied by C-06.
 - A `region` restricts inference to a sub-area; returned boxes stay in the
-  image's frame, and are guaranteed to sit inside that region.
+  image's frame, and are guaranteed to sit inside that region. Regions may be
+  **fractional** — `getBoundingClientRect` returns fractional CSS px and the
+  image frame scales those by DPR — and boxes hold inside them regardless.
+  Coordinates are emitted at 2dp.
+- **A line box is the hull of its words.** Every word box sits inside the box
+  of the line that owns it, which D-12 alignment and C-13 line-crop
+  classification both rely on.
 - Confidence is `0..1` inclusive. Downstream thresholds already depend on this:
   C-11 escalates below 0.6, the §6.8 crop allowlist needs icons ≥ 0.8, and OCR
   regions below 0.7 mean character confidence are masked.
+- `meanCharConfidence` is the mean over a line's **characters**, not over its
+  per-word means, so a long word weighs more than a short one. The §6.8 masking
+  rule keys on this value, and a mis-weighted mean lands lines on the wrong
+  side of the 0.7 threshold.
 - OCR returns per-word boxes and per-character confidences from the outset,
   because C-13 (script identification) and D-12 (span-to-pixel alignment)
   consume them.

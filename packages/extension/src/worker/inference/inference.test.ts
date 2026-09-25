@@ -150,6 +150,39 @@ describe('result contract', () => {
     }
   });
 
+  it('keeps boxes inside fractional regions', async () => {
+    // Regression: box extents were derived as `1 + (n % span)`, which yields
+    // `[1, span]` for an integer span but `[1, 1 + span)` for a fractional one,
+    // overrunning the edge by up to a pixel. Fractional regions are ordinary —
+    // getBoundingClientRect is fractional, and the image frame scales by DPR.
+    for (const size of [8, 41, 137, 512]) {
+      for (const extent of [2.5, 3.5, 7.25, 10.5]) {
+        if (extent > size) continue;
+        const region: BBox = [0, 0, extent, extent];
+
+        for (const operation of OPERATIONS) {
+          const result = await call(
+            api,
+            operation,
+            { width: size, height: size, frame: 'image' },
+            { region }
+          );
+          if (result.status !== 'ok') continue;
+
+          for (const { bbox } of result.items) {
+            const [x, y, w, h] = bbox;
+            expect(x).toBeGreaterThanOrEqual(0);
+            expect(y).toBeGreaterThanOrEqual(0);
+            expect(w).toBeGreaterThan(0);
+            expect(h).toBeGreaterThan(0);
+            expect(x + w).toBeLessThanOrEqual(extent);
+            expect(y + h).toBeLessThanOrEqual(extent);
+          }
+        }
+      }
+    }
+  });
+
   it('keeps confidence within 0..1', async () => {
     const result = await api.runDetector(FIXTURE_VIEWPORT);
     expect(result.status).toBe('ok');
@@ -201,6 +234,57 @@ describe('OCR evidence', () => {
           expect(character.conf).toBeGreaterThanOrEqual(0);
           expect(character.conf).toBeLessThanOrEqual(1);
         }
+      }
+    }
+  });
+
+  it('gives every line a box that contains all of its words', async () => {
+    // Regression: the line box used to be derived independently of its words,
+    // so 98% of words fell outside their own line. D-12 maps spans to the boxes
+    // they overlap and §6.6 masks a whole line when alignment is uncertain —
+    // masking a box that holds none of the text would leave it visible.
+    for (let size = 16; size <= 600; size += 37) {
+      const result = await api.runOCR({ width: size, height: size, frame: 'crop' });
+      if (result.status !== 'ok') continue;
+
+      // Compared in integer hundredths, as the hull is computed: adding two
+      // 2dp floats reintroduces noise (14.42 becomes 14.420000000000002) that
+      // has nothing to do with containment.
+      const cents = (value: number): number => Math.round(value * 100);
+
+      for (const line of result.items) {
+        const [lineX, lineY, lineW, lineH] = line.bbox;
+        for (const word of line.words) {
+          const [x, y, w, h] = word.bbox;
+          expect(cents(x)).toBeGreaterThanOrEqual(cents(lineX));
+          expect(cents(y)).toBeGreaterThanOrEqual(cents(lineY));
+          expect(cents(x) + cents(w)).toBeLessThanOrEqual(cents(lineX) + cents(lineW));
+          expect(cents(y) + cents(h)).toBeLessThanOrEqual(cents(lineY) + cents(lineH));
+        }
+      }
+    }
+  });
+
+  it('reports meanCharConfidence as the mean over characters, not over words', async () => {
+    // Regression: averaging per-word means weighted a 4-character word the same
+    // as an 11-character one, drifting by up to 0.106 and landing lines on the
+    // wrong side of the 0.7 threshold in §6.8.
+    for (let size = 16; size <= 600; size += 37) {
+      const result = await api.runOCR({ width: size, height: size, frame: 'crop' });
+      if (result.status !== 'ok') continue;
+
+      for (const line of result.items) {
+        const characters = line.words.flatMap((word) => word.characters);
+
+        // Exact, in thousandths: every confidence is a whole number of
+        // thousandths, so the expected mean is too. `toBeCloseTo(_, 3)` would
+        // reject a legitimate half-step rounding of exactly 0.0005.
+        const thousandths = characters.map((character) => Math.round(character.conf * 1000));
+        const expected =
+          Math.round(thousandths.reduce((sum, value) => sum + value, 0) / thousandths.length) /
+          1000;
+
+        expect(line.meanCharConfidence).toBe(expected);
       }
     }
   });

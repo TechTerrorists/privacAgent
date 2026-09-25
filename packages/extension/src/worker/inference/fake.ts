@@ -87,6 +87,9 @@ function fnv1a(input: string): number {
   return hash >>> 0;
 }
 
+/** 2^32 — the exclusive upper bound of `createRandom`'s output. */
+const RANDOM_RANGE = 0x100000000;
+
 /** xorshift32. Small, dependency-free and identical across engines. */
 function createRandom(seed: number): () => number {
   let state = seed === 0 ? 1 : seed;
@@ -125,18 +128,72 @@ interface Area {
   readonly h: number;
 }
 
+/** A value in (0, 1). The generator never returns 0, so neither does this. */
+function fraction(next: () => number): number {
+  return next() / RANDOM_RANGE;
+}
+
+/** Truncates to 2dp. Always rounds *down*, so it can never push a box out of bounds. */
+function floor2(value: number): number {
+  return Math.floor(value * 100) / 100;
+}
+
+/** Offset within an axis, kept to the first 60% so a usable extent remains. */
+const OFFSET_SPAN = 0.6;
+/** Extent as a proportion of what is left on that axis, in (0.3, 1]. */
+const MIN_EXTENT_SHARE = 0.3;
+
 /**
  * A box strictly inside `area`.
  *
+ * Offsets and extents are derived as *fractions* of the area rather than by
+ * integer modulo. The old `1 + (n % span)` form assumed integral dimensions:
+ * for an integer span it yields `[1, span]`, but for a fractional one it yields
+ * `[1, 1 + span)` and overruns the edge by up to a whole pixel. Fractional
+ * areas are ordinary here — `getBoundingClientRect` returns fractional CSS px
+ * and the image frame scales those by DPR — so the arithmetic has to hold for
+ * both.
+ *
  * `x + w <= area.x + area.w` and `y + h <= area.y + area.h` hold by
- * construction, so a derived box can never escape the image it came from.
+ * construction, with `floor2` only ever shrinking the result.
  */
 function deriveBox(next: () => number, area: Area): BBox {
-  const x = area.x + (next() % Math.max(1, area.w - 1));
-  const y = area.y + (next() % Math.max(1, area.h - 1));
-  const w = 1 + (next() % Math.max(1, area.x + area.w - x));
-  const h = 1 + (next() % Math.max(1, area.y + area.h - y));
-  return [x, y, w, h];
+  const x = area.x + fraction(next) * area.w * OFFSET_SPAN;
+  const y = area.y + fraction(next) * area.h * OFFSET_SPAN;
+
+  const availableW = area.x + area.w - x;
+  const availableH = area.y + area.h - y;
+  const w = availableW * (MIN_EXTENT_SHARE + fraction(next) * (1 - MIN_EXTENT_SHARE));
+  const h = availableH * (MIN_EXTENT_SHARE + fraction(next) * (1 - MIN_EXTENT_SHARE));
+
+  return [floor2(x), floor2(y), floor2(w), floor2(h)];
+}
+
+/**
+ * The smallest box containing every input box.
+ *
+ * Computed in integer hundredths. Rounding the extent down would shrink the
+ * hull below the boxes it must contain, and rounding up could push it past the
+ * area's edge; every input is already at 2dp, so exact integer arithmetic
+ * avoids both, and avoids float noise like `0.1 + 0.2` in the output.
+ */
+function hullOf(boxes: readonly BBox[]): BBox {
+  const toHundredths = (value: number): number => Math.round(value * 100);
+
+  const lefts = boxes.map((box) => toHundredths(box[0]));
+  const tops = boxes.map((box) => toHundredths(box[1]));
+  const rights = boxes.map((box) => toHundredths(box[0]) + toHundredths(box[2]));
+  const bottoms = boxes.map((box) => toHundredths(box[1]) + toHundredths(box[3]));
+
+  const left = Math.min(...lefts);
+  const top = Math.min(...tops);
+
+  return [
+    left / 100,
+    top / 100,
+    (Math.max(...rights) - left) / 100,
+    (Math.max(...bottoms) - top) / 100,
+  ];
 }
 
 /** Stable ordering, top-to-bottom then left-to-right, so array order is fixed. */
@@ -153,6 +210,10 @@ function validate(image: InferenceImage, region: InferenceRegion | undefined): v
   }
   if (!region) return;
 
+  // Regions may be fractional on purpose. `getBoundingClientRect` returns
+  // fractional CSS px, and the image frame scales those by DPR, so a region
+  // like [0, 0, 2.5, 2.5] is ordinary input rather than a malformed one.
+  // `deriveBox` is responsible for staying inside it.
   const [x, y, w, h] = region;
   if (![x, y, w, h].every(Number.isFinite)) {
     throw new InvalidInferenceInputError('region must contain finite numbers');
@@ -173,35 +234,60 @@ function areaOf(image: InferenceImage, region: InferenceRegion | undefined): Are
   return { x, y, w, h };
 }
 
-function buildOcrWord(next: () => number, area: Area): OcrWord {
+/**
+ * A word plus its raw character confidences in thousandths.
+ *
+ * The integers are carried alongside so the line can average over *characters*
+ * without re-deriving them from the rounded `conf` floats.
+ */
+interface BuiltWord {
+  readonly word: OcrWord;
+  readonly charThousandths: readonly number[];
+}
+
+function buildOcrWord(next: () => number, area: Area): BuiltWord {
   const text = pick(next, SYNTHETIC_WORDS);
   const bbox = deriveBox(next, area);
 
-  let confidenceSum = 0;
+  const charThousandths: number[] = [];
   const characters: OcrCharacter[] = [];
   for (const char of text) {
     const thousandths = next() % (CONFIDENCE_SCALE + 1);
-    confidenceSum += thousandths;
+    charThousandths.push(thousandths);
     characters.push({ char, conf: thousandths / CONFIDENCE_SCALE });
   }
 
   // Integer mean, then a single divide: no floating-point accumulation.
-  const meanThousandths = Math.round(confidenceSum / characters.length);
-  return { text, bbox, conf: meanThousandths / CONFIDENCE_SCALE, characters };
+  const sum = charThousandths.reduce((total, value) => total + value, 0);
+  const meanThousandths = Math.round(sum / charThousandths.length);
+
+  return {
+    word: { text, bbox, conf: meanThousandths / CONFIDENCE_SCALE, characters },
+    charThousandths,
+  };
 }
 
 function buildOcrLine(next: () => number, area: Area): OcrLine {
   const wordCount = 1 + (next() % MAX_ITEMS);
-  const words: OcrWord[] = [];
-  for (let i = 0; i < wordCount; i += 1) words.push(buildOcrWord(next, area));
+  const built: BuiltWord[] = [];
+  for (let i = 0; i < wordCount; i += 1) built.push(buildOcrWord(next, area));
 
-  const meanThousandths = Math.round(
-    words.reduce((sum, word) => sum + word.conf * CONFIDENCE_SCALE, 0) / words.length
-  );
+  const words = built.map((entry) => entry.word);
+
+  // Mean over every character in the line, not over per-word means. Averaging
+  // word means weights a 4-character word the same as an 11-character one, and
+  // the §6.8 masking rule keys on this value at a 0.7 threshold — a mis-weighted
+  // mean can land a line on the wrong side of it.
+  const allThousandths = built.flatMap((entry) => entry.charThousandths);
+  const sum = allThousandths.reduce((total, value) => total + value, 0);
+  const meanThousandths = Math.round(sum / allThousandths.length);
 
   return {
     text: words.map((word) => word.text).join(' '),
-    bbox: deriveBox(next, area),
+    // A line box is the hull of its words. Deriving it independently produced
+    // boxes that contained none of their own text, which would silently break
+    // D-12 alignment and C-13 line-crop classification.
+    bbox: hullOf(words.map((word) => word.bbox)),
     meanCharConfidence: meanThousandths / CONFIDENCE_SCALE,
     words,
   };
