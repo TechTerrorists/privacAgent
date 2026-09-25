@@ -5,37 +5,17 @@ import { defineConfig } from 'vite';
 const resolveFromRoot = (path: string): string => fileURLToPath(new URL(path, import.meta.url));
 
 /**
- * `vite` (and plain `vite build`) serves the standalone preview, which is what
- * F-01 ships as its demo surface. `vite build --mode lib` emits the consumable
- * package instead: ESM bundle plus the compiled token stylesheet.
+ * The kit is consumed from source inside this workspace (see the `exports` map), so this
+ * config only ever serves or builds the standalone preview. There is no library build step
+ * to keep in sync with the package entry.
  */
-export default defineConfig(({ mode }) => {
-  if (mode === 'lib') {
-    return {
-      plugins: [tailwindcss()],
-      esbuild: { jsx: 'automatic', jsxImportSource: 'preact' },
-      build: {
-        outDir: resolveFromRoot('dist'),
-        emptyOutDir: true,
-        lib: {
-          entry: resolveFromRoot('src/index.ts'),
-          formats: ['es'] as const,
-          fileName: 'index',
-        },
-        cssCodeSplit: false,
-        rollupOptions: { external: ['preact'] },
-      },
-    };
-  }
-
-  return {
-    root: resolveFromRoot('src/preview'),
-    base: './',
-    plugins: [tailwindcss()],
-    esbuild: { jsx: 'automatic', jsxImportSource: 'preact' },
-    build: {
-      outDir: resolveFromRoot('dist/preview'),
-      emptyOutDir: false,
-    },
-  };
+export default defineConfig({
+  root: resolveFromRoot('src/preview'),
+  base: './',
+  plugins: [tailwindcss()],
+  esbuild: { jsx: 'automatic', jsxImportSource: 'preact' },
+  build: {
+    outDir: resolveFromRoot('dist/preview'),
+    emptyOutDir: true,
+  },
 });

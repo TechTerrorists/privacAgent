@@ -12,12 +12,14 @@ workspace:
 
 ```bash
 pnpm --filter @privacagent/ui-kit dev      # preview app on Vite's dev server
-pnpm --filter @privacagent/ui-kit build    # dist/index.js, dist/index.css, dist/preview/
+pnpm --filter @privacagent/ui-kit build    # typecheck + static preview in dist/preview/
 ```
 
-`vite build --mode lib` emits the consumable ESM bundle and the compiled token
-stylesheet; plain `vite build` emits the static preview under `dist/preview/`.
-The bundle keeps `preact` external, so a consumer's copy is used.
+`exports` points at `src`, not at `dist`. That is deliberate: a workspace
+consumer resolves the kit straight from TypeScript and CSS, so `pnpm test`,
+`pnpm build:chrome`, and `pnpm build:firefox` all work on a fresh checkout with
+no prebuild step and no build-order coupling. `tsc --build` still typechecks the
+package as a composite project; only the preview is emitted.
 
 ## Preview
 
