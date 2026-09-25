@@ -21,6 +21,31 @@ consumer resolves the kit straight from TypeScript and CSS, so `pnpm test`,
 no prebuild step and no build-order coupling. `tsc --build` still typechecks the
 package as a composite project; only the preview is emitted.
 
+The trade is that **the consumer compiles the stylesheet**, so a consumer needs
+Tailwind v4 and a plugin that runs it:
+
+```bash
+pnpm --filter @your/pkg add -D tailwindcss @tailwindcss/vite
+```
+
+```ts
+// vite.config.ts
+import tailwindcss from '@tailwindcss/vite';
+
+export default defineConfig({ plugins: [tailwindcss()] });
+```
+
+Skipping this is not a build error. The file is still valid CSS, so a build
+succeeds and the panel ships with none of the kit's styling. The kit therefore
+starts with `@import 'tailwindcss' source(none)`: automatic source detection is
+off, so a consumer's sheet contains exactly the kit's own utilities and never
+whatever happens to be in the consumer's project or `dist` directories. Add
+`@source` directives to a consumer stylesheet to pull in your own classes.
+
+If your build cannot run Tailwind (a plain static pipeline, a non-Vite bundler),
+import a prebuilt sheet from your own build step instead and drop the
+`./tokens.css` export from consideration.
+
 ## Preview
 
 `src/preview` renders every component and every state deterministically, with no

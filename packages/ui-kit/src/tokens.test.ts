@@ -65,8 +65,18 @@ describe('tokens.css', () => {
     expect(tokens).toContain(':focus-visible');
   });
 
-  it('scans the kit and preview sources for utility classes', () => {
+  it('pins its Tailwind sources instead of scanning the consumer project', () => {
+    expect(tokens).toContain('source(none)');
     expect(tokens).toContain("@source './components'");
-    expect(tokens).toContain("@source './preview'");
+    expect(tokens).not.toContain("@source './preview'");
+  });
+
+  it('lets the preview declare its own sources', () => {
+    const preview = readFileSync(
+      fileURLToPath(new URL('./preview/preview.css', import.meta.url)),
+      'utf8'
+    );
+    expect(preview).toContain("@import '../tokens.css'");
+    expect(preview).toContain("@source '.'");
   });
 });

@@ -1,7 +1,12 @@
-@import 'tailwindcss';
+/*
+ * `source(none)` disables Tailwind's automatic detection, so the generated sheet contains
+ * exactly the classes the kit uses. Without it, a consumer that compiles this file would also
+ * scan its own project and the kit's output directories, which silently bloats the bundle.
+ * The preview declares its own sources in `preview/preview.css`.
+ */
+@import 'tailwindcss' source(none);
 
 @source './components';
-@source './preview';
 
 @custom-variant pa-dark (&:where([data-pa-theme='dark'] *));
 
