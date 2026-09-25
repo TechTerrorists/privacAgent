@@ -12,21 +12,28 @@ manifests.
   `__BROWSER__` constant in a single expression so the inactive target's adapter is dropped
   from the bundle; importing A-02's `platform` entry instead would drag Chrome-only
   `chrome.sidePanel` / `chrome.offscreen` calls into the Firefox panel.
-- `sidepanel-view.ts` owns DOM listeners and renders the header, task input, action trace,
-  stop control and settings route. `mountSidePanel` returns a handle whose `dispose()`
-  removes every listener and disposes the controller.
+- `sidepanel-view.tsx` is the Preact shell. It renders the header, task input, action
+  trace, stop control and settings route out of `@privacagent/ui-kit` components, and
+  re-renders from the controller subscription. `mountSidePanel` returns a handle whose
+  `dispose()` unmounts the tree and drops the controller subscription; the view never
+  disposes the injected controller.
 - `controller.ts` is the synthetic demo controller. It has no network client and creates
   a deterministic local action trace. A real A-03/A-12-backed controller can implement the
   same `SidePanelController` contract without changing the view.
-- `kit.ts` contains the small DOM primitives used by this shell. The upstream F-01 UI kit
-  was not present in this checkout, so these primitives are an explicit fallback seam:
-  replace them with the F-01 exports when that branch is available, without changing the
-  controller or route contract.
+- The presentation layer is the F-01 kit (`@privacagent/ui-kit`): `Button`,
+  `ActionTraceList`, `ErrorState` and `ThemeToggle` come from that package, and the shell
+  imports its token stylesheet instead of shipping a second set of CSS variables. The
+  interim DOM primitives that stood in for F-01 have been deleted.
+- The theme follows the kit's `data-pa-theme` contract, applied to `#root` through
+  `applyTheme`, so panel and kit cannot drift apart.
 - `settings.ts` stores the `theme` key in local extension storage. No settings shown in
   the route are placeholders.
 
 The route is hash-based so `#settings` can be opened directly. Theme changes are applied
 immediately and written locally; reopening the panel hydrates the saved value.
+
+Preact batches renders into a microtask, so the controller stays synchronous while the DOM
+updates on the next tick. View tests await that flush; nothing else observes the delay.
 
 ## Verification
 
@@ -44,3 +51,10 @@ pnpm build
 (`packages/extension/tests/sidepanel.spec.ts`). Firefox is covered by
 `pnpm --filter @privacagent/extension lint:firefox` and the manual sidebar steps in
 `docs/development.md`.
+
+`lint:firefox` reports one `UNSAFE_VAR_ASSIGNMENT` warning on the panel bundle. It points at
+Preact's diffing code, which assigns `innerHTML` on its `dangerouslySetInnerHTML` path and
+when clearing children. The panel renders no untrusted HTML and never passes
+`dangerouslySetInnerHTML`, so neither branch runs here; the rule is left unsuppressed rather
+than adding a security-rule exception to the manifest lint. Everything else is zero errors
+and zero warnings.

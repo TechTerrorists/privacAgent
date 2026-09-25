@@ -101,11 +101,11 @@ test.describe('A-10 side panel', () => {
     await expect(input).toBeEnabled();
     await expect(page.getByTestId('start-task')).toBeEnabled();
     await expect(
-      page.getByTestId('action-list').locator('li[data-action-status="stopped"]')
+      page.getByTestId('action-list').locator('li[data-status="stopped"]')
     ).not.toHaveCount(0);
-    await expect(
-      page.getByTestId('action-list').locator('li[data-action-status="running"]')
-    ).toHaveCount(0);
+    await expect(page.getByTestId('action-list').locator('li[data-status="running"]')).toHaveCount(
+      0
+    );
   });
 
   test('keeps the typed draft across a state update', async () => {
@@ -120,20 +120,20 @@ test.describe('A-10 side panel', () => {
   test('routes to settings, persists the theme and hydrates it on reopen', async () => {
     await page.getByTestId('open-settings').click();
     await expect(page).toHaveURL(/#settings$/);
-    await page.getByTestId('theme-select').selectOption('light');
+    await page.locator('[data-testid="theme-select"] label', { hasText: 'Light' }).click();
 
-    await expect(page.locator('#root')).toHaveAttribute('data-theme', 'light');
+    await expect(page.locator('#root')).toHaveAttribute('data-pa-theme', 'light');
     await expect(page.getByTestId('theme-status')).toHaveText(
       'Theme saved locally in this browser.'
     );
     expect(await page.evaluate(readStorage, 'theme')).toBe('light');
 
     await page.reload();
-    await expect(page.getByTestId('theme-select')).toHaveValue('light');
+    await expect(page.locator('[data-testid="theme-select"] input[value="light"]')).toBeChecked();
     await expect(page).toHaveURL(/#settings$/);
 
     await page.getByTestId('back-home').click();
-    await expect(page.locator('#root')).toHaveAttribute('data-theme', 'light');
+    await expect(page.locator('#root')).toHaveAttribute('data-pa-theme', 'light');
   });
 
   test('makes no external requests and raises no page errors', async () => {

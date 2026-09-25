@@ -66,6 +66,9 @@ export default defineConfig(({ mode }): UserConfig => {
       __BROWSER__: JSON.stringify(mode),
       __CONTENT_SCRIPT_PATH__: JSON.stringify(CONTENT_SCRIPT_PATH),
     },
+    // The side panel is Preact/TSX; `jsxImportSource` must match the kit's tsconfig so the
+    // panel and the kit resolve the same `preact/jsx-runtime`.
+    esbuild: { jsx: 'automatic', jsxImportSource: 'preact' },
     build: {
       outDir: `dist/${mode}`,
       emptyOutDir: true,

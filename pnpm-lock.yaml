@@ -145,6 +145,12 @@ importers:
       '@privacagent/protocol':
         specifier: workspace:*
         version: link:../protocol
+      '@privacagent/ui-kit':
+        specifier: workspace:*
+        version: link:../ui-kit
+      preact:
+        specifier: ^10.29.8
+        version: 10.29.8
       webextension-polyfill:
         specifier: ^0.12.0
         version: 0.12.0
