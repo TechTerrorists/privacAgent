@@ -302,3 +302,16 @@ the required checks and reviews pass.
 When reporting a setup failure, include your OS, tool versions, branch, failing command
 and relevant error output. Use synthetic data and remove credentials or page contents
 from logs and screenshots.
+
+## Local mock sites (B-08)
+
+Run `pnpm mocks:start` from the repository root and open
+[the local fixture index](http://127.0.0.1:4173/). The profile, settings, and
+search/filter pages use synthetic data and work without the extension, Redis,
+models, or the API server. Each page has a full reset control.
+
+Run `pnpm test:mocks` for Chromium/Firefox fixture and real DOM-walker smoke
+tests, or `pnpm test:browser` for those plus the existing B-02 suite. Playwright
+starts and stops its own server, so stop a manual server first or select another
+port with `MOCK_SITES_PORT=4180`. See the [mock-site guide](../bench/mock-sites/README.md)
+for ground truth, canary locations, expected outcomes, and consumer boundaries.
