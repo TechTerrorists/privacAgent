@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>Edit profile · Local Lab</title>
+    <link rel="icon" href="/favicon.svg" />
+    <link rel="stylesheet" href="/assets/style.css" />
+    <script defer src="/assets/app.js"></script>
+  </head>
+  <body data-scenario="profile">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header>
+      <a class="brand" href="/">Local<span>Lab</span><span class="tag">B-08</span></a>
+      <nav aria-label="Mock sites">
+        <a href="/">Overview</a><a href="/profile" aria-current="page">Profile</a
+        ><a href="/settings">Settings</a><a href="/search">Catalog</a>
+      </nav>
+    </header>
+    <main id="main">
+      <div class="intro">
+        <p class="eyebrow">PRIVACAGENT / MOCK SITES PACK 1</p>
+        <h1>Edit profile</h1>
+        <p class="lead">Practice a complete form flow with synthetic contact details.</p>
+      </div>
+      <noscript><p class="error">Enable JavaScript to use these interactive fixtures.</p></noscript>
+      <div class="workspace">
+        <section class="card">
+          <h2>Contact details</h2>
+          <form id="profile-form">
+            <label for="profile-name">Full name</label
+            ><input id="profile-name" name="name" autocomplete="name" required maxlength="100" />
+            <label for="profile-email">Email</label
+            ><input
+              id="profile-email"
+              name="email"
+              type="email"
+              autocomplete="email"
+              required
+              maxlength="160"
+            />
+            <label for="profile-phone">Phone</label
+            ><input
+              id="profile-phone"
+              name="phone"
+              type="tel"
+              autocomplete="tel"
+              required
+              pattern="[+][0-9]{8,15}"
+              aria-describedby="phone-hint"
+            /><small id="phone-hint">Use + followed by 8–15 digits, with no spaces.</small>
+            <div class="actions">
+              <button id="profile-save" type="submit">Save profile</button
+              ><button id="profile-reset" type="button" class="secondary">Reset profile</button>
+            </div>
+            <p id="profile-error" role="alert" class="error"></p>
+            <p id="profile-status" role="status" class="status"></p>
+          </form>
+        </section>
+        <aside class="card saved">
+          <span class="number">SAVED SNAPSHOT</span>
+          <h2>Last saved profile</h2>
+          <p>Editing a field does not change this snapshot until you save.</p>
+          <dl>
+            <dt>Full name</dt>
+            <dd id="saved-name"></dd>
+            <dt>Email</dt>
+            <dd id="saved-email"></dd>
+            <dt>Phone</dt>
+            <dd id="saved-phone"></dd>
+          </dl>
+        </aside>
+      </div>
+    </main>
+    <footer><span class="dot"></span> Local fixtures · Synthetic data only · Reset anytime</footer>
+  </body>
+</html>
