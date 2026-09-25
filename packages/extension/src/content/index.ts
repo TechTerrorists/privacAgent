@@ -1,14 +1,10 @@
-/**
- * Content script entry point (page context, isolated world).
- *
- * Injected on demand via `scripting.executeScript` under the activeTab grant,
- * never declared statically, so that perception is idle until the user invokes
- * the extension. The DOM walk (B-02), element registry (B-05) and action
- * executor (B-10 onwards) are added here in later features.
- *
- * Built separately (vite.content.config.ts) as a self-contained IIFE, because
- * `executeScript` runs files as classic scripts: a bare `import` here would
- * throw at injection time.
- */
+/** On-demand isolated-world entry; always built as a self-contained classic IIFE. */
+import { startRegistrySession } from './element-registry/session.js';
 
-console.info('[privacAgent] content script injected');
+// Module state is new on each executeScript injection. Keep only the owner in
+// the extension's isolated global, never page DOM attributes or the page world.
+const owner = globalThis as typeof globalThis & {
+  __privacAgentRegistry?: ReturnType<typeof startRegistrySession>;
+};
+owner.__privacAgentRegistry?.dispose();
+owner.__privacAgentRegistry = startRegistrySession(document);

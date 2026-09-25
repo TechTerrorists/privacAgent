@@ -23,7 +23,7 @@
     "protocol:generate": "pnpm --filter @privacagent/protocol generate",
     "protocol:check": "pnpm --filter @privacagent/protocol generate:check",
     "test:watch": "vitest",
-    "test:browser": "playwright test",
+    "test:browser": "pnpm build && playwright test",
     "bench:dom": "playwright test --grep benchmark",
     "mocks:start": "node bench/mock-sites/server.mjs",
     "test:mocks": "playwright test bench/mock-sites/tests"
