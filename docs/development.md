@@ -146,8 +146,11 @@ Start with the builds from step 3. Each browser loads its own output directory.
 6. Use the card's **service worker** inspection link to inspect background errors. An
    inactive service worker after idle is normal for MV3.
 
-Opening the URL checks the UI page in a tab. Clicking the toolbar icon does not open the
-docked side panel yet because no toolbar-click handler is wired up. See Chrome's
+Opening the URL checks the UI page in a tab. The panel also opens in place, user-initiated
+and without extra host permissions: in Chrome, **Extensions → privacAgent → Open side
+panel** (the side panel button in the toolbar, since `side_panel.default_path` is set), and
+in Firefox through the sidebar selector described above. No toolbar-click handler is
+needed or added. See Chrome's
 [unpacked extension instructions](https://developer.chrome.com/docs/extensions/get-started/tutorial/hello-world).
 
 ### Firefox
@@ -306,7 +309,7 @@ the required checks and reviews pass.
 | Chrome reports a localhost connection failure                                            | Development output needs `pnpm dev:chrome` running. Alternatively stop the server, run `pnpm build:chrome`, and reload the extension.                                            |
 | Chrome development port 5173 is occupied                                                 | Stop your other process using that port before starting this project's development server.                                                                                       |
 | Firefox rejects the extension version or manifest                                        | Use Firefox 142 or newer and the Firefox build, not the Chrome build.                                                                                                            |
-| Toolbar clicks do nothing or the UI says it is loading                                   | Rebuild the correct target, reload the extension, and reopen the panel. The A-10 shell has a local task input but no toolbar action handler yet.                                 |
+| Toolbar clicks do nothing or the UI says it is loading                                   | Rebuild the correct target, reload the extension, and reopen the panel from the Chrome side panel button or the Firefox sidebar selector.                                        |
 | Source changes do not appear                                                             | Rebuild the correct target, reload the extension, and reopen the UI. Confirm the browser loaded the same clone you are editing.                                                  |
 
 When reporting a setup failure, include your OS, tool versions, branch, failing command

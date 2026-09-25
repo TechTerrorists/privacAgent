@@ -13,6 +13,7 @@ if (root) {
   const dispose = (): void => {
     window.removeEventListener('pagehide', dispose);
     handle.dispose();
+    controller.dispose();
   };
   window.addEventListener('pagehide', dispose, { once: true });
 }

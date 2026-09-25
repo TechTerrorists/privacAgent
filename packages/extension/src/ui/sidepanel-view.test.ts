@@ -105,6 +105,22 @@ describe('side-panel shell', () => {
     expect(root.querySelectorAll('[data-action-status]')).toHaveLength(4);
   });
 
+  it('keeps the injected controller alive across a remount and rehydrates it', async () => {
+    const root = createRoot();
+    const controller = createDemoController();
+    const first = mountSidePanel(root, controller);
+    first.dispose();
+
+    await controller.submitTask('Survives a remount');
+    handle = mountSidePanel(root, controller);
+
+    expect(root.querySelector('[data-testid="status"]')?.textContent).toBe('Task running');
+    expect(root.querySelector('[data-testid="current-task"]')?.textContent).toBe(
+      'Current task: Survives a remount'
+    );
+    expect(root.querySelectorAll('[data-action-status]')).toHaveLength(4);
+  });
+
   it('reacts to the settings hash route and removes the hash listener on dispose', () => {
     const root = createRoot();
     const first = mountSidePanel(root, createDemoController());

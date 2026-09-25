@@ -4,7 +4,15 @@ import { createActionTraceList, createButton, createErrorState } from './kit.js'
 const BUILD_TARGET = typeof __BROWSER__ === 'undefined' ? 'test' : __BROWSER__;
 
 export interface SidePanelHandle {
+  /** Re-render from the controller's current state. */
   render(): void;
+  /**
+   * Detach this view: drop every DOM listener and the controller subscription.
+   *
+   * The controller is injected, so the view does not own it and never disposes it. The
+   * owner that created the controller decides its lifetime, which is what lets a future
+   * session controller outlive a closed panel and hand the reopened panel a fresh snapshot.
+   */
   dispose(): void;
 }
 
@@ -321,7 +329,6 @@ export function mountSidePanel(
       root.removeEventListener('change', onChange);
       root.removeEventListener('input', onInput);
       view?.removeEventListener('hashchange', onHashChange);
-      controller.dispose();
       root.replaceChildren();
     },
   };
