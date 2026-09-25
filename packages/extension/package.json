@@ -21,6 +21,7 @@
     "@crxjs/vite-plugin": "^2.7.1",
     "@types/chrome": "^0.1.28",
     "@types/webextension-polyfill": "^0.12.4",
+    "happy-dom": "^20.14.5",
     "vite": "^8.3.0",
     "web-ext": "^10.7.0"
   }

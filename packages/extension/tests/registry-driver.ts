@@ -5,7 +5,7 @@ import { walkRegisteredDocument } from '../src/content/element-registry/walk.js'
 import type { ElementRegistry } from '../src/content/element-registry/index.js';
 
 const owner = globalThis as typeof globalThis & {
-  __privacAgentRegistry: { registry: ElementRegistry };
+  __privacAgentSession: { registry: ElementRegistry };
 };
 let prior: { id: string; doc_id: string } | undefined;
 let changes = 0;
@@ -13,7 +13,7 @@ let persisted = false;
 addEventListener('pageshow', (event) => {
   persisted = event.persisted;
 });
-let registry = owner.__privacAgentRegistry.registry;
+let registry = owner.__privacAgentSession.registry;
 registry.onGenerationChange(() => changes++);
 document.addEventListener('b05:test:request', () => {
   void (async () => {
@@ -27,7 +27,7 @@ document.addEventListener('b05:test:request', () => {
     }
     if (command === 'reinject' || command === 'fallback')
       await browser.runtime.sendMessage({ type: 'b05:test:reinject' });
-    registry = owner.__privacAgentRegistry.registry;
+    registry = owner.__privacAgentSession.registry;
     const target = document.querySelector('#b05-target') ?? document.querySelector('button');
     if (!target) throw new Error('Test fixture needs a button');
     const item = registry.register(target, registry.docId);
