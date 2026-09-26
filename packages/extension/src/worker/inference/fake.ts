@@ -34,18 +34,18 @@ import type { InferenceApi, InferenceOperation, InferenceOptions } from './api.j
 import { InvalidInferenceInputError } from './errors.js';
 import { FIXTURE_UNAVAILABLE_REASON } from './fixtures.js';
 import type {
-    BBox,
-    Confidence,
-    FaceDetection,
-    IconClassification,
-    InferenceImage,
-    InferenceRegion,
-    InferenceResult,
-    OcrCharacter,
-    OcrLine,
-    OcrWord,
-    UiDetection,
-    UiElementClass,
+  BBox,
+  Confidence,
+  FaceDetection,
+  IconClassification,
+  InferenceImage,
+  InferenceRegion,
+  InferenceResult,
+  OcrCharacter,
+  OcrLine,
+  OcrWord,
+  UiDetection,
+  UiElementClass,
 } from './types.js';
 
 const FNV_OFFSET_BASIS = 0x811c9dc5;
@@ -70,21 +70,21 @@ const SYNTHETIC_WORDS = ['SYNTHETIC', 'FAKE', 'SAMPLE', 'PLACEHOLDER'] as const;
 const ICON_LABELS = ['search', 'menu', 'close', 'settings', 'back'] as const;
 
 const DETECTOR_CLASSES: readonly UiElementClass[] = [
-    'button',
-    'input',
-    'link',
-    'icon',
-    'text_block',
+  'button',
+  'input',
+  'link',
+  'icon',
+  'text_block',
 ];
 
 /** FNV-1a over a canonical identity string. Integer ops only, so engine-stable. */
 function fnv1a(input: string): number {
-    let hash = FNV_OFFSET_BASIS;
-    for (let i = 0; i < input.length; i += 1) {
-        hash ^= input.charCodeAt(i);
-        hash = Math.imul(hash, FNV_PRIME) >>> 0;
-    }
-    return hash >>> 0;
+  let hash = FNV_OFFSET_BASIS;
+  for (let i = 0; i < input.length; i += 1) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, FNV_PRIME) >>> 0;
+  }
+  return hash >>> 0;
 }
 
 /** 2^32 — the exclusive upper bound of `createRandom`'s output. */
@@ -93,50 +93,50 @@ const RANDOM_RANGE = 0x100000000;
 // wtf is this bruh??
 /** xorshift32. Small, dependency-free and identical across engines. */
 function createRandom(seed: number): () => number {
-    let state = seed === 0 ? 1 : seed;
-    return () => {
-        state ^= (state << 13) >>> 0;
-        state >>>= 0;
-        state ^= state >>> 17;
-        state ^= (state << 5) >>> 0;
-        state >>>= 0;
-        return state;
-    };
+  let state = seed === 0 ? 1 : seed;
+  return () => {
+    state ^= (state << 13) >>> 0;
+    state >>>= 0;
+    state ^= state >>> 17;
+    state ^= (state << 5) >>> 0;
+    state >>>= 0;
+    return state;
+  };
 }
 
 function seedFor(
-    operation: InferenceOperation,
-    image: InferenceImage,
-    region: InferenceRegion | undefined
+  operation: InferenceOperation,
+  image: InferenceImage,
+  region: InferenceRegion | undefined
 ): number {
-    const regionKey = region ? region.join(',') : '-';
-    return fnv1a(`${operation}|${image.frame}|${image.width}x${image.height}|${regionKey}`);
+  const regionKey = region ? region.join(',') : '-';
+  return fnv1a(`${operation}|${image.frame}|${image.width}x${image.height}|${regionKey}`);
 }
 
 function deriveConfidence(next: () => number): Confidence {
-    return (next() % (CONFIDENCE_SCALE + 1)) / CONFIDENCE_SCALE;
+  return (next() % (CONFIDENCE_SCALE + 1)) / CONFIDENCE_SCALE;
 }
 
 function pick<T>(next: () => number, values: readonly T[]): T {
-    // `values` is always a non-empty literal tuple in this module.
-    return values[next() % values.length] as T;
+  // `values` is always a non-empty literal tuple in this module.
+  return values[next() % values.length] as T;
 }
 
 interface Area {
-    readonly x: number;
-    readonly y: number;
-    readonly w: number;
-    readonly h: number;
+  readonly x: number;
+  readonly y: number;
+  readonly w: number;
+  readonly h: number;
 }
 
 /** A value in (0, 1). The generator never returns 0, so neither does this. */
 function fraction(next: () => number): number {
-    return next() / RANDOM_RANGE;
+  return next() / RANDOM_RANGE;
 }
 
 /** Truncates to 2dp. Always rounds *down*, so it can never push a box out of bounds. */
 function floor2(value: number): number {
-    return Math.floor(value * 100) / 100;
+  return Math.floor(value * 100) / 100;
 }
 
 /** Offset within an axis, kept to the first 60% so a usable extent remains. */
@@ -159,15 +159,15 @@ const MIN_EXTENT_SHARE = 0.3;
  * construction, with `floor2` only ever shrinking the result.
  */
 function deriveBox(next: () => number, area: Area): BBox {
-    const x = area.x + fraction(next) * area.w * OFFSET_SPAN;
-    const y = area.y + fraction(next) * area.h * OFFSET_SPAN;
+  const x = area.x + fraction(next) * area.w * OFFSET_SPAN;
+  const y = area.y + fraction(next) * area.h * OFFSET_SPAN;
 
-    const availableW = area.x + area.w - x;
-    const availableH = area.y + area.h - y;
-    const w = availableW * (MIN_EXTENT_SHARE + fraction(next) * (1 - MIN_EXTENT_SHARE));
-    const h = availableH * (MIN_EXTENT_SHARE + fraction(next) * (1 - MIN_EXTENT_SHARE));
+  const availableW = area.x + area.w - x;
+  const availableH = area.y + area.h - y;
+  const w = availableW * (MIN_EXTENT_SHARE + fraction(next) * (1 - MIN_EXTENT_SHARE));
+  const h = availableH * (MIN_EXTENT_SHARE + fraction(next) * (1 - MIN_EXTENT_SHARE));
 
-    return [floor2(x), floor2(y), floor2(w), floor2(h)];
+  return [floor2(x), floor2(y), floor2(w), floor2(h)];
 }
 
 /**
@@ -179,60 +179,60 @@ function deriveBox(next: () => number, area: Area): BBox {
  * avoids both, and avoids float noise like `0.1 + 0.2` in the output.
  */
 function hullOf(boxes: readonly BBox[]): BBox {
-    const toHundredths = (value: number): number => Math.round(value * 100);
+  const toHundredths = (value: number): number => Math.round(value * 100);
 
-    const lefts = boxes.map((box) => toHundredths(box[0]));
-    const tops = boxes.map((box) => toHundredths(box[1]));
-    const rights = boxes.map((box) => toHundredths(box[0]) + toHundredths(box[2]));
-    const bottoms = boxes.map((box) => toHundredths(box[1]) + toHundredths(box[3]));
+  const lefts = boxes.map((box) => toHundredths(box[0]));
+  const tops = boxes.map((box) => toHundredths(box[1]));
+  const rights = boxes.map((box) => toHundredths(box[0]) + toHundredths(box[2]));
+  const bottoms = boxes.map((box) => toHundredths(box[1]) + toHundredths(box[3]));
 
-    const left = Math.min(...lefts);
-    const top = Math.min(...tops);
+  const left = Math.min(...lefts);
+  const top = Math.min(...tops);
 
-    return [
-        left / 100,
-        top / 100,
-        (Math.max(...rights) - left) / 100,
-        (Math.max(...bottoms) - top) / 100,
-    ];
+  return [
+    left / 100,
+    top / 100,
+    (Math.max(...rights) - left) / 100,
+    (Math.max(...bottoms) - top) / 100,
+  ];
 }
 
 /** Stable ordering, top-to-bottom then left-to-right, so array order is fixed. */
 function sortByPosition<T extends { readonly bbox: BBox }>(items: T[]): T[] {
-    return [...items].sort((a, b) => a.bbox[1] - b.bbox[1] || a.bbox[0] - b.bbox[0]);
+  return [...items].sort((a, b) => a.bbox[1] - b.bbox[1] || a.bbox[0] - b.bbox[0]);
 }
 
 function validate(image: InferenceImage, region: InferenceRegion | undefined): void {
-    const { width, height } = image;
-    if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1) {
-        throw new InvalidInferenceInputError(
-            `image dimensions must be positive integers, got ${width}x${height}`
-        );
-    }
-    if (!region) return;
+  const { width, height } = image;
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1) {
+    throw new InvalidInferenceInputError(
+      `image dimensions must be positive integers, got ${width}x${height}`
+    );
+  }
+  if (!region) return;
 
-    // Regions may be fractional on purpose. `getBoundingClientRect` returns
-    // fractional CSS px, and the image frame scales those by DPR, so a region
-    // like [0, 0, 2.5, 2.5] is ordinary input rather than a malformed one.
-    // `deriveBox` is responsible for staying inside it.
-    const [x, y, w, h] = region;
-    if (![x, y, w, h].every(Number.isFinite)) {
-        throw new InvalidInferenceInputError('region must contain finite numbers');
-    }
-    if (w < 1 || h < 1) {
-        throw new InvalidInferenceInputError(`region must have positive size, got ${w}x${h}`);
-    }
-    if (x < 0 || y < 0 || x + w > width || y + h > height) {
-        throw new InvalidInferenceInputError(
-            `region [${region.join(',')}] falls outside a ${width}x${height} image`
-        );
-    }
+  // Regions may be fractional on purpose. `getBoundingClientRect` returns
+  // fractional CSS px, and the image frame scales those by DPR, so a region
+  // like [0, 0, 2.5, 2.5] is ordinary input rather than a malformed one.
+  // `deriveBox` is responsible for staying inside it.
+  const [x, y, w, h] = region;
+  if (![x, y, w, h].every(Number.isFinite)) {
+    throw new InvalidInferenceInputError('region must contain finite numbers');
+  }
+  if (w < 1 || h < 1) {
+    throw new InvalidInferenceInputError(`region must have positive size, got ${w}x${h}`);
+  }
+  if (x < 0 || y < 0 || x + w > width || y + h > height) {
+    throw new InvalidInferenceInputError(
+      `region [${region.join(',')}] falls outside a ${width}x${height} image`
+    );
+  }
 }
 
 function areaOf(image: InferenceImage, region: InferenceRegion | undefined): Area {
-    if (!region) return { x: 0, y: 0, w: image.width, h: image.height };
-    const [x, y, w, h] = region;
-    return { x, y, w, h };
+  if (!region) return { x: 0, y: 0, w: image.width, h: image.height };
+  const [x, y, w, h] = region;
+  return { x, y, w, h };
 }
 
 /**
@@ -242,120 +242,120 @@ function areaOf(image: InferenceImage, region: InferenceRegion | undefined): Are
  * without re-deriving them from the rounded `conf` floats.
  */
 interface BuiltWord {
-    readonly word: OcrWord;
-    readonly charThousandths: readonly number[];
+  readonly word: OcrWord;
+  readonly charThousandths: readonly number[];
 }
 
 function buildOcrWord(next: () => number, area: Area): BuiltWord {
-    const text = pick(next, SYNTHETIC_WORDS);
-    const bbox = deriveBox(next, area);
+  const text = pick(next, SYNTHETIC_WORDS);
+  const bbox = deriveBox(next, area);
 
-    const charThousandths: number[] = [];
-    const characters: OcrCharacter[] = [];
-    for (const char of text) {
-        const thousandths = next() % (CONFIDENCE_SCALE + 1);
-        charThousandths.push(thousandths);
-        characters.push({ char, conf: thousandths / CONFIDENCE_SCALE });
-    }
+  const charThousandths: number[] = [];
+  const characters: OcrCharacter[] = [];
+  for (const char of text) {
+    const thousandths = next() % (CONFIDENCE_SCALE + 1);
+    charThousandths.push(thousandths);
+    characters.push({ char, conf: thousandths / CONFIDENCE_SCALE });
+  }
 
-    // Integer mean, then a single divide: no floating-point accumulation.
-    const sum = charThousandths.reduce((total, value) => total + value, 0);
-    const meanThousandths = Math.round(sum / charThousandths.length);
+  // Integer mean, then a single divide: no floating-point accumulation.
+  const sum = charThousandths.reduce((total, value) => total + value, 0);
+  const meanThousandths = Math.round(sum / charThousandths.length);
 
-    return {
-        word: { text, bbox, conf: meanThousandths / CONFIDENCE_SCALE, characters },
-        charThousandths,
-    };
+  return {
+    word: { text, bbox, conf: meanThousandths / CONFIDENCE_SCALE, characters },
+    charThousandths,
+  };
 }
 
 function buildOcrLine(next: () => number, area: Area): OcrLine {
-    const wordCount = 1 + (next() % MAX_ITEMS);
-    const built: BuiltWord[] = [];
-    for (let i = 0; i < wordCount; i += 1) built.push(buildOcrWord(next, area));
+  const wordCount = 1 + (next() % MAX_ITEMS);
+  const built: BuiltWord[] = [];
+  for (let i = 0; i < wordCount; i += 1) built.push(buildOcrWord(next, area));
 
-    const words = built.map((entry) => entry.word);
+  const words = built.map((entry) => entry.word);
 
-    // Mean over every character in the line, not over per-word means. Averaging
-    // word means weights a 4-character word the same as an 11-character one, and
-    // the §6.8 masking rule keys on this value at a 0.7 threshold — a mis-weighted
-    // mean can land a line on the wrong side of it.
-    const allThousandths = built.flatMap((entry) => entry.charThousandths);
-    const sum = allThousandths.reduce((total, value) => total + value, 0);
-    const meanThousandths = Math.round(sum / allThousandths.length);
+  // Mean over every character in the line, not over per-word means. Averaging
+  // word means weights a 4-character word the same as an 11-character one, and
+  // the §6.8 masking rule keys on this value at a 0.7 threshold — a mis-weighted
+  // mean can land a line on the wrong side of it.
+  const allThousandths = built.flatMap((entry) => entry.charThousandths);
+  const sum = allThousandths.reduce((total, value) => total + value, 0);
+  const meanThousandths = Math.round(sum / allThousandths.length);
 
-    return {
-        text: words.map((word) => word.text).join(' '),
-        // A line box is the hull of its words. Deriving it independently produced
-        // boxes that contained none of their own text, which would silently break
-        // D-12 alignment and C-13 line-crop classification.
-        bbox: hullOf(words.map((word) => word.bbox)),
-        meanCharConfidence: meanThousandths / CONFIDENCE_SCALE,
-        words,
-    };
+  return {
+    text: words.map((word) => word.text).join(' '),
+    // A line box is the hull of its words. Deriving it independently produced
+    // boxes that contained none of their own text, which would silently break
+    // D-12 alignment and C-13 line-crop classification.
+    bbox: hullOf(words.map((word) => word.bbox)),
+    meanCharConfidence: meanThousandths / CONFIDENCE_SCALE,
+    words,
+  };
 }
 
 /** Creates a fake engine. Stateless: two instances behave identically. */
 export function createFakeInferenceApi(): InferenceApi {
-    function run<T extends { readonly bbox: BBox }>(
-        operation: InferenceOperation,
-        image: InferenceImage,
-        options: InferenceOptions | undefined,
-        build: (next: () => number, area: Area) => T
-    ): InferenceResult<T> {
-        const region = options?.region;
-        validate(image, region);
+  function run<T extends { readonly bbox: BBox }>(
+    operation: InferenceOperation,
+    image: InferenceImage,
+    options: InferenceOptions | undefined,
+    build: (next: () => number, area: Area) => T
+  ): InferenceResult<T> {
+    const region = options?.region;
+    validate(image, region);
 
-        const meta = { frame: image.frame, engine: 'fake', synthetic: true } as const;
+    const meta = { frame: image.frame, engine: 'fake', synthetic: true } as const;
 
-        if (options?.fixture === 'unavailable') {
-            return { ...meta, status: 'unavailable', reason: FIXTURE_UNAVAILABLE_REASON };
-        }
-        if (options?.fixture === 'empty') {
-            return { ...meta, status: 'empty' };
-        }
-
-        const next = createRandom(seedFor(operation, image, region));
-        const area = areaOf(image, region);
-        const count = 1 + (next() % MAX_ITEMS);
-
-        const items: T[] = [];
-        for (let i = 0; i < count; i += 1) items.push(build(next, area));
-
-        return { ...meta, status: 'ok', items: sortByPosition(items) };
+    if (options?.fixture === 'unavailable') {
+      return { ...meta, status: 'unavailable', reason: FIXTURE_UNAVAILABLE_REASON };
+    }
+    if (options?.fixture === 'empty') {
+      return { ...meta, status: 'empty' };
     }
 
-    return {
-        engine: 'fake',
-        synthetic: true,
+    const next = createRandom(seedFor(operation, image, region));
+    const area = areaOf(image, region);
+    const count = 1 + (next() % MAX_ITEMS);
 
-        // These are `async` rather than returning `Promise.resolve(run(...))` so
-        // that input validation surfaces as a rejection. A synchronous throw from
-        // a method typed as returning a promise escapes `.catch()` entirely.
-        async runDetector(image, options) {
-            return run<UiDetection>('runDetector', image, options, (next, area) => ({
-                cls: pick(next, DETECTOR_CLASSES),
-                bbox: deriveBox(next, area),
-                conf: deriveConfidence(next),
-            }));
-        },
+    const items: T[] = [];
+    for (let i = 0; i < count; i += 1) items.push(build(next, area));
 
-        async runOCR(image, options) {
-            return run<OcrLine>('runOCR', image, options, (next, area) => buildOcrLine(next, area));
-        },
+    return { ...meta, status: 'ok', items: sortByPosition(items) };
+  }
 
-        async runFaces(image, options) {
-            return run<FaceDetection>('runFaces', image, options, (next, area) => ({
-                bbox: deriveBox(next, area),
-                conf: deriveConfidence(next),
-            }));
-        },
+  return {
+    engine: 'fake',
+    synthetic: true,
 
-        async runIcons(image, options) {
-            return run<IconClassification>('runIcons', image, options, (next, area) => ({
-                bbox: deriveBox(next, area),
-                label: pick(next, ICON_LABELS),
-                conf: deriveConfidence(next),
-            }));
-        },
-    };
+    // These are `async` rather than returning `Promise.resolve(run(...))` so
+    // that input validation surfaces as a rejection. A synchronous throw from
+    // a method typed as returning a promise escapes `.catch()` entirely.
+    async runDetector(image, options) {
+      return run<UiDetection>('runDetector', image, options, (next, area) => ({
+        cls: pick(next, DETECTOR_CLASSES),
+        bbox: deriveBox(next, area),
+        conf: deriveConfidence(next),
+      }));
+    },
+
+    async runOCR(image, options) {
+      return run<OcrLine>('runOCR', image, options, (next, area) => buildOcrLine(next, area));
+    },
+
+    async runFaces(image, options) {
+      return run<FaceDetection>('runFaces', image, options, (next, area) => ({
+        bbox: deriveBox(next, area),
+        conf: deriveConfidence(next),
+      }));
+    },
+
+    async runIcons(image, options) {
+      return run<IconClassification>('runIcons', image, options, (next, area) => ({
+        bbox: deriveBox(next, area),
+        label: pick(next, ICON_LABELS),
+        conf: deriveConfidence(next),
+      }));
+    },
+  };
 }

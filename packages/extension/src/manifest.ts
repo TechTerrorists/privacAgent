@@ -43,6 +43,44 @@ const OPTIONAL_HOST_PERMISSIONS = ['*://*/*'] as const;
 
 const SIDEPANEL_PATH = 'src/ui/sidepanel.html';
 
+/**
+ * Minimum CSP that permits WebAssembly (C-02).
+ *
+ * `'wasm-unsafe-eval'` is required for any WASM compilation in MV3 from Chrome
+ * 103 onwards. Despite the name it does **not** re-enable JavaScript `eval`; it
+ * permits WASM compilation and nothing else. It is also the only relaxation MV3
+ * allows — `script-src` accepts just `'self'`, `'none'` and this token — so
+ * there is no weaker form and no way to widen it further.
+ */
+const EXTENSION_PAGES_CSP = "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';";
+
+/**
+ * Cross-origin isolation, which threaded WASM requires (C-02).
+ *
+ * WASM threads are pthreads over one shared linear memory; that memory is a
+ * `SharedArrayBuffer`; and `SharedArrayBuffer` is only available to
+ * cross-origin-isolated contexts. Extension pages cannot send HTTP headers, so
+ * Chrome exposes the two policies as manifest keys instead.
+ *
+ * The cost is `require-corp`: every cross-origin subresource loaded by any of
+ * our own extension pages must opt in via CORP or CORS. That is acceptable —
+ * and arguably desirable — because this extension's UI ships all of its assets
+ * locally by policy. It does not affect other extensions, ordinary web pages,
+ * or our content scripts, all of which live under their own origins.
+ *
+ * Chrome only. Firefox extension pages cannot be cross-origin isolated
+ * (bugzilla 1673477), so Firefox runs single-threaded WASM.
+ */
+const CHROME_CROSS_ORIGIN_ISOLATION = {
+  cross_origin_embedder_policy: { value: 'require-corp' },
+  cross_origin_opener_policy: { value: 'same-origin' },
+} as const;
+
+// The offscreen document that hosts the ML worker is deliberately absent from
+// the manifest: MV3 offscreen documents are created at runtime by URL through
+// `chrome.offscreen.createDocument`, not declared. Its path lives with the code
+// that opens it (A-04), and the `offscreen` permission below is what gates it.
+
 export function createManifest(browser: Browser, version: string): Manifest {
   const base: Manifest = {
     manifest_version: 3,
@@ -52,6 +90,9 @@ export function createManifest(browser: Browser, version: string): Manifest {
     optional_host_permissions: [...OPTIONAL_HOST_PERMISSIONS],
     action: {
       default_title: NAME,
+    },
+    content_security_policy: {
+      extension_pages: EXTENSION_PAGES_CSP,
     },
     // Deliberately no `web_accessible_resources`. `scripting.executeScript`
     // does not need the file to be web-accessible, and exposing anything at a
@@ -72,6 +113,7 @@ export function createManifest(browser: Browser, version: string): Manifest {
       side_panel: {
         default_path: SIDEPANEL_PATH,
       },
+      ...CHROME_CROSS_ORIGIN_ISOLATION,
       minimum_chrome_version: '116',
     };
   }
