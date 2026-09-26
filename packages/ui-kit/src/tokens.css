@@ -1,0 +1,112 @@
+/*
+ * `source(none)` disables Tailwind's automatic detection, so the generated sheet contains
+ * exactly the classes the kit uses. Without it, a consumer that compiles this file would also
+ * scan its own project and the kit's output directories, which silently bloats the bundle.
+ * The preview declares its own sources in `preview/preview.css`.
+ */
+@import 'tailwindcss' source(none);
+
+@source './components';
+
+@custom-variant pa-dark (&:where([data-pa-theme='dark'] *));
+
+@theme inline {
+  --color-pa-canvas: var(--pa-canvas);
+  --color-pa-surface: var(--pa-surface);
+  --color-pa-elevated: var(--pa-elevated);
+  --color-pa-border: var(--pa-border);
+  --color-pa-text: var(--pa-text);
+  --color-pa-muted: var(--pa-muted);
+  --color-pa-accent: var(--pa-accent);
+  --color-pa-on-accent: var(--pa-on-accent);
+  --color-pa-danger: var(--pa-danger);
+  --color-pa-on-danger: var(--pa-on-danger);
+  --color-pa-success: var(--pa-success);
+  --color-pa-warning: var(--pa-warning);
+  --color-pa-ring: var(--pa-ring);
+  --radius-pa: 0.5rem;
+  --font-pa:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+:root,
+[data-pa-theme='light'] {
+  --pa-canvas: oklch(0.985 0.002 260);
+  --pa-surface: oklch(1 0 0);
+  --pa-elevated: oklch(0.962 0.004 260);
+  --pa-border: oklch(0.855 0.01 260);
+  --pa-text: oklch(0.24 0.015 260);
+  --pa-muted: oklch(0.5 0.015 260);
+  --pa-accent: oklch(0.52 0.17 266);
+  --pa-on-accent: oklch(0.99 0 0);
+  --pa-danger: oklch(0.53 0.19 26);
+  --pa-on-danger: oklch(0.99 0 0);
+  --pa-success: oklch(0.52 0.13 152);
+  --pa-warning: oklch(0.6 0.13 72);
+  --pa-ring: oklch(0.52 0.17 266);
+  color-scheme: light;
+}
+
+[data-pa-theme='dark'] {
+  --pa-canvas: oklch(0.19 0.008 260);
+  --pa-surface: oklch(0.235 0.01 260);
+  --pa-elevated: oklch(0.275 0.012 260);
+  --pa-border: oklch(0.36 0.014 260);
+  --pa-text: oklch(0.95 0.005 260);
+  --pa-muted: oklch(0.72 0.012 260);
+  --pa-accent: oklch(0.74 0.13 266);
+  --pa-on-accent: oklch(0.18 0.02 266);
+  --pa-danger: oklch(0.7 0.16 26);
+  --pa-on-danger: oklch(0.16 0.02 26);
+  --pa-success: oklch(0.76 0.13 152);
+  --pa-warning: oklch(0.82 0.13 80);
+  --pa-ring: oklch(0.78 0.13 266);
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-pa-theme='light']) {
+    --pa-canvas: oklch(0.19 0.008 260);
+    --pa-surface: oklch(0.235 0.01 260);
+    --pa-elevated: oklch(0.275 0.012 260);
+    --pa-border: oklch(0.36 0.014 260);
+    --pa-text: oklch(0.95 0.005 260);
+    --pa-muted: oklch(0.72 0.012 260);
+    --pa-accent: oklch(0.74 0.13 266);
+    --pa-on-accent: oklch(0.18 0.02 266);
+    --pa-danger: oklch(0.7 0.16 26);
+    --pa-on-danger: oklch(0.16 0.02 26);
+    --pa-success: oklch(0.76 0.13 152);
+    --pa-warning: oklch(0.82 0.13 80);
+    --pa-ring: oklch(0.78 0.13 266);
+    color-scheme: dark;
+  }
+}
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    border-color: var(--pa-border);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--pa-ring);
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@utility pa-scroll-narrow {
+  scrollbar-width: thin;
+  overscroll-behavior: contain;
+}

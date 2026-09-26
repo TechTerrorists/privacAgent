@@ -9,6 +9,9 @@
  */
 
 import browser from 'webextension-polyfill';
+import { installRegistryNavigation } from './registry-navigation.js';
+
+installRegistryNavigation();
 
 const BUILD_TARGET = __BROWSER__;
 

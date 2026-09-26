@@ -3,10 +3,12 @@
   "compilerOptions": {
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["chrome"],
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
     "outDir": "./dist/types",
     "rootDir": "./src"
   },
-  "references": [{ "path": "../protocol" }],
-  "include": ["src/**/*.ts"],
+  "references": [{ "path": "../protocol" }, { "path": "../ui-kit" }],
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
   "exclude": ["dist", "node_modules"]
 }

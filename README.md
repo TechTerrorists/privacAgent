@@ -4,8 +4,9 @@ A browser agent with on-device perception and privacy filtering. The extension i
 to keep raw DOM and screenshots on the user's machine and send only sanitized, structured
 Screen State to the server.
 
-Current foundation: **A-01** (Chrome/Firefox extension scaffold) and **E-01** (shared
-TypeScript/Python protocol). The browser UI is a placeholder; the agent and privacy
+Current foundation: **A-01** (Chrome/Firefox extension scaffold), **A-02** (platform
+adapter), **A-10** (side-panel shell), and **E-01** (shared TypeScript/Python protocol).
+The panel currently runs a clearly labelled local demo controller; the agent and privacy
 pipeline are still to be implemented.
 
 ## Development setup
