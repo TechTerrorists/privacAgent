@@ -162,7 +162,7 @@ test('installed extension: page-world routing, isolated IDs, full navigation and
     expect(initial.targetCount).toBeGreaterThan(0);
     expect((await snapshot(page)).item).toEqual(initial.item);
     // The page cannot see the isolated-world owner (and no element IDs are stamped on nodes).
-    expect(await page.evaluate(() => '__privacAgentRegistry' in globalThis)).toBe(false);
+    expect(await page.evaluate(() => '__privacAgentSession' in globalThis)).toBe(false);
     await page.evaluate(() => history.pushState({}, '', '/profile?route=1'));
     await expect.poll(async () => (await snapshot(page)).item.doc_id).not.toBe(initial.item.doc_id);
     const pushed = await snapshot(page);
