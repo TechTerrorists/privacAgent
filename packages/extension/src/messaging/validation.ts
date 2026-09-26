@@ -258,6 +258,41 @@ export function isValidOperationPayload(
       }
     }
 
+    case 'host:acquire': {
+      if (direction === 'request') {
+        if (typeof p.consumer !== 'string') return false;
+        return true;
+      } else {
+        if (typeof p.leaseId !== 'string') return false;
+        if (typeof p.generation !== 'number' || !Number.isFinite(p.generation)) return false;
+        return true;
+      }
+    }
+
+    case 'host:release': {
+      if (direction === 'request') {
+        if (typeof p.leaseId !== 'string') return false;
+        return true;
+      } else {
+        if (typeof p.released !== 'boolean') return false;
+        if (typeof p.remainingLeases !== 'number' || !Number.isFinite(p.remainingLeases))
+          return false;
+        return true;
+      }
+    }
+
+    case 'host:status': {
+      if (direction === 'request') {
+        return true;
+      } else {
+        if (typeof p.state !== 'string') return false;
+        if (typeof p.generation !== 'number' || !Number.isFinite(p.generation)) return false;
+        if (typeof p.activeLeases !== 'number' || !Number.isFinite(p.activeLeases)) return false;
+        if (p.browser !== 'chrome' && p.browser !== 'firefox') return false;
+        return true;
+      }
+    }
+
     default:
       // For extensible operations without registered schemas, require non-null plain object
       return true;

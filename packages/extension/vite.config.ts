@@ -20,6 +20,8 @@ const isBrowser = (mode: string): mode is Browser => mode === 'chrome' || mode =
 const ENTRIES = {
   'src/background/index': 'src/background/index.ts',
   'src/ui/sidepanel': 'src/ui/sidepanel.html',
+  'src/host/offscreen': 'src/host/offscreen.html',
+  'src/host/ml-worker': 'src/host/ml-worker.ts',
 } as const;
 
 /**
