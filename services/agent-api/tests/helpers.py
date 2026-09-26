@@ -9,11 +9,19 @@ drop-in swap.
 from __future__ import annotations
 
 import uuid
+from collections.abc import Mapping
+from dataclasses import replace
 from typing import Any
 
 from privacagent_agent_api.fixtures import start_request_payload
 from privacagent_agent_api.planner import Scenario
-from privacagent_agent_api.session_store import SessionRecord, SessionStoreError
+from privacagent_agent_api.session_store import (
+    HISTORY_LIMIT,
+    HistoryEntry,
+    HistoryResult,
+    SessionRecord,
+    SessionStoreError,
+)
 
 
 def new_session_id() -> str:
@@ -36,7 +44,15 @@ def feedback_payload(
     action_id: str = "a_demo",
     status: str = "ok",
     page_changed: bool = False,
+    reason: str | None = None,
 ) -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "action_id": action_id,
+        "status": status,
+        "page_changed": page_changed,
+    }
+    if reason is not None:
+        result["reason"] = reason
     return {
         "protocol": "1.0",
         "session_id": session_id,
@@ -45,11 +61,7 @@ def feedback_payload(
         "seq": seq,
         "doc_id": doc_id,
         "observation_id": observation_id,
-        "result": {
-            "action_id": action_id,
-            "status": status,
-            "page_changed": page_changed,
-        },
+        "result": result,
     }
 
 
@@ -103,6 +115,20 @@ def escalate_payload(
     }
 
 
+class CapturingPlanner:
+    """Wraps a planner and records every prompt the route hands it."""
+
+    name = "capturing"
+
+    def __init__(self, inner) -> None:
+        self.inner = inner
+        self.prompts: list[Any] = []
+
+    def plan(self, state, record, *, prompt=None):
+        self.prompts.append(prompt)
+        return self.inner.plan(state, record, prompt=prompt)
+
+
 class MemoryStore:
     """In-memory SessionStore used to unit-test route error mapping without Redis."""
 
@@ -126,6 +152,8 @@ class MemoryStore:
         observation_id: int,
         plan_step: int,
         last_action_id: str | None = None,
+        history_entry: Mapping[str, Any] | None = None,
+        result_entry: Mapping[str, Any] | None = None,
     ) -> bool:
         record = self._data.get(session_id)
         if record is None:
@@ -136,6 +164,21 @@ class MemoryStore:
         record.plan_step = plan_step
         if last_action_id is not None:
             record.last_action_id = last_action_id
+        if history_entry is not None:
+            record.history.append(HistoryEntry.from_dict(dict(history_entry)))
+            # Keep the newest HISTORY_LIMIT entries, oldest first (Redis store).
+            record.history[:] = record.history[-HISTORY_LIMIT:]
+        if result_entry is not None:
+            # First write wins: scan newest-first, attach only to a matching
+            # entry that is still pending, no-op otherwise.
+            for idx in range(len(record.history) - 1, -1, -1):
+                entry = record.history[idx]
+                if entry.action_id == result_entry.get("action_id"):
+                    if entry.result is None:
+                        record.history[idx] = replace(
+                            entry, result=HistoryResult.from_dict(result_entry)
+                        )
+                    break
         return True
 
     def delete(self, session_id: str) -> bool:
@@ -162,6 +205,8 @@ class FailAlwaysStore:
         observation_id: int,
         plan_step: int,
         last_action_id: str | None = None,
+        history_entry: Mapping[str, Any] | None = None,
+        result_entry: Mapping[str, Any] | None = None,
     ) -> bool:
         raise SessionStoreError()
 
@@ -188,6 +233,8 @@ class FailAdvanceStore(MemoryStore):
         observation_id: int,
         plan_step: int,
         last_action_id: str | None = None,
+        history_entry: Mapping[str, Any] | None = None,
+        result_entry: Mapping[str, Any] | None = None,
     ) -> bool:
         raise SessionStoreError()
 
@@ -204,6 +251,8 @@ class VanishingAdvanceStore(MemoryStore):
         observation_id: int,
         plan_step: int,
         last_action_id: str | None = None,
+        history_entry: Mapping[str, Any] | None = None,
+        result_entry: Mapping[str, Any] | None = None,
     ) -> bool:
         self._data.pop(session_id, None)
         return False

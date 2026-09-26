@@ -78,7 +78,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium firefox
-      - run: pnpm test:browser
+      - name: Test DOM walker and B-08 mock sites
+        run: pnpm test:browser
       - uses: actions/upload-artifact@v4
         if: always()
         with:

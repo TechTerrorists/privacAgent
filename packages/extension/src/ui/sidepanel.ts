@@ -1,17 +1,23 @@
-/**
- * Side panel (Chrome) / sidebar (Firefox) entry point.
- *
- * A-10 mounts the real shell here — task input, action list, stop button and
- * the settings route — using the UI kit from F-01. For A-01 this only proves
- * the HTML entry builds and loads in both browsers.
- */
+import { createDemoController } from './controller.js';
+import { createStorageThemeStore } from './settings.js';
+import { mountSidePanel } from './sidepanel-view.js';
+// The shell's own stylesheet: the kit's tokens plus the sources for the classes this shell uses.
+import './sidepanel.css';
+import { activePlatform } from '../platform/active.js';
 
-const root = document.querySelector('#root');
+const root = document.querySelector<HTMLElement>('#root');
 
 if (root) {
-  const status = document.createElement('p');
-  status.textContent = `Build target: ${__BROWSER__}`;
-  root.append(status);
+  const controller = createDemoController({
+    themeStore: createStorageThemeStore(activePlatform.browser.storage.local),
+  });
+  const handle = mountSidePanel(root, controller);
+  const dispose = (): void => {
+    window.removeEventListener('pagehide', dispose);
+    handle.dispose();
+    controller.dispose();
+  };
+  window.addEventListener('pagehide', dispose, { once: true });
 }
 
 export {};

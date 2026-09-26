@@ -42,10 +42,13 @@ from .errors import (
     ProtocolReject,
     RejectReason,
     build_protocol_error,
+    prompt_build_reason,
 )
 from .fixtures import builtin_scenarios
 from .planner import Planner, ScriptedFakePlanner
+from .prompt import PromptContext, build_prompt
 from .session_store import (
+    HistoryEntry,
     RedisSessionStore,
     SessionRecord,
     SessionStore,
@@ -590,6 +593,8 @@ def create_app(
         observation_id: int,
         plan_step: int,
         last_action_id: str | None = None,
+        history_entry: Mapping[str, Any] | None = None,
+        result_entry: Mapping[str, Any] | None = None,
     ) -> None:
         try:
             ok = store.advance(
@@ -599,6 +604,8 @@ def create_app(
                 observation_id=observation_id,
                 plan_step=plan_step,
                 last_action_id=last_action_id,
+                history_entry=history_entry,
+                result_entry=result_entry,
             )
         except SessionStoreError:
             raise ProtocolReject(
@@ -651,6 +658,10 @@ def create_app(
             task_id=start.task_id.root,
             task_version=start.task_version,
             created_at=time.time(),
+            task_text=start.task,
+            allowed_domains=[domain.root for domain in start.allowed_domains],
+            mode=start.mode.root,
+            read_only=start.read_only,
         )
         try:
             store.create(record)
@@ -721,7 +732,18 @@ def create_app(
             )
 
         try:
-            action_payload = planner.plan(state, record)
+            prompt = build_prompt(PromptContext.from_record(record), state)
+        except (
+            Exception
+        ) as exc:  # noqa: BLE001 - bounded: class name only, see prompt_build_reason
+            raise ProtocolReject(
+                "unavailable",
+                correlation=established_correlation(record, node),
+                reason=prompt_build_reason(exc),
+            ) from None
+
+        try:
+            action_payload = planner.plan(state, record, prompt=prompt)
             action = parse_message("Action", action_payload)
         except ProtocolValidationError:
             raise ProtocolReject(
@@ -730,6 +752,18 @@ def create_app(
                 reason=RejectReason.ACTION_OFF_CONTRACT,
             ) from None
 
+        history_entry = HistoryEntry(
+            action_id=action.action_id.root,
+            plan_step=record.plan_step + 1,
+            seq=node.seq,
+            doc_id=node.doc_id.root,
+            observation_id=node.observation_id,
+            action=action_payload["action"],
+            consequential=action.consequential,
+            risk=action.risk,
+            expect=action_payload.get("expect"),
+            result=None,
+        )
         store_advance(
             session_id,
             seq=node.seq,
@@ -737,6 +771,7 @@ def create_app(
             observation_id=node.observation_id,
             plan_step=record.plan_step + 1,
             last_action_id=action.action_id.root,
+            history_entry=history_entry.to_dict(),
         )
         logger.debug("OK route=POST .../step")
         return checked_response(
@@ -789,6 +824,15 @@ def create_app(
                 reason=RejectReason.ACTION_ID_MISMATCH,
             )
 
+        result = feedback_msg.result
+        result_entry: dict[str, Any] = {
+            "action_id": result.action_id.root,
+            "status": result.status,
+            "page_changed": result.page_changed,
+        }
+        if result.reason is not None:
+            result_entry["reason"] = result.reason
+
         store_advance(
             session_id,
             seq=feedback_msg.seq,
@@ -796,6 +840,7 @@ def create_app(
             observation_id=feedback_msg.observation_id,
             plan_step=record.plan_step,
             last_action_id=last_action_id,
+            result_entry=result_entry,
         )
         payload = {
             "protocol": PROTOCOL_VERSION,
@@ -907,7 +952,13 @@ def create_app(
 
     @app.exception_handler(ProtocolReject)
     async def on_protocol_reject(request: Request, exc: ProtocolReject) -> JSONResponse:
-        logger.debug("REJECT %s", exc.reason.value if exc.reason else "unspecified")
+        reason = exc.reason
+        text = (
+            reason.value
+            if isinstance(reason, RejectReason)
+            else (reason or "unspecified")
+        )
+        logger.debug("REJECT %s", text)
         return checked_error(exc.code, correlation=exc.correlation)
 
     @app.exception_handler(RequestValidationError)

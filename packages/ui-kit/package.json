@@ -1,0 +1,30 @@
+{
+  "name": "@privacagent/ui-kit",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "F-01: standalone side panel UI kit, previewable without an extension or agent",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./tokens.css": "./src/tokens.css"
+  },
+  "scripts": {
+    "build": "tsc --build && vite build",
+    "dev": "vite",
+    "typecheck": "tsc --build"
+  },
+  "dependencies": {
+    "preact": "^10.29.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@testing-library/preact": "^3.2.4",
+    "@testing-library/user-event": "^14.6.7",
+    "happy-dom": "^20.14.5",
+    "tailwindcss": "^4.3.3",
+    "vite": "^8.3.0"
+  }
+}

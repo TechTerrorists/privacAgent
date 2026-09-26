@@ -1,0 +1,7 @@
+/*
+ * The preview is a demo, not part of the shipped kit, so it declares its own Tailwind sources
+ * on top of the kit's tokens. The library build never loads this file.
+ */
+@import '../tokens.css';
+
+@source '.';

@@ -228,7 +228,9 @@ def scenario_by_task_id(task_id: str) -> Scenario | None:
     return None
 
 
-def start_request_payload(scenario: Scenario, *, read_only: bool = False) -> dict[str, Any]:
+def start_request_payload(
+    scenario: Scenario, *, read_only: bool = False
+) -> dict[str, Any]:
     """SessionStartRequest payload for the given scenario."""
     return {
         "protocol": "1.0",

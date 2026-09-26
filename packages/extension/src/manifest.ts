@@ -32,7 +32,9 @@ const DESCRIPTION =
  * tabs for "chat with tabs", sites in a background task's allowlist) is asked
  * for at runtime, per origin, through `optional_host_permissions` (A-05).
  */
-const CORE_PERMISSIONS = ['storage', 'alarms', 'activeTab', 'scripting'] as const;
+// B-05 uses webNavigation for SPA invalidation on engines without Navigation API.
+// It does not grant host access; no navigation URLs are stored or relayed.
+const CORE_PERMISSIONS = ['storage', 'alarms', 'activeTab', 'scripting', 'webNavigation'] as const;
 
 /**
  * `<all_urls>` is never requested. This pattern only makes per-origin runtime

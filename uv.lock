@@ -593,6 +593,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "black" },
     { name = "datamodel-code-generator", extra = ["black", "isort"] },
     { name = "httpx" },
     { name = "onnx" },
@@ -607,6 +608,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "black", specifier = ">=26.5.1" },
     { name = "datamodel-code-generator", extras = ["black", "isort"], specifier = ">=0.82,<1" },
     { name = "httpx", specifier = ">=0.27,<1" },
     { name = "onnx", specifier = ">=1.17,<2" },

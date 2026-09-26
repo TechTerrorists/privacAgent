@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>Search the catalog · Local Lab</title>
+    <link rel="icon" href="/favicon.svg" />
+    <link rel="stylesheet" href="/assets/style.css" />
+    <script defer src="/assets/app.js"></script>
+  </head>
+  <body data-scenario="search">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header>
+      <a class="brand" href="/">Local<span>Lab</span><span class="tag">B-08</span></a>
+      <nav aria-label="Mock sites">
+        <a href="/">Overview</a><a href="/profile">Profile</a><a href="/settings">Settings</a
+        ><a href="/search" aria-current="page">Catalog</a>
+      </nav>
+    </header>
+    <main id="main">
+      <div class="intro">
+        <p class="eyebrow">PRIVACAGENT / MOCK SITES PACK 1</p>
+        <h1>Search the catalog</h1>
+        <p class="lead">Six fixed products. Results update as you search and filter.</p>
+      </div>
+      <noscript><p class="error">Enable JavaScript to use these interactive fixtures.</p></noscript>
+      <section class="card">
+        <form id="search-form" class="search-form">
+          <div>
+            <label for="search-query">Search products</label
+            ><input
+              id="search-query"
+              type="search"
+              name="query"
+              placeholder="Try Cedar"
+              maxlength="100"
+            />
+          </div>
+          <div>
+            <label for="category">Category</label
+            ><select id="category" name="category">
+              <option value="all">All categories</option>
+              <option value="stationery">Stationery</option>
+              <option value="home">Home</option>
+              <option value="travel">Travel</option>
+            </select>
+          </div>
+          <label class="choice" for="available"
+            ><input id="available" name="available" type="checkbox" /> Available only</label
+          >
+          <div class="actions">
+            <button id="search-submit" type="submit">Search</button
+            ><button id="search-reset" type="button" class="secondary">Clear filters</button>
+          </div>
+        </form>
+      </section>
+      <section aria-labelledby="results-heading" class="catalog">
+        <div class="section-heading">
+          <h2 id="results-heading">Products</h2>
+          <p id="result-count" role="status"></p>
+        </div>
+        <ul id="results" class="results" aria-label="Matching products"></ul>
+        <p id="empty-results" class="note" hidden>
+          No products match. Try another search or clear the filters.
+        </p>
+      </section>
+    </main>
+    <footer><span class="dot"></span> Local fixtures · Synthetic data only · Reset anytime</footer>
+  </body>
+</html>

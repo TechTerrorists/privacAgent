@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>Workspace settings · Local Lab</title>
+    <link rel="icon" href="/favicon.svg" />
+    <link rel="stylesheet" href="/assets/style.css" />
+    <script defer src="/assets/app.js"></script>
+  </head>
+  <body data-scenario="settings">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header>
+      <a class="brand" href="/">Local<span>Lab</span><span class="tag">B-08</span></a>
+      <nav aria-label="Mock sites">
+        <a href="/">Overview</a><a href="/profile">Profile</a
+        ><a href="/settings" aria-current="page">Settings</a><a href="/search">Catalog</a>
+      </nav>
+    </header>
+    <main id="main">
+      <div class="intro">
+        <p class="eyebrow">PRIVACAGENT / MOCK SITES PACK 1</p>
+        <h1>Workspace settings</h1>
+        <p class="lead">Apply preferences and observe how related controls behave.</p>
+      </div>
+      <noscript><p class="error">Enable JavaScript to use these interactive fixtures.</p></noscript>
+      <div class="workspace">
+        <section class="card">
+          <h2>Preferences</h2>
+          <form id="settings-form">
+            <label class="choice" for="notifications"
+              ><input type="checkbox" id="notifications" name="notifications" /> Enable
+              notifications</label
+            >
+            <label for="digest">Digest frequency</label
+            ><select id="digest" name="digest" aria-describedby="digest-hint">
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option></select
+            ><small id="digest-hint">Available when notifications are enabled.</small>
+            <fieldset>
+              <legend>Display density</legend>
+              <label class="choice" for="density-comfortable"
+                ><input id="density-comfortable" type="radio" name="density" value="comfortable" />
+                Comfortable</label
+              ><label class="choice" for="density-compact"
+                ><input id="density-compact" type="radio" name="density" value="compact" />
+                Compact</label
+              >
+            </fieldset>
+            <label for="timezone">Time zone</label
+            ><select id="timezone" name="timezone">
+              <option value="Asia/Kolkata">India (Asia/Kolkata)</option>
+              <option value="UTC">UTC</option>
+            </select>
+            <div class="actions">
+              <button id="settings-apply" type="submit">Apply settings</button
+              ><button id="settings-reset" type="button" class="secondary">Reset settings</button>
+            </div>
+            <p id="settings-status" role="status" class="status"></p>
+          </form>
+        </section>
+        <aside class="card saved">
+          <span class="number">APPLIED SNAPSHOT</span>
+          <h2>Current preferences</h2>
+          <p>Apply your changes to update this snapshot.</p>
+          <dl>
+            <dt>Notifications</dt>
+            <dd id="saved-notifications"></dd>
+            <dt>Digest</dt>
+            <dd id="saved-digest"></dd>
+            <dt>Density</dt>
+            <dd id="saved-density"></dd>
+            <dt>Time zone</dt>
+            <dd id="saved-timezone"></dd>
+          </dl>
+        </aside>
+      </div>
+    </main>
+    <footer><span class="dot"></span> Local fixtures · Synthetic data only · Reset anytime</footer>
+  </body>
+</html>
