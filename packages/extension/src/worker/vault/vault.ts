@@ -21,6 +21,19 @@
  * without creating any forward/reverse entry at all — there is nothing to
  * resolve, by construction, regardless of what D-09 eventually implements.
  *
+ * ## Bindings are owned copies, not caller references
+ *
+ * A `UseBinding` is cloned (fresh object, fresh `allowedTargets`/`operations`
+ * arrays) and `Object.freeze`d before it is stored, and `getBindings` returns
+ * those same frozen clones in a fresh array. Neither direction shares a
+ * reference with caller-owned objects: mutating the object a caller passed
+ * into `intern` after the call, or mutating a result `getBindings` returned,
+ * cannot reach stored state. A repeated, structurally-identical binding is
+ * deduplicated rather than appended again, and each entry bounds how many
+ * *distinct* bindings it will hold (`maxBindingsPerEntry`) — repeated
+ * observations of one value cannot grow a scope's memory without bound just
+ * because `maxEntriesPerScope` only counts distinct values.
+ *
  * ## Expiry
  *
  * Every access path calls `ensureLive`, which checks elapsed time against
@@ -58,10 +71,44 @@ const DEFAULT_IDLE_TIMEOUT_MS = 15 * 60 * 1000;
  */
 const DEFAULT_MAX_ENTRIES_PER_SCOPE = 500;
 
+/**
+ * Default bound on distinct bindings recorded per entry.
+ *
+ * Bounds the "repeated observations" growth path independently of
+ * `maxEntriesPerScope`: the same value re-observed under genuinely different
+ * bindings (different `docId`, different `allowedTargets`, ...) is legitimate
+ * and must be recorded for D-09, but an unbounded number of them is a memory
+ * exhaustion vector no different from an unbounded number of distinct values.
+ */
+const DEFAULT_MAX_BINDINGS_PER_ENTRY = 50;
+
 interface Entry {
   readonly value: string;
   readonly piiClass: PiiClass;
-  readonly bindings: UseBinding[];
+  /** Keyed by `bindingKey` for O(1) dedup; iteration order matches insertion order. */
+  readonly bindings: Map<string, UseBinding>;
+}
+
+/** A frozen, independent copy — never the caller's object or its arrays. */
+function cloneBinding(binding: UseBinding): UseBinding {
+  return Object.freeze({
+    taskId: binding.taskId,
+    origin: binding.origin,
+    docId: binding.docId,
+    allowedTargets: Object.freeze([...binding.allowedTargets]),
+    operations: Object.freeze([...binding.operations]),
+  });
+}
+
+/** Canonical key for dedup: two bindings with the same fields (targets/operations order-insensitive) collide. */
+function bindingKey(binding: UseBinding): string {
+  return JSON.stringify([
+    binding.taskId,
+    binding.origin,
+    binding.docId,
+    [...binding.allowedTargets].sort(),
+    [...binding.operations].sort(),
+  ]);
 }
 
 interface ScopeState {
@@ -86,12 +133,14 @@ export interface VaultOptions {
   readonly clock?: Clock;
   readonly idleTimeoutMs?: number;
   readonly maxEntriesPerScope?: number;
+  readonly maxBindingsPerEntry?: number;
 }
 
 export function createVault(options: VaultOptions = {}): VaultApi {
   const clock = options.clock ?? createRealClock();
   const idleTimeoutMs = options.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS;
   const maxEntriesPerScope = options.maxEntriesPerScope ?? DEFAULT_MAX_ENTRIES_PER_SCOPE;
+  const maxBindingsPerEntry = options.maxBindingsPerEntry ?? DEFAULT_MAX_BINDINGS_PER_ENTRY;
 
   const scopes = new Map<VaultScopeId, ScopeState>();
   const tabIndex = new Map<TabId, Set<VaultScopeId>>();
@@ -194,13 +243,21 @@ export function createVault(options: VaultOptions = {}): VaultApi {
       scope.forward.set(input.piiClass, classForward);
     }
 
+    const key = bindingKey(input.binding);
+
     const existing = classForward.get(input.value);
     if (existing !== undefined) {
       const entry = scope.reverse.get(existing);
       // `entry` always exists here — every forward-map value is set together
       // with its reverse-map entry below, and cleanup removes both maps
       // together — but the check keeps this function honest either way.
-      if (entry) entry.bindings.push(input.binding);
+      if (entry && !entry.bindings.has(key)) {
+        if (entry.bindings.size >= maxBindingsPerEntry) {
+          touch(scope);
+          return { outcome: 'unavailable', reason: 'capacity_exceeded' };
+        }
+        entry.bindings.set(key, cloneBinding(input.binding));
+      }
       touch(scope);
       return { outcome: 'ok', placeholder: existing };
     }
@@ -218,7 +275,7 @@ export function createVault(options: VaultOptions = {}): VaultApi {
     scope.reverse.set(placeholder, {
       value: input.value,
       piiClass: input.piiClass,
-      bindings: [input.binding],
+      bindings: new Map([[key, cloneBinding(input.binding)]]),
     });
     touch(scope);
 
@@ -240,7 +297,10 @@ export function createVault(options: VaultOptions = {}): VaultApi {
     const scope = ensureLive(scopeId);
     if (!scope) return undefined;
     const entry = scope.reverse.get(placeholder);
-    return entry ? [...entry.bindings] : undefined;
+    // Values are already frozen clones; the array itself is freshly built on
+    // every call, so neither the array nor its entries can be used to mutate
+    // vault state.
+    return entry ? [...entry.bindings.values()] : undefined;
   }
 
   function endScope(scopeId: VaultScopeId, reason: EndScopeReason): void {

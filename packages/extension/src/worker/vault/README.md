@@ -77,27 +77,49 @@ across scope boundaries, and ending one scope never touches another.
 
 ## Use-binding metadata: recorded, never merged
 
-Each interned entry accumulates a **list** of `UseBinding`s — one per
-`intern` call that resolved to that placeholder — rather than replacing or
-widening a single stored binding. Re-observing the same value under a
-narrower or differently-scoped binding (a different `docId`, a different
-`allowedTargets`) appends a new, independent record; it never unions
-`allowedTargets` or `operations` across observations. `getBindings` returns
-all of them (a copy, not a live reference) so D-09's authorization check can
-require a match against _some specific recorded binding_, never an inflated
-superset. `intern` also rejects a binding whose `taskId` doesn't match the
-scope's own `taskId` (`'task_mismatch'`) — a mismatch signals a caller bug,
-not evidence to fall back on.
+Each interned entry accumulates a set of `UseBinding`s — one per
+structurally-distinct `intern` call that resolved to that placeholder —
+rather than replacing or widening a single stored binding. Re-observing the
+same value under a narrower or differently-scoped binding (a different
+`docId`, a different `allowedTargets`) records a new, independent entry; it
+never unions `allowedTargets` or `operations` across observations. A binding
+identical in every field to one already recorded (`taskId`, `origin`,
+`docId`, and the same `allowedTargets`/`operations` regardless of array
+order) is deduplicated rather than stored again.
+
+`intern` also rejects a binding whose `taskId` doesn't match the scope's own
+`taskId` (`'task_mismatch'`) — a mismatch signals a caller bug, not evidence
+to fall back on.
+
+**Bindings are owned copies, never caller references.** Every binding is
+deep-cloned and `Object.freeze`d before storage, and `getBindings` returns
+those frozen clones in a fresh array. Mutating the object a caller passed
+into `intern` after the call — or mutating (or attempting to mutate; a
+frozen array throws) an object `getBindings` returned — cannot reach or
+change vault state in either direction.
 
 ## Capacity
 
-Each scope holds at most `maxEntriesPerScope` entries (default 500 — see
-`vault.ts` for the rationale). Once full, interning a genuinely new
-`(piiClass, value)` pair returns `{ outcome: 'unavailable', reason:
-'capacity_exceeded' }`. Re-interning an **already-stored** value still
-succeeds (it doesn't consume new capacity) and returns its existing
-placeholder. A full scope never falls back to raw content and never reuses
-an existing placeholder for a different value — the two behaviors the
+Two independent bounds, because "repeated observations" and "new values" are
+different growth vectors:
+
+- **`maxEntriesPerScope`** (default 500) bounds distinct `(piiClass, value)`
+  entries per scope. Once full, interning a genuinely new value returns `{
+outcome: 'unavailable', reason: 'capacity_exceeded' }`. Re-interning an
+  **already-stored** value still succeeds (it doesn't consume new capacity)
+  and returns its existing placeholder.
+- **`maxBindingsPerEntry`** (default 50) bounds distinct bindings recorded
+  _per entry_. Without this, repeatedly re-observing one already-interned
+  value under a slightly different binding each time — cheap for a caller to
+  do, deliberately or not — would grow one entry's binding list without
+  bound even while `maxEntriesPerScope` holds steady. Once an entry's binding
+  list is full, a **new, non-duplicate** binding for that value fails closed
+  (`capacity_exceeded`) rather than being silently dropped or merged; a
+  binding that is a duplicate of one already recorded is a no-op and never
+  counts against this bound.
+
+A full scope or a full entry never falls back to raw content and never
+reuses an existing placeholder for a different value — the behaviors the
 deliverable explicitly forbids.
 
 ## Lifecycle and expiry
@@ -176,6 +198,23 @@ surface that could be mistaken for one. When D-09 lands, it is expected to
 read this module's internal reverse map and `UseBinding` history to decide
 whether a specific resolution request is authorized; it does not get a
 public "give me the value" method to shortcut that decision through.
+
+## Testing
+
+`vault.test.ts` covers identity/equality, secrets, binding metadata (including
+mutation-isolation and dedup/overflow), capacity, and every lifecycle path
+via a manual clock — all in-process, no real Worker needed for logic
+correctness.
+
+`packages/extension/tests/vault-worker.spec.ts` is the real-worker
+counterpart (Playwright, same pattern as `message-bus.spec.ts`): it bundles
+this module with esbuild, runs it inside an actual `Worker` in a real
+browser page, drives it purely through `postMessage`, and asserts every
+message the worker posts back — including after a lifecycle event — is
+free of the synthetic canary value and reflects correct scope invalidation.
+This is what proves the boundary this module documents (worker-memory only,
+non-sensitive lifecycle identifiers) holds across a real thread boundary, not
+just in a single JS realm calling functions directly.
 
 ## Boundaries
 

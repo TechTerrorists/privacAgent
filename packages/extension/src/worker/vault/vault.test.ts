@@ -211,6 +211,100 @@ describe('use-binding metadata', () => {
 
     expect(vault.getBindings(SCOPE, result.placeholder)).toHaveLength(1);
   });
+
+  it('deduplicates a structurally-identical binding rather than recording it again', () => {
+    const { vault } = setUp();
+    vaults.push(vault);
+
+    const b = binding({ allowedTargets: ['e1', 'e2'], operations: ['type', 'select'] });
+    vault.intern(SCOPE, internInput({ binding: b }));
+    // Same fields, different array order — still the same binding.
+    const repeat = vault.intern(
+      SCOPE,
+      internInput({
+        binding: binding({ allowedTargets: ['e2', 'e1'], operations: ['select', 'type'] }),
+      })
+    );
+
+    if (repeat.outcome !== 'ok') throw new Error('unreachable');
+    expect(vault.getBindings(SCOPE, repeat.placeholder)).toHaveLength(1);
+  });
+
+  it('clones on ingestion — mutating the caller-owned binding object after intern() does not reach vault state', () => {
+    const { vault } = setUp();
+    vaults.push(vault);
+
+    const mutableTargets = ['e1'];
+    const ownedBinding = binding({ allowedTargets: mutableTargets });
+    const result = vault.intern(SCOPE, internInput({ binding: ownedBinding }));
+    if (result.outcome !== 'ok') throw new Error('unreachable');
+
+    mutableTargets.push('CANARY-INJECTED-TARGET');
+    (ownedBinding.operations as string[]).push('CANARY-INJECTED-OP');
+
+    const recorded = vault.getBindings(SCOPE, result.placeholder);
+    expect(recorded).toEqual([binding({ allowedTargets: ['e1'] })]);
+  });
+
+  it('returns frozen snapshots — a returned binding cannot be mutated to affect vault state', () => {
+    const { vault } = setUp();
+    vaults.push(vault);
+    const result = vault.intern(SCOPE, internInput());
+    if (result.outcome !== 'ok') throw new Error('unreachable');
+
+    const recorded = vault.getBindings(SCOPE, result.placeholder);
+    const first = recorded?.[0] as UseBinding;
+    expect(() => {
+      (first.allowedTargets as string[]).push('CANARY-INJECTED-TARGET');
+    }).toThrow();
+    expect(() => {
+      (first as { taskId: string }).taskId = 'CANARY-INJECTED-TASK';
+    }).toThrow();
+
+    expect(vault.getBindings(SCOPE, result.placeholder)).toEqual([binding()]);
+  });
+
+  it('bounds distinct bindings per entry and fails closed once full, without dropping the placeholder', () => {
+    const vault = createVault({
+      clock: createManualClock(),
+      maxBindingsPerEntry: 2,
+    });
+    vaults.push(vault);
+    vault.createScope({ scopeId: SCOPE, taskId: TASK, ownerTabId: TAB });
+
+    const first = vault.intern(SCOPE, internInput({ binding: binding({ docId: 'd1' }) }));
+    const second = vault.intern(SCOPE, internInput({ binding: binding({ docId: 'd2' }) }));
+    const third = vault.intern(SCOPE, internInput({ binding: binding({ docId: 'd3' }) }));
+
+    if (first.outcome !== 'ok' || second.outcome !== 'ok') throw new Error('unreachable');
+    expect(third).toEqual({ outcome: 'unavailable', reason: 'capacity_exceeded' });
+    expect(vault.getBindings(SCOPE, first.placeholder)).toHaveLength(2);
+    // The placeholder itself is still valid and usable — only the new,
+    // distinct binding was refused, never the whole operation.
+    expect(vault.hasScope(SCOPE)).toBe(true);
+  });
+
+  it('does not let repeated distinct-binding observations of one value bypass maxEntriesPerScope', () => {
+    // 10,000 structurally distinct bindings for a single already-interned
+    // value must not be able to grow unbounded memory just because
+    // maxEntriesPerScope only counts distinct (piiClass, value) entries.
+    const vault = createVault({ clock: createManualClock(), maxBindingsPerEntry: 5 });
+    vaults.push(vault);
+    vault.createScope({ scopeId: SCOPE, taskId: TASK, ownerTabId: TAB });
+
+    const first = vault.intern(SCOPE, internInput({ binding: binding({ docId: 'd0' }) }));
+    if (first.outcome !== 'ok') throw new Error('unreachable');
+
+    let lastOutcome: 'ok' | 'unavailable' = 'ok';
+    for (let i = 1; i < 10_000; i += 1) {
+      const result = vault.intern(SCOPE, internInput({ binding: binding({ docId: `d${i}` }) }));
+      lastOutcome = result.outcome;
+    }
+
+    expect(lastOutcome).toBe('unavailable');
+    expect(vault.getBindings(SCOPE, first.placeholder)).toHaveLength(5);
+    expect(vault.hasScope(SCOPE)).toBe(true);
+  });
 });
 
 describe('capacity', () => {
@@ -435,7 +529,11 @@ describe('scope-missing behavior', () => {
   });
 });
 
-describe('real worker smoke test — no leak through any public surface', () => {
+describe('no leak through any public surface (same-realm)', () => {
+  // This checks every return shape and error path in-process. It is not the
+  // "real worker" requirement — that needs an actual cross-thread boundary,
+  // covered separately by packages/extension/tests/vault-worker.spec.ts
+  // (Playwright, a genuine `Worker`, communication purely via postMessage).
   it('never returns the raw value from any method, error, or serialized output', () => {
     const { vault } = setUp();
     vaults.push(vault);
