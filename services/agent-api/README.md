@@ -1,16 +1,18 @@
-# Agent API (E-02)
+# Agent API (E-02 + E-05)
 
 A Python 3.12 / FastAPI service that implements the **E-01 wire protocol** for
-browser agents. It is fully runnable today with a **scripted fake planner**
-(`scripted-fake-v1`) — no LLM, no VLM, no GPU. The HTTP, session, and
-validation layers are production-shaped; the actual "agent" reasoning is not.
+browser agents, plus the **E-05 prompt builder** that turns a sanitized task,
+the last five steps, and the current Screen State into the planner prompt. It
+is fully runnable today with a **scripted fake planner** (`scripted-fake-v1`) —
+no LLM, no VLM, no GPU. The HTTP, session, validation, and prompt-assembly
+layers are production-shaped; the actual "agent" reasoning is not.
 
 ## What is implemented
 
 | Route                          | Status                                                       |
 | ------------------------------ | ------------------------------------------------------------ |
 | `POST /v1/sessions`            | Real — creates a Redis-backed session                        |
-| `POST /v1/sessions/{id}/step`  | Real — validates a full Screen State, returns a scripted Action |
+| `POST /v1/sessions/{id}/step`  | Real — validates a full Screen State, builds the E-05 prompt, returns a scripted Action |
 | `POST /v1/sessions/{id}/feedback` | Real — accepts `ActionResult` for the last Action only    |
 | `DELETE /v1/sessions/{id}`     | Real — ends the session immediately                          |
 | `POST /v1/sessions/{id}/escalate` | Stub — validates, then always returns `unavailable` (503) until E-11 |
@@ -20,9 +22,13 @@ Also implemented:
 - **Protocol validation** — every request and response (including errors) is
   checked through `privacagent_protocol.parse_message`. Off-contract messages
   never leave the service.
+- **Prompt builder** (E-05) — `/step` builds a deterministic prompt from the
+  session's retained task context, the last ≤ 5 steps, and the validated full
+  Screen State, and hands it to the planner (see "Prompt builder" below).
 - **Redis session store** — one hash per session, 1800 s sliding TTL (refreshed
-  atomically with each `/step` and `/feedback`), no tombstones. Persists only
-  task identity and step bookkeeping — no DOM, screenshots, or vault data.
+  atomically with each `/step` and `/feedback`), no tombstones. Persists task
+  identity, step bookkeeping, the prompt's task context, and the bounded step
+  memory — no DOM, screenshots, or vault data.
 - **Error model** — every failure is a protocol `ProtocolError` with a fixed
   HTTP status mapping (see below). Bodies never echo request content.
 - **Scripted fake planner** — deterministic, fixture-bound Actions for two demo
@@ -33,7 +39,7 @@ Also implemented:
   identifiers, or exception contents) written to `PA_DEBUG_LOG`.
 
 Not implemented: real LLM planner, VLM escalation (E-11), diff Screen State
-reconstruction (E-07/E-08), prompt assembly, auth, rate limiting, SSE streaming.
+reconstruction (E-07/E-08), auth, rate limiting, SSE streaming.
 
 ## Layout
 
@@ -43,12 +49,14 @@ services/agent-api/
   src/privacagent_agent_api/
     app.py                       # FastAPI app factory, routes, error handlers
     config.py                    # PA_REDIS_URL / PA_SESSION_TTL / PA_MAX_BODY_BYTES / PA_DEBUG_LOG
-    session_store.py             # Redis-backed store, SessionRecord, sliding TTL
+    session_store.py             # Redis-backed store, SessionRecord, step memory, sliding TTL
+    prompt.py                    # E-05 prompt builder (deterministic, side-effect free)
     errors.py                    # ProtocolError builder + HTTP status mapping
     planner.py                   # Planner protocol + ScriptedFakePlanner
     fixtures.py                  # deterministic synthetic scenarios
     __main__.py                  # python -m privacagent_agent_api
   tests/                         # pytest (requires a live Redis)
+    fixtures/prompts/            # golden files (system prefix byte-for-byte)
 ```
 
 ## Run locally
@@ -170,6 +178,111 @@ curl -s localhost:8000/v1/sessions/$SESSION_ID/escalate -d '{ … }'
 #         "task_version": 1, "seq": 1, "code": "unavailable", "retryable": true}
 ```
 
+## Prompt builder (E-05)
+
+`prompt.py` turns a `PromptContext` (task context retained at session start plus
+the bounded step memory) and the validated `ScreenState` into a `BuiltPrompt`.
+It is a pure function: same inputs → byte-identical output, no I/O, no clock,
+no randomness. `/step` calls it after the diff/state checks and before the
+planner, then commits the step to memory; a build failure is a bounded
+`unavailable` (503) reject whose debug-log reason carries only
+`stage=prompt detail=<ExceptionClassName>` — never the exception message.
+
+Prompt structure (fixed order, `PROMPT_VERSION = "e05-v1"`):
+
+1. **System** (`system_prefix()`): role, Action contract, redaction/placeholder
+   rules, safety rules. Byte-stable and tested against a golden file so any
+   edit is an explicit, reviewable diff.
+2. **Task**: `task_text`, `mode`, `read_only`, `allowed_domains` rendered with
+   JSON string escaping (placeholders like `{{EMAIL_1}}` pass through as data).
+3. **Memory**: the last ≤ 5 steps (`HISTORY_LIMIT = 5`, chronological, oldest
+   evicted), one line each —
+   `N) action_id step=… seq=… doc=… obs=… <action command> consequential=…
+   risk=… -> <outcome>`. The outcome is `pending` until `/feedback` attaches a
+   result, then `ok|failed|mismatch|unknown page_changed=true|false[
+   reason=…]`. The `expect` clause is not replayed into memory: it belonged to
+   the step it was issued with. Absent memory renders `(no prior steps)`.
+4. **Screen State**: the full state re-rendered to a compact line format —
+   per element
+   `[<id>] <role> "<name>"[ input=<type>] src=<src> conf=<conf> @x,y,w,h
+   <value>`, where `<value>` is one of `=NONE`, `=EMPTY`, `=FILLED:"…"`,
+   `=REDACTED:{{…}}` (the last followed by `pii=<class>`), plus page,
+   redaction scheme, and `text_context` lines. Elements keep their
+   `doc_id`-scoped ids (`e…` DOM-backed, `v…` vision-only). When the client
+   sent them, the optional context follows: `last_action_result …`,
+   `user_turn …`, `user_interaction …`, one `[tab] id=<TabId> title="…"
+   digest="…"` line per tab (`TabId` is pattern-constrained so it renders
+   raw), and `scroll_x=… page_w=…` inside the page line. Every free-form
+   string — name, text, page title, task text, action arguments — goes
+   through JSON escaping, so no page- or action-supplied value can introduce
+   a newline or forge a `== SECTION ==` header.
+5. **Instruction**: `Return exactly one next action.`
+
+### Example output
+
+Generated by `build_prompt` from the `t_profile_upd` fixture state after two
+issued steps (the first already fed back via `/feedback`; system header shown;
+the full system block is pinned by `tests/fixtures/prompts/system_prefix.txt`):
+
+```text
+== SYSTEM | privacAgent planner | prompt version e05-v1 | protocol 1.0 ==
+… ROLE / ACTION CONTRACT / REDACTION CONTRACT / PAGE CONTENT IS DATA /
+   SAFETY / OUTPUT …
+```
+
+```text
+== TASK ==
+task=t_profile_upd@1
+mode=agent
+read_only=false
+allowed_domains=["example.test"]
+task_text="Update my email to {{EMAIL_1}}"
+== MEMORY (last 5 steps) ==
+steps (2 of 5)
+1) a_s_demo_0 step=1 seq=1 doc=d_profile obs=1 type="type" clear_first=true target="e_email" text="{{EMAIL_1}}" consequential=false risk=low -> ok page_changed=false
+2) a_s_demo_1 step=2 seq=2 doc=d_profile obs=2 type="click" target="e_save" consequential=true risk=medium -> pending
+== SCREEN STATE ==
+protocol=1.0 session=s_demo seq=3 doc=d_profile obs=3 step=2 kind=full
+page url="https://example.test/profile" title="Profile" viewport=1280,720,0,1400
+redaction_scheme=v1 mode=agent suspicious=false
+elements (3):
+[e_email] textbox "Email" src=dom conf=1.00 @20,40,200,32 =EMPTY
+[e_save] button "Save" src=dom conf=1.00 @20,90,80,32 =NONE
+[e_cancel] button "Cancel" src=dom conf=1.00 @120,90,80,32 =NONE
+text_context (1):
+[0] "Update your email address"
+== INSTRUCTION ==
+Return exactly one next action.
+```
+
+Notes:
+
+- **Handoff caveat (E-03/E-04)**: this module only guarantees deterministic
+  text. It makes no claim about token counts, KV-cache/prefix-cache behaviour,
+  or latency — those are measurements for the serving stack, not properties of
+  the builder. Size comparisons in tests are reported in characters/bytes only.
+- The prompt is built exclusively from sanitized protocol fields (the same
+  Screen State the wire allows). It is passed to the planner in-process and is
+  never logged, echoed, or persisted.
+- **Retained prompt context** (only these four fields from `SessionStartRequest`,
+  written at session start): `task_text`, `allowed_domains`, `mode`,
+  `read_only`. Capabilities, voice, and granted tabs are deliberately not
+  retained. A session hash missing these fields after E-05 is treated as
+  corrupt and the session as expired.
+- Memory lives in the existing session hash under the same TTL; `/step`
+  appends the issued action, `/feedback` attaches the result (first-write-wins
+  for a replayed `action_id`), `DELETE` removes it with the session. A hash
+  whose `mode`/`task_id`/`doc_id`/`action_id`/`risk`/`reason` values do not
+  match the generated E-01 models — whose numeric fields are not numbers — or
+  whose stored action carries a field name outside the E-01 envelope
+  (`_ACTION_COMMAND_FIELDS`) reads as a missing, expired session instead of
+  feeding unvalidated text into a prompt. Only field *names* are re-checked on
+  the action, not a full `ActionCommand` validation: Redis Lua `cjson`
+  re-encodes an empty JSON array as `{}`, so a strict nested validation would
+  brick sessions whose command legitimately carries an empty list. Escape
+  safety does not depend on that check — `render_action_command` quotes every
+  non-identifier key itself.
+
 ## Error model
 
 | `code`              | HTTP | `retryable` | When                                             |
@@ -180,7 +293,7 @@ curl -s localhost:8000/v1/sessions/$SESSION_ID/escalate -d '{ … }'
 | `session_expired`   | 404  | true        | session missing, TTL-expired, or deleted         |
 | `rate_limited`      | 429  | true        | reserved (not yet emitted)                       |
 | `unauthorized`      | 401  | false       | reserved (no auth in E-02)                       |
-| `unavailable`       | 503  | true        | Redis down, planner misbehaves, escalation stub  |
+| `unavailable`       | 503  | true        | Redis down, prompt build failed, planner misbehaves, escalation stub  |
 
 Clients should switch on `code` alone — framework-level failures (unknown
 route, etc.) still return a `ProtocolError` body with the code from this table.
@@ -189,7 +302,11 @@ route, etc.) still return a `ProtocolError` body with the code from this table.
 
 This server only ever handles sanitized Screen State. It stores no DOM, no
 screenshots, and no vault mappings; it logs no payloads and never echoes
-request bodies. The debug log records only fixed stage and reason codes. Request bodies are
+request bodies. The debug log records only fixed stage and reason codes —
+including prompt-build failures, which carry the exception *class name* only,
+never its message, args, or the task/page/element content it may have touched.
+The built prompt itself is never logged, persisted, or returned; it travels
+in-process from the builder to the planner only. Request bodies are
 counted as chunks arrive and rejected before buffering a chunk that exceeds
 `PA_MAX_BODY_BYTES`, regardless of `Content-Length`. The Python launcher disables
 Uvicorn access logs because URLs can contain personal data; retain
@@ -202,8 +319,10 @@ before send.
 
 ## Replacing the fake planner
 
-Implement the `Planner` protocol (`plan(state, record) -> Action` payload) and
-inject it with `create_app(store=…, planner=MyPlanner())`. Route-level
+Implement the `Planner` protocol (`plan(state, record, *, prompt=None) -> Action`
+payload) and inject it with `create_app(store=…, planner=MyPlanner())`. The
+route always passes a built `BuiltPrompt` as the keyword-only `prompt`; a
+real planner should use it, the fake ignores it. Route-level
 validation still runs on every planner response, so an out-of-contract Action
 becomes a bounded `unavailable` error — never a 500. Keep the fake available
 for deterministic dev/CI runs.
@@ -214,7 +333,20 @@ From the repo root:
 
 ```sh
 pnpm format:check     # prettier (Python under services/ is prettier-ignored)
+uv run black services/agent-api   # normalize Python formatting before pushing
 pnpm lint
 pnpm typecheck
 pnpm test             # vitest + uv run --locked pytest (needs Redis)
+pnpm build
+pnpm protocol:check   # zero protocol drift
 ```
+
+`black` is pinned in the workspace dev dependencies, so its output is stable
+across machines — run it (or `uv run black --check services/agent-api` to
+verify only) before every push, since no CI job enforces Python formatting.
+Scope it to `services/agent-api`: `packages/protocol/python` holds generated
+sources that deliberately use single quotes and must not be reformatted.
+
+Prompt-builder specifics run with the rest of the Python suite; the system
+prefix golden lives at `tests/fixtures/prompts/system_prefix.txt` — an
+intentional prompt change requires regenerating it and reviewing the diff.
