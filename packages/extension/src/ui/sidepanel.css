@@ -1,0 +1,17 @@
+/*
+ * The shell's own stylesheet entry.
+ *
+ * The kit ships Tailwind *source* and pins its own sources with `source(none)`, which is right
+ * for a package meant to be consumed elsewhere: importing `tokens.css` compiles the kit's classes
+ * and nothing else. The consequence for a consumer is that every utility used only by the shell
+ * — `p-3` on the panel sections, for one — is silently dropped, and the panel ships with the
+ * elements but not the spacing.
+ *
+ * So the shell registers its own files as sources rather than re-enabling the automatic project
+ * scan the kit deliberately turns off: the two sets of classes are generated side by side, and
+ * the extension's build still never reads the whole repository.
+ */
+@import '@privacagent/ui-kit/tokens.css';
+
+@source './sidepanel-view.tsx';
+@source './sidepanel.ts';

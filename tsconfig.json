@@ -1,4 +1,8 @@
 {
   "files": [],
-  "references": [{ "path": "./packages/protocol" }, { "path": "./packages/extension" }]
+  "references": [
+    { "path": "./packages/protocol" },
+    { "path": "./packages/ui-kit" },
+    { "path": "./packages/extension" }
+  ]
 }

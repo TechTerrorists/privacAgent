@@ -23,7 +23,7 @@
     "protocol:generate": "pnpm --filter @privacagent/protocol generate",
     "protocol:check": "pnpm --filter @privacagent/protocol generate:check",
     "test:watch": "vitest",
-    "test:browser": "playwright test",
+    "test:browser": "pnpm build && playwright test",
     "bench:dom": "playwright test --grep benchmark",
     "mocks:start": "node bench/mock-sites/server.mjs",
     "test:mocks": "playwright test bench/mock-sites/tests"
@@ -34,6 +34,7 @@
     "@types/node": "^26.6.2",
     "esbuild": "^0.28.2",
     "eslint": "^10.11.0",
+    "happy-dom": "^20.14.5",
     "prettier": "^3.9.8",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.70.1",
