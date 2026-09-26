@@ -4,6 +4,7 @@ vi.mock('webextension-polyfill', () => {
   const mockBrowser = {
     runtime: {
       id: 'mock-extension-id',
+      getURL: (path: string) => `chrome-extension://mock-extension-id/${path}`,
       sendMessage: vi.fn().mockResolvedValue(undefined),
       onMessage: {
         addListener: vi.fn(),
@@ -66,10 +67,10 @@ class InMemoryTransport implements Transport {
     }, 5);
   }
 
-  deliver(envelope: MessageEnvelope): void {
+  deliver(envelope: MessageEnvelope, sender: EndpointAddress = envelope.source): void {
     if (this.disposed) return;
     for (const listener of this.listeners) {
-      listener(envelope, envelope.source);
+      listener(envelope, sender);
     }
   }
 
@@ -492,9 +493,20 @@ describe('Typed Message Bus (A-03)', () => {
         context: 'worker',
       }));
 
+      const workerSide = new InMemoryTransport();
+      workerSide.peer = workerPeer;
+      workerPeer.peer = workerSide;
+      workerBus.dispose();
+      const responder = new MessageBus({ context: 'worker' }, workerSide);
+      responder.registerHandler('ping', (req) => ({
+        timestamp: req.timestamp + 100,
+        context: 'worker',
+      }));
+      const response = await clientBus.send('ping', { timestamp: 23 }, { context: 'worker' });
+      expect(response.timestamp).toBe(123);
       relay.dispose();
       clientBus.dispose();
-      workerBus.dispose();
+      responder.dispose();
     });
   });
 
@@ -580,7 +592,7 @@ describe('Typed Message Bus (A-03)', () => {
         timestamp: Date.now(),
       };
 
-      await expect(transport.send(envelope)).rejects.toThrowError(/without a valid tabId/);
+      await expect(transport.send(envelope)).rejects.toMatchObject({ code: 'MALFORMED_MESSAGE' });
       transport.dispose();
     });
   });
@@ -615,4 +627,240 @@ describe('Typed Message Bus (A-03)', () => {
       busB.dispose();
     });
   });
+});
+
+describe('A-03 review regressions', () => {
+  it.each([NaN, Infinity, -1, 0, 2_147_483_648])(
+    'rejects invalid timeout %s before dispatch',
+    async (timeoutMs) => {
+      const transport = new InMemoryTransport();
+      const spy = vi.spyOn(transport, 'send');
+      const bus = new MessageBus({ context: 'background' }, transport);
+      await expect(
+        bus.send('ping', { timestamp: 1 }, { context: 'worker' }, { timeoutMs })
+      ).rejects.toMatchObject({ code: 'MALFORMED_MESSAGE' });
+      expect(spy).not.toHaveBeenCalled();
+      bus.dispose();
+    }
+  );
+
+  it('ignores wrong operation/destination and malformed errors without losing pending state', async () => {
+    const transport = new InMemoryTransport();
+    const bus = new MessageBus({ context: 'background' }, transport);
+    let request: MessageEnvelope | undefined;
+    vi.spyOn(transport, 'send').mockImplementation(async (env) => {
+      request = env;
+    });
+    const pending = bus.send('ping', { timestamp: 1 }, { context: 'worker' });
+    const reply = {
+      ...request!,
+      type: 'response' as const,
+      source: { context: 'worker' as const },
+      destination: { context: 'background' as const },
+      payload: { timestamp: 2, context: 'worker' },
+    };
+    let settled = false;
+    void pending.then(() => {
+      settled = true;
+    });
+    transport.deliver({ ...reply, operation: 'dom:walk' });
+    transport.deliver({ ...reply, destination: { context: 'ui' } });
+    transport.deliver({ ...reply, type: 'error', error: undefined } as unknown as MessageEnvelope);
+    transport.deliver({
+      ...reply,
+      type: 'error',
+      error: { code: 'private@example.test', message: 'raw' },
+    } as unknown as MessageEnvelope);
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    transport.deliver(reply);
+    await expect(pending).resolves.toMatchObject({ timestamp: 2 });
+    bus.dispose();
+  });
+
+  it('rejects malformed envelopes before invoking a handler', async () => {
+    const transport = new InMemoryTransport();
+    const bus = new MessageBus({ context: 'background' }, transport);
+    const handler = vi.fn();
+    bus.registerHandler('ping', handler);
+    transport.deliver({
+      type: 'request',
+      operation: 'ping',
+      destination: { context: 'background' },
+      source: { context: 'content', tabId: 4 },
+      payload: { timestamp: 1 },
+    } as MessageEnvelope);
+    await Promise.resolve();
+    expect(handler).not.toHaveBeenCalled();
+    bus.dispose();
+  });
+
+  it('enforces allowed sender roles with a bounded reply', async () => {
+    const { busA, busB } = createConnectedBusPair(
+      { context: 'content', tabId: 4 },
+      { context: 'background' }
+    );
+    const handler = vi.fn(() => ({ timestamp: 1, context: 'background' as const }));
+    busB.registerHandler('ping', handler, { allowedSources: ['ui'] });
+    await expect(
+      busA.send('ping', { timestamp: 1 }, { context: 'background' })
+    ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+    expect(handler).not.toHaveBeenCalled();
+    busA.dispose();
+    busB.dispose();
+  });
+
+  it('never serializes custom or mutated error diagnostics', async () => {
+    const { busA, busB, transB } = createConnectedBusPair(
+      { context: 'background' },
+      { context: 'worker' }
+    );
+    const spy = vi.spyOn(transB, 'send');
+    busB.registerHandler('ping', () => {
+      const err = new MessageBusError(MessageErrorCode.HANDLER_ERROR, 'private@example.test');
+      err.message = 'private@example.test';
+      throw err;
+    });
+    await expect(busA.send('ping', { timestamp: 1 }, { context: 'worker' })).rejects.toMatchObject({
+      code: 'HANDLER_ERROR',
+    });
+    expect(JSON.stringify(spy.mock.calls)).not.toContain('private@example.test');
+    busA.dispose();
+    busB.dispose();
+  });
+
+  it('authenticates extension URL peers and content metadata before dispatch', async () => {
+    const { platform } = await import('../platform/index.js');
+    const transport = new ExtensionTransport(
+      { context: 'background' },
+      { extensionPeers: { 'chrome-extension://mock-extension-id/ui.html': { context: 'ui' } } }
+    );
+    const listener = vi.fn();
+    transport.onMessage(listener);
+    const receive = vi.mocked(platform.browser.runtime.onMessage.addListener).mock.calls.at(-1)![0];
+    const env = {
+      id: 'auth',
+      operation: 'ping',
+      type: 'request' as const,
+      source: { context: 'content' as const, tabId: 4, frameId: 0 },
+      destination: { context: 'background' as const },
+      timestamp: 1,
+      payload: { timestamp: 1 },
+    };
+    receive(
+      env,
+      {
+        id: 'mock-extension-id',
+        tab: { id: 4 } as never,
+        frameId: 0,
+        url: 'https://example.test/',
+      },
+      () => {}
+    );
+    expect(listener).toHaveBeenCalledTimes(1);
+    receive(
+      { ...env, source: { context: 'background' } },
+      { id: 'mock-extension-id', tab: { id: 4 } as never, url: 'https://example.test/' },
+      () => {}
+    );
+    receive(env, { id: 'other-extension' }, () => {});
+    expect(listener).toHaveBeenCalledTimes(1);
+    receive(
+      { ...env, source: { context: 'ui' } },
+      {
+        id: 'mock-extension-id',
+        url: 'chrome-extension://mock-extension-id/ui.html',
+        tab: { id: 5 } as never,
+      },
+      () => {}
+    );
+    expect(listener).toHaveBeenCalledTimes(2);
+    transport.dispose();
+  });
+
+  it('returns a bounded failure if the relay cannot forward to its worker', async () => {
+    const client = new InMemoryTransport();
+    const host = new InMemoryTransport();
+    client.peer = host;
+    host.peer = client;
+    const worker = new InMemoryTransport();
+    const relay = new HostRelay(host, worker);
+    const bus = new MessageBus({ context: 'ui' }, client);
+    await expect(bus.send('ping', { timestamp: 1 }, { context: 'worker' })).rejects.toMatchObject({
+      code: 'DISCONNECTED',
+    });
+    relay.dispose();
+    bus.dispose();
+  });
+
+  it('consumes reverse relay failures and rejects forged worker origins', async () => {
+    const host = new InMemoryTransport();
+    const worker = new InMemoryTransport();
+    const send = vi.spyOn(host, 'send').mockRejectedValue(new Error('disconnected'));
+    const relay = new HostRelay(host, worker);
+    const env: MessageEnvelope = {
+      id: 'reply',
+      type: 'response',
+      operation: 'ping',
+      source: { context: 'worker' },
+      destination: { context: 'ui' },
+      timestamp: 1,
+      payload: { timestamp: 1, context: 'worker' },
+    };
+    worker.deliver(env);
+    worker.deliver({ ...env, source: { context: 'background' } });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(send).toHaveBeenCalledTimes(1);
+    relay.dispose();
+  });
+});
+
+it('does not dispatch or reply to a forged source even with a valid payload', async () => {
+  const transport = new InMemoryTransport();
+  const send = vi.spyOn(transport, 'send').mockResolvedValue();
+  const bus = new MessageBus({ context: 'background' }, transport);
+  const handler = vi.fn(() => ({ timestamp: 1, context: 'background' as const }));
+  bus.registerHandler('ping', handler);
+  const source: EndpointAddress = { context: 'content', tabId: 8, frameId: 2 };
+  const request: MessageEnvelope = {
+    id: 'spoof',
+    type: 'request',
+    operation: 'ping',
+    source: { context: 'content', tabId: 9, frameId: 0 },
+    destination: { context: 'background' },
+    timestamp: 1,
+    payload: { timestamp: 1 },
+  };
+  transport.deliver(request, source);
+  await Promise.resolve();
+  expect(handler).not.toHaveBeenCalled();
+  expect(send).not.toHaveBeenCalled();
+  transport.deliver({ ...request, source }, source);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(handler).toHaveBeenCalledWith({ timestamp: 1 }, source);
+  expect(send).toHaveBeenCalledWith(expect.objectContaining({ destination: source }));
+  bus.dispose();
+});
+
+it('relay preserves authenticated frame identity and rejects claimed identities', async () => {
+  const extension = new InMemoryTransport();
+  const worker = new InMemoryTransport();
+  const forward = vi.spyOn(worker, 'send').mockResolvedValue();
+  const relay = new HostRelay(extension, worker);
+  const source: EndpointAddress = { context: 'content', tabId: 8, frameId: 2 };
+  const request: MessageEnvelope = {
+    id: 'relay',
+    type: 'request',
+    operation: 'ping',
+    source,
+    destination: { context: 'worker' },
+    timestamp: 1,
+    payload: { timestamp: 1 },
+  };
+  extension.deliver({ ...request, source: { context: 'background' } }, source);
+  expect(forward).not.toHaveBeenCalled();
+  extension.deliver(request, source);
+  expect(forward).toHaveBeenCalledWith(expect.objectContaining({ source }));
+  relay.dispose();
 });

@@ -7,7 +7,7 @@
  * payload contents are NEVER echoed or retained in error messages.
  */
 
-import { type MessageErrorCode } from './types.js';
+import { MessageErrorCode } from './types.js';
 
 export const FIXED_ERROR_MESSAGES: Record<MessageErrorCode, string> = {
   TIMEOUT: 'Operation timed out waiting for peer response',
@@ -29,10 +29,12 @@ export const FIXED_ERROR_MESSAGES: Record<MessageErrorCode, string> = {
 export class MessageBusError extends Error {
   constructor(
     public readonly code: MessageErrorCode,
-    customDiagnostic?: string
+    _customDiagnostic?: string
   ) {
-    const message = customDiagnostic ?? FIXED_ERROR_MESSAGES[code] ?? 'Internal messaging error';
+    code = Object.values(MessageErrorCode).includes(code) ? code : MessageErrorCode.HANDLER_ERROR;
+    const message = FIXED_ERROR_MESSAGES[code] ?? 'Internal messaging error';
     super(`[${code}] ${message}`);
+    this.code = code;
     this.name = 'MessageBusError';
   }
 }
@@ -43,7 +45,7 @@ export class MessageBusError extends Error {
  */
 export function toMessageBusError(err: unknown, defaultCode: MessageErrorCode): MessageBusError {
   if (err instanceof MessageBusError) {
-    return err;
+    return new MessageBusError(err.code);
   }
   return new MessageBusError(defaultCode);
 }

@@ -38,8 +38,12 @@ export class WorkerTransport implements Transport {
     this.messageHandler = (event: MessageEvent) => {
       if (this.disposed) return;
       const data = event.data;
-      if (!data || typeof data !== 'object') return;
-      const envelope = data as MessageEnvelope;
+      try {
+        assertValidEnvelope(data);
+      } catch {
+        return;
+      }
+      const envelope = data;
 
       for (const listener of this.listeners) {
         try {

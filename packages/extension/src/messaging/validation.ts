@@ -121,10 +121,16 @@ export function isEndpointAddress(val: unknown): val is EndpointAddress {
   if (typeof addr.context !== 'string' || !VALID_CONTEXTS.has(addr.context)) {
     return false;
   }
-  if (addr.tabId !== undefined && typeof addr.tabId !== 'number') {
+  if (
+    addr.tabId !== undefined &&
+    (!Number.isSafeInteger(addr.tabId) || (addr.tabId as number) < 0)
+  ) {
     return false;
   }
-  if (addr.frameId !== undefined && typeof addr.frameId !== 'number') {
+  if (
+    addr.frameId !== undefined &&
+    (!Number.isSafeInteger(addr.frameId) || (addr.frameId as number) < 0)
+  ) {
     return false;
   }
   return true;
@@ -294,7 +300,11 @@ export function isMessageEnvelope(val: unknown): val is MessageEnvelope {
   if (env.type === 'error') {
     const err = env.error as Record<string, unknown> | undefined;
     if (!err || typeof err !== 'object') return false;
-    if (typeof err.code !== 'string' || typeof err.message !== 'string') return false;
+    if (
+      !Object.values(MessageErrorCode).includes(err.code as MessageErrorCode) ||
+      typeof err.message !== 'string'
+    )
+      return false;
   }
 
   return true;

@@ -104,3 +104,41 @@ relay.dispose();
 ```
 
 This automatically cancels all pending timers, safely rejects pending calls with `DISCONNECTED`, and removes event listeners to prevent memory leaks.
+
+## Authenticated peers and handler roles
+
+Construct `ExtensionTransport(address, { extensionPeers, workerRelayUrls })` with
+exact URLs from `browser.runtime.getURL(...)`. `extensionPeers` maps each trusted
+background/UI/offscreen document URL to its endpoint address; `workerRelayUrls`
+contains only the host documents allowed to forward worker-originated replies.
+Use the actual built background URL (Firefox uses its generated background page).
+Unlisted extension pages, foreign extension IDs, and mismatched claimed sources
+are dropped. Content tab/frame identities come from browser sender metadata;
+extension pages opened in tabs still use their configured role.
+
+For privileged handlers, pass a third registration argument such as
+`{ allowedSources: ['background'] }`. The default permits all local roles for
+nonprivileged operations such as the synthetic stubs. `HostRelay` also accepts
+an allowed-source list as its third argument. The dedicated worker/MessagePort
+channel must connect only trusted extension code: it preserves the identity
+verified by the host, and is not a page messaging bridge. The relay accepts
+worker-originated messages only from the worker role. Register the host URL as a
+worker relay at each extension recipient, including content recipients.
+
+Incoming envelopes and error codes are validated before dispatch. Responses must
+match ID, operation, source and local destination. Malformed/unrelated messages
+are dropped without consuming pending requests; these retain their timeout.
+Timeouts must be finite, positive and at most 2,147,483,647 ms. Worker forwarding
+failure returns a fixed `DISCONNECTED` error where possible; failed reply delivery
+is consumed and the caller times out. No forwarding failure triggers a replay.
+Error text is always fixed by code, even for custom `MessageBusError` instances.
+
+`message-bus-extension.spec.ts` builds a test-only extension and exercises actual
+runtime messaging, top/child-frame tab messaging, and a host/worker round trip in
+Chromium and Firefox. Chromium uses an offscreen document; Firefox hosts the worker
+in its background page and loads the fixture using `web-ext`. Run it with
+`pnpm exec playwright test packages/extension/tests/message-bus-extension.spec.ts`
+after installing Playwright's Chromium and Firefox binaries. Production host
+startup remains A-04. Dispose buses, relays and their owned transports when the
+host stops. Pending requests do not survive navigation or background restart;
+local delivery never authorizes network egress (A-06/D-11).

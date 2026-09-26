@@ -20,6 +20,7 @@ import {
 import {
   MessageErrorCode,
   type EndpointAddress,
+  type ContextType,
   type ErrorEnvelope,
   type MessageEnvelope,
   type MessageHandler,
@@ -43,6 +44,7 @@ interface PendingRequest {
 export class MessageBus {
   public readonly localAddress: EndpointAddress;
   private readonly handlers = new Map<string, MessageHandler>();
+  private readonly allowedSources = new Map<string, readonly ContextType[]>();
   private readonly pending = new Map<string, PendingRequest>();
   private readonly cleanupTransport: () => void;
   private disposed = false;
@@ -64,12 +66,17 @@ export class MessageBus {
    */
   registerHandler<O extends keyof OperationMap>(
     operation: O,
-    handler: MessageHandler<OperationMap[O]['request'], OperationMap[O]['response']>
+    handler: MessageHandler<OperationMap[O]['request'], OperationMap[O]['response']>,
+    options?: { allowedSources: readonly ContextType[] }
   ): () => void {
     if (this.disposed) {
       throw new MessageBusError(MessageErrorCode.DISCONNECTED);
     }
     this.handlers.set(operation as string, handler as MessageHandler);
+    this.allowedSources.set(
+      operation,
+      options?.allowedSources ?? ['background', 'content', 'offscreen', 'worker', 'ui']
+    );
     return () => {
       this.unregisterHandler(operation);
     };
@@ -80,6 +87,7 @@ export class MessageBus {
    */
   unregisterHandler<O extends keyof OperationMap>(operation: O): void {
     this.handlers.delete(operation as string);
+    this.allowedSources.delete(operation);
   }
 
   /**
@@ -102,6 +110,9 @@ export class MessageBus {
     const normDest = normalizeEndpoint(destination);
     const id = this.generateId();
     const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0 || timeoutMs > 2_147_483_647) {
+      throw new MessageBusError(MessageErrorCode.MALFORMED_MESSAGE);
+    }
 
     const requestEnvelope: RequestEnvelope<string, unknown> = {
       id,
@@ -146,6 +157,12 @@ export class MessageBus {
    */
   private handleIncoming(envelope: MessageEnvelope, senderAddress?: EndpointAddress): void {
     if (this.disposed) return;
+    try {
+      assertValidEnvelope(envelope);
+      if (senderAddress && !matchesEndpoint(senderAddress, envelope.source)) return;
+    } catch {
+      return;
+    }
 
     // 1. Correlate Response or Error to our pending requests
     if (isResponseEnvelope(envelope) || isErrorEnvelope(envelope)) {
@@ -157,7 +174,11 @@ export class MessageBus {
 
       // Correlate peer: verify source matches expected destination
       const actualSource = senderAddress ?? envelope.source;
-      if (!matchesEndpoint(actualSource, pending.expectedDestination)) {
+      if (
+        !matchesEndpoint(actualSource, pending.expectedDestination) ||
+        envelope.operation !== pending.operation ||
+        !matchesEndpoint(envelope.destination, this.localAddress)
+      ) {
         // Drop replies from unexpected frames or wrong peers
         return;
       }
@@ -187,7 +208,7 @@ export class MessageBus {
         return;
       }
 
-      const normSource = normalizeEndpoint(envelope.source);
+      const normSource = normalizeEndpoint(senderAddress ?? envelope.source);
 
       // Validate incoming request payload shape before invoking any handler
       try {
@@ -209,6 +230,24 @@ export class MessageBus {
         return;
       }
 
+      const allowed = this.allowedSources.get(envelope.operation);
+      if (allowed && !allowed.includes(normSource.context)) {
+        void this.transport
+          .send({
+            id: envelope.id,
+            type: 'error',
+            operation: envelope.operation,
+            error: {
+              code: MessageErrorCode.UNAUTHORIZED,
+              message: new MessageBusError(MessageErrorCode.UNAUTHORIZED).message,
+            },
+            source: this.localAddress,
+            destination: normSource,
+            timestamp: Date.now(),
+          })
+          .catch(() => {});
+        return;
+      }
       const handler = this.handlers.get(envelope.operation);
       if (!handler) {
         // Send back an explicit error envelope rather than hanging the caller
@@ -281,6 +320,7 @@ export class MessageBus {
     }
 
     this.handlers.clear();
+    this.allowedSources.clear();
     this.cleanupTransport();
   }
 

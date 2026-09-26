@@ -10,7 +10,7 @@
 
 import { platform } from '../platform/index.js';
 import { MessageBusError } from './errors.js';
-import { assertValidEnvelope, normalizeEndpoint } from './validation.js';
+import { assertValidEnvelope, normalizeEndpoint, matchesEndpoint } from './validation.js';
 import {
   MessageErrorCode,
   type EndpointAddress,
@@ -22,33 +22,47 @@ import type { Transport } from './transport-types.js';
 /**
  * Transport implementation leveraging browser runtime and tab messaging.
  */
+export interface ExtensionTransportOptions {
+  /** Exact runtime.getURL(...) URLs owned by this extension and their roles. */
+  extensionPeers?: Readonly<Record<string, EndpointAddress>>;
+  /** Exact host URLs permitted to return worker-originated messages. */
+  workerRelayUrls?: readonly string[];
+}
+
 export class ExtensionTransport implements Transport {
   private readonly listeners = new Set<
     (envelope: MessageEnvelope, senderAddress?: EndpointAddress) => void
   >();
   private readonly runtimeListener: (
     message: unknown,
-    sender: { tab?: { id?: number }; frameId?: number }
+    sender: { id?: string; url?: string; tab?: { id?: number }; frameId?: number }
   ) => void;
   private disposed = false;
 
-  constructor(private readonly endpoint: EndpointAddress) {
-    this.endpoint = normalizeEndpoint(endpoint);
-
+  constructor(_endpoint: EndpointAddress, options: ExtensionTransportOptions = {}) {
     this.runtimeListener = (message: unknown, sender) => {
       if (this.disposed) return;
-      if (!message || typeof message !== 'object') return;
-      const envelope = message as MessageEnvelope;
-
-      // Extract verified sender address from browser-provided metadata
-      let verifiedSender: EndpointAddress | undefined;
-      if (sender?.tab?.id !== undefined) {
-        verifiedSender = {
-          context: 'content',
-          tabId: sender.tab.id,
-          frameId: sender.frameId ?? 0,
-        };
+      try {
+        assertValidEnvelope(message);
+      } catch {
+        return;
       }
+      const envelope = message;
+      if (sender.id !== platform.browser.runtime.id) return;
+
+      // Extension documents can also have sender.tab (e.g. UI opened in a tab).
+      // Authenticate their exact configured URL before classifying content scripts.
+      let verifiedSender: EndpointAddress | undefined;
+      const ownUrl = sender.url?.startsWith(platform.browser.runtime.getURL(''));
+      if (ownUrl && sender.url) {
+        verifiedSender = options.extensionPeers?.[sender.url];
+        if (envelope.source.context === 'worker' && options.workerRelayUrls?.includes(sender.url)) {
+          verifiedSender = { context: 'worker' };
+        }
+      } else if (sender.tab?.id !== undefined) {
+        verifiedSender = { context: 'content', tabId: sender.tab.id, frameId: sender.frameId ?? 0 };
+      }
+      if (!verifiedSender || !matchesEndpoint(verifiedSender, envelope.source)) return;
 
       for (const listener of this.listeners) {
         try {
