@@ -26,13 +26,13 @@ class Settings:
     def from_env(cls) -> "Settings":
         return cls(
             redis_url=os.environ.get("PA_REDIS_URL", DEFAULT_REDIS_URL),
-            session_ttl=int(os.environ.get("PA_SESSION_TTL", str(PROTOCOL_MAX_SESSION_TTL))),
+            session_ttl=int(
+                os.environ.get("PA_SESSION_TTL", str(PROTOCOL_MAX_SESSION_TTL))
+            ),
             max_body_bytes=int(
                 os.environ.get("PA_MAX_BODY_BYTES", str(DEFAULT_MAX_BODY_BYTES))
             ),
-            debug_log_path=os.environ.get(
-                "PA_DEBUG_LOG", DEFAULT_DEBUG_LOG_PATH
-            ),
+            debug_log_path=os.environ.get("PA_DEBUG_LOG", DEFAULT_DEBUG_LOG_PATH),
         )
 
     def __post_init__(self) -> None:
@@ -42,4 +42,6 @@ class Settings:
                 f"(protocol ceiling), got {self.session_ttl}"
             )
         if self.max_body_bytes < 1:
-            raise ValueError(f"PA_MAX_BODY_BYTES must be positive, got {self.max_body_bytes}")
+            raise ValueError(
+                f"PA_MAX_BODY_BYTES must be positive, got {self.max_body_bytes}"
+            )
