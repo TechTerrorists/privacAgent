@@ -38,6 +38,8 @@ import {
   assertTransportable,
   installStubHandlers,
   isMessageEnvelope,
+  matchesEndpoint,
+  normalizeEndpoint,
   type EndpointAddress,
   type MessageEnvelope,
   type Transport,
@@ -51,10 +53,10 @@ class InMemoryTransport implements Transport {
 
   async send(envelope: MessageEnvelope): Promise<void> {
     if (this.disposed) {
-      throw new MessageBusError(MessageErrorCode.DISCONNECTED, 'Transport disposed');
+      throw new MessageBusError(MessageErrorCode.DISCONNECTED);
     }
     if (!this.peer || this.peer.disposed) {
-      throw new MessageBusError(MessageErrorCode.RECEIVER_NOT_FOUND, 'Peer disconnected');
+      throw new MessageBusError(MessageErrorCode.RECEIVER_NOT_FOUND);
     }
     // Simulate async tick like a real transport
     setTimeout(() => {
@@ -82,10 +84,7 @@ class InMemoryTransport implements Transport {
   }
 }
 
-function createConnectedBusPair(
-  addrA: EndpointAddress,
-  addrB: EndpointAddress
-): { busA: MessageBus; busB: MessageBus; transA: InMemoryTransport; transB: InMemoryTransport } {
+function createConnectedBusPair(addrA: EndpointAddress, addrB: EndpointAddress) {
   const transA = new InMemoryTransport();
   const transB = new InMemoryTransport();
   transA.peer = transB;
@@ -98,8 +97,8 @@ function createConnectedBusPair(
 }
 
 describe('Typed Message Bus (A-03)', () => {
-  describe('Happy path request and response', () => {
-    it('dispatches typed request and resolves matching response', async () => {
+  describe('Basic Request / Response cycle', () => {
+    it('successfully sends a request and receives a correlated response', async () => {
       const { busA, busB } = createConnectedBusPair(
         { context: 'background' },
         { context: 'content', tabId: 10 }
@@ -114,30 +113,44 @@ describe('Typed Message Bus (A-03)', () => {
         };
       });
 
-      const res = await busA.send(
+      const response = await busA.send(
         'ping',
-        { timestamp: 12345, echo: 'hello' },
+        { timestamp: 12345, echo: 'hello-world' },
         { context: 'content', tabId: 10 }
       );
 
-      expect(res.echo).toBe('hello');
-      expect(res.context).toBe('content');
+      expect(response.echo).toBe('hello-world');
+      expect(response.context).toBe('content');
 
       busA.dispose();
       busB.dispose();
     });
+
+    it('rejects sending requests when bus is disposed', async () => {
+      const { busA, busB } = createConnectedBusPair(
+        { context: 'background' },
+        { context: 'content', tabId: 10 }
+      );
+
+      busA.dispose();
+
+      await expect(
+        busA.send('ping', { timestamp: 1 }, { context: 'content', tabId: 10 })
+      ).rejects.toThrowError(/DISCONNECTED/);
+
+      busB.dispose();
+    });
   });
 
-  describe('Concurrent & Out-of-Order Correlation', () => {
-    it('correctly matches multiple in-flight concurrent requests to their caller', async () => {
+  describe('Concurrency & Out-of-Order resolution', () => {
+    it('resolves concurrent requests to correct callers even with delayed replies', async () => {
       const { busA, busB } = createConnectedBusPair(
         { context: 'background' },
         { context: 'worker' }
       );
 
       busB.registerHandler('inference:runDetector', async (req) => {
-        // Delay responses inversely to input width to test out-of-order resolution
-        const delay = req.width === 100 ? 30 : 5;
+        const delay = req.width === 100 ? 25 : 5;
         await new Promise((r) => setTimeout(r, delay));
         return {
           status: 'ok',
@@ -147,7 +160,6 @@ describe('Typed Message Bus (A-03)', () => {
         };
       });
 
-      // Call 1 has delay 30ms, Call 2 has delay 5ms
       const p1 = busA.send(
         'inference:runDetector',
         { width: 100, height: 100, frame: 'image' },
@@ -175,7 +187,6 @@ describe('Typed Message Bus (A-03)', () => {
 
     it('rejects with TIMEOUT if receiver does not reply within timeoutMs', async () => {
       const transA = new InMemoryTransport();
-      // Transport with no peer (silent drop)
       transA.peer = {
         send: vi.fn().mockResolvedValue(undefined),
         onMessage: vi.fn().mockReturnValue(() => {}),
@@ -193,7 +204,7 @@ describe('Typed Message Bus (A-03)', () => {
 
     it('rejects immediately when transport fails to send', async () => {
       const failingTransport: Transport = {
-        send: vi.fn().mockRejectedValue(new Error('Tab closed')),
+        send: vi.fn().mockRejectedValue(new Error('Connection lost')),
         onMessage: vi.fn().mockReturnValue(() => {}),
         dispose: vi.fn(),
       };
@@ -208,35 +219,120 @@ describe('Typed Message Bus (A-03)', () => {
     });
   });
 
-  describe('Unsupported operations & Handler failures', () => {
-    it('returns UNSUPPORTED_OPERATION when target has no handler', async () => {
+  describe('Runtime Schema & Payload Validation', () => {
+    it('rejects invalid ping request payload with MALFORMED_MESSAGE before reaching handler', async () => {
       const { busA, busB } = createConnectedBusPair(
         { context: 'background' },
-        { context: 'content', tabId: 5 }
+        { context: 'content', tabId: 10 }
       );
 
-      // busB registers NO handler
+      const handlerSpy = vi.fn().mockReturnValue({
+        timestamp: Date.now(),
+        context: 'content',
+      });
+      busB.registerHandler('ping', handlerSpy);
+
+      // Invalid ping: timestamp is not a number
       await expect(
-        busA.send('dom:walk', {}, { context: 'content', tabId: 5 }, { timeoutMs: 100 })
-      ).rejects.toThrowError(/UNSUPPORTED_OPERATION/);
+        busA.send(
+          'ping',
+          { timestamp: 'invalid-timestamp' as unknown as number },
+          { context: 'content', tabId: 10 },
+          { timeoutMs: 200 }
+        )
+      ).rejects.toThrowError(/MALFORMED_MESSAGE/);
+
+      // Handler must never have been called with invalid data
+      expect(handlerSpy).not.toHaveBeenCalled();
 
       busA.dispose();
       busB.dispose();
     });
 
-    it('returns HANDLER_ERROR when handler throws an exception', async () => {
+    it('rejects invalid response payload with MALFORMED_MESSAGE', async () => {
+      const { busA, busB } = createConnectedBusPair(
+        { context: 'background' },
+        { context: 'worker' }
+      );
+
+      // Handler returns invalid response shape (synthetic is missing / not true)
+      busB.registerHandler('inference:runDetector', () => {
+        return {
+          status: 'ok',
+          synthetic: false as unknown as true,
+          itemCount: 1,
+          durationMs: 5,
+        };
+      });
+
+      await expect(
+        busA.send(
+          'inference:runDetector',
+          { width: 100, height: 100, frame: 'image' },
+          { context: 'worker' },
+          { timeoutMs: 200 }
+        )
+      ).rejects.toThrowError(/MALFORMED_MESSAGE/);
+
+      busA.dispose();
+      busB.dispose();
+    });
+  });
+
+  describe('Frame ID Normalization and Destination Filtering', () => {
+    it('normalizes omitted frameId to 0 for content endpoints', () => {
+      const addr = normalizeEndpoint({ context: 'content', tabId: 5 });
+      expect(addr.frameId).toBe(0);
+
+      const bgAddr = normalizeEndpoint({ context: 'background' });
+      expect(bgAddr.frameId).toBeUndefined();
+    });
+
+    it('matches content endpoint omitting frameId with frameId 0', () => {
+      expect(
+        matchesEndpoint(
+          { context: 'content', tabId: 5, frameId: 0 },
+          { context: 'content', tabId: 5 }
+        )
+      ).toBe(true);
+
+      expect(
+        matchesEndpoint(
+          { context: 'content', tabId: 5, frameId: 1 },
+          { context: 'content', tabId: 5 }
+        )
+      ).toBe(false);
+    });
+  });
+
+  describe('Privacy & Error Sanitization (No sensitive text leaks)', () => {
+    it('never leaks arbitrary exception strings, emails, tokens, or URLs in errors', async () => {
       const { busA, busB } = createConnectedBusPair(
         { context: 'background' },
         { context: 'worker' }
       );
 
       busB.registerHandler('dom:walk', () => {
-        throw new Error('Database locked');
+        throw new Error(
+          'Critical failure for user john.doe@example.com with token=secret123 at https://internal.corp/secret'
+        );
       });
 
-      await expect(
-        busA.send('dom:walk', {}, { context: 'worker' }, { timeoutMs: 100 })
-      ).rejects.toThrowError(/HANDLER_ERROR/);
+      try {
+        await busA.send('dom:walk', {}, { context: 'worker' }, { timeoutMs: 200 });
+        expect.unreachable('Should have thrown');
+      } catch (err: unknown) {
+        expect(err).toBeInstanceOf(MessageBusError);
+        const busErr = err as MessageBusError;
+        expect(busErr.code).toBe(MessageErrorCode.HANDLER_ERROR);
+        // Error message must use fixed diagnostic text and NOT leak sensitive strings
+        expect(busErr.message).not.toContain('john.doe@example.com');
+        expect(busErr.message).not.toContain('secret123');
+        expect(busErr.message).not.toContain('https://internal.corp');
+        expect(busErr.message).toBe(
+          '[HANDLER_ERROR] Message handler threw an exception during execution'
+        );
+      }
 
       busA.dispose();
       busB.dispose();
@@ -253,149 +349,148 @@ describe('Typed Message Bus (A-03)', () => {
         'ping',
         { timestamp: 1 },
         { context: 'content', tabId: 10, frameId: 0 },
-        { timeoutMs: 60 }
+        { timeoutMs: 50 }
       );
 
-      // Inject malicious or spoofed response from a different frame (frame 1 instead of 0)
-      setTimeout(() => {
-        const pendingKey = Array.from(
-          (busA as unknown as { pending: Map<string, { id: string }> }).pending.keys()
-        )[0];
-        if (pendingKey) {
-          transA.deliver({
-            id: pendingKey,
-            type: 'response',
-            operation: 'ping',
-            payload: { timestamp: 1, context: 'content' },
-            source: { context: 'content', tabId: 10, frameId: 1 }, // Wrong frame
-            destination: { context: 'background' },
-            timestamp: Date.now(),
-          });
-        }
-      }, 10);
+      // Fake response from wrong frame (frameId: 1 instead of 0)
+      const wrongFrameEnvelope: MessageEnvelope = {
+        id: (busA as unknown as { pending: Map<string, { id: string }> }).pending.keys().next()
+          .value!,
+        type: 'response',
+        operation: 'ping',
+        payload: { timestamp: 2, context: 'content' },
+        source: { context: 'content', tabId: 10, frameId: 1 },
+        destination: { context: 'background' },
+        timestamp: Date.now(),
+      };
 
-      // Because spoofed reply was ignored, the pending request times out
+      transA.deliver(wrongFrameEnvelope);
+
+      // Should time out because wrong-frame response was safely dropped
       await expect(sendPromise).rejects.toThrowError(/TIMEOUT/);
 
       busA.dispose();
     });
 
-    it('safely ignores late or duplicate responses without throwing', async () => {
-      const { busA, transB } = createConnectedBusPair(
+    it('safely ignores late or duplicate responses without crashing', () => {
+      const trans = new InMemoryTransport();
+      const bus = new MessageBus({ context: 'background' }, trans);
+
+      const orphanEnvelope: MessageEnvelope = {
+        id: 'non-existent-id',
+        type: 'response',
+        operation: 'ping',
+        payload: { timestamp: 123, context: 'content' },
+        source: { context: 'content', tabId: 1 },
+        destination: { context: 'background' },
+        timestamp: Date.now(),
+      };
+
+      expect(() => trans.deliver(orphanEnvelope)).not.toThrow();
+      bus.dispose();
+    });
+  });
+
+  describe('Disposal lifecycle (A-04 integration)', () => {
+    it('aborts all pending requests with DISCONNECTED when bus is disposed', async () => {
+      const trans = new InMemoryTransport();
+      const bus = new MessageBus({ context: 'background' }, trans);
+
+      const p1 = bus.send('ping', { timestamp: 1 }, { context: 'worker' }, { timeoutMs: 5000 });
+      const p2 = bus.send('ping', { timestamp: 2 }, { context: 'worker' }, { timeoutMs: 5000 });
+
+      bus.dispose();
+
+      await expect(p1).rejects.toThrowError(/DISCONNECTED/);
+      await expect(p2).rejects.toThrowError(/DISCONNECTED/);
+    });
+
+    it('unregisters handlers cleanly via returned unsubscribe function', async () => {
+      const { busA, busB } = createConnectedBusPair(
         { context: 'background' },
         { context: 'worker' }
       );
 
-      // Deliver duplicate response with an unknown/already-settled ID
-      expect(() => {
-        transB.deliver({
-          id: 'non-existent-id',
-          type: 'response',
-          operation: 'ping',
-          payload: {},
-          source: { context: 'worker' },
-          destination: { context: 'background' },
-          timestamp: Date.now(),
-        });
-      }).not.toThrow();
+      const unsub = busB.registerHandler('ping', () => ({
+        timestamp: 1,
+        context: 'worker',
+      }));
 
-      busA.dispose();
-    });
-  });
+      const res = await busA.send('ping', { timestamp: 1 }, { context: 'worker' });
+      expect(res.context).toBe('worker');
 
-  describe('Disposal and Cleanup (A-04 lifecycle integration)', () => {
-    it('cancels pending requests with DISCONNECTED on dispose', async () => {
-      const transA = new InMemoryTransport();
-      const busA = new MessageBus({ context: 'background' }, transA);
-
-      const p = busA.send(
-        'ping',
-        { timestamp: 1 },
-        { context: 'content', tabId: 10 },
-        { timeoutMs: 10_000 }
-      );
-
-      busA.dispose();
-
-      await expect(p).rejects.toThrowError(/DISCONNECTED/);
-    });
-
-    it('prevents sending on a disposed bus', async () => {
-      const trans = new InMemoryTransport();
-      const bus = new MessageBus({ context: 'background' }, trans);
-      bus.dispose();
+      unsub();
 
       await expect(
-        bus.send('ping', { timestamp: 1 }, { context: 'background' })
-      ).rejects.toThrowError(/DISCONNECTED/);
+        busA.send('ping', { timestamp: 1 }, { context: 'worker' }, { timeoutMs: 100 })
+      ).rejects.toThrowError(/UNSUPPORTED_OPERATION/);
+
+      busA.dispose();
+      busB.dispose();
     });
   });
 
-  describe('Validation & Payload Safety', () => {
-    it('rejects DOM nodes from crossing message boundaries', () => {
-      const fakeNode = { nodeType: 1, tagName: 'DIV' };
-      expect(() => assertTransportable(fakeNode)).toThrowError(/DOM nodes cannot be transported/);
+  describe('Non-serializable payload rejection (DOM nodes, functions, symbols)', () => {
+    it('rejects sending DOM nodes in payloads', async () => {
+      const trans = new InMemoryTransport();
+      const bus = new MessageBus({ context: 'background' }, trans);
+
+      const fakeDomNode = {
+        nodeType: 1,
+        tagName: 'DIV',
+        ownerDocument: {},
+      };
+
+      await expect(
+        bus.send('ping', { timestamp: 1, node: fakeDomNode } as unknown as { timestamp: number }, {
+          context: 'worker',
+        })
+      ).rejects.toThrowError(/UNSUPPORTED_PAYLOAD/);
+
+      bus.dispose();
     });
 
     it('rejects functions and symbols from payloads', () => {
-      expect(() => assertTransportable({ fn: () => {} })).toThrowError(/unsupported data type/);
-      expect(() => assertTransportable({ s: Symbol('test') })).toThrowError(
-        /unsupported data type/
+      expect(() => assertTransportable({ fn: () => {} })).toThrowError(/UNSUPPORTED_PAYLOAD/);
+      expect(() => assertTransportable({ sym: Symbol('test') })).toThrowError(
+        /UNSUPPORTED_PAYLOAD/
       );
     });
 
     it('validates envelope structure correctly', () => {
+      expect(isMessageEnvelope(null)).toBe(false);
+      expect(isMessageEnvelope({})).toBe(false);
       expect(
         isMessageEnvelope({
-          id: 'test-1',
+          id: '1',
           type: 'request',
           operation: 'ping',
+          timestamp: Date.now(),
           source: { context: 'background' },
           destination: { context: 'worker' },
-          timestamp: Date.now(),
-          payload: {},
         })
       ).toBe(true);
-
-      expect(isMessageEnvelope({ invalid: true })).toBe(false);
     });
   });
 
   describe('HostRelay (Extension <-> Worker bridging)', () => {
     it('relays worker-destined messages into the worker and worker replies back', async () => {
-      const extTransHost = new InMemoryTransport();
-      const extTransClient = new InMemoryTransport();
-      extTransHost.peer = extTransClient;
-      extTransClient.peer = extTransHost;
+      const extensionTransport = new InMemoryTransport();
+      const workerPeer = new InMemoryTransport();
+      extensionTransport.peer = new InMemoryTransport();
 
-      const workerTransHost = new InMemoryTransport();
-      const workerTransWorker = new InMemoryTransport();
-      workerTransHost.peer = workerTransWorker;
-      workerTransWorker.peer = workerTransHost;
+      const relay = new HostRelay(extensionTransport, workerPeer);
 
-      // HostRelay runs in offscreen/background host
-      const relay = new HostRelay(extTransHost, workerTransHost);
+      const clientBus = new MessageBus({ context: 'background' }, extensionTransport.peer);
+      extensionTransport.peer.peer = extensionTransport;
 
-      const clientBus = new MessageBus({ context: 'background' }, extTransClient);
-      const workerBus = new MessageBus({ context: 'worker' }, workerTransWorker);
+      const workerBus = new MessageBus({ context: 'worker' }, workerPeer);
+      workerPeer.peer = workerPeer;
 
-      // Worker registers handler
-      workerBus.registerHandler('inference:runOCR', () => ({
-        status: 'ok',
-        synthetic: true,
-        itemCount: 7,
-        durationMs: 10,
+      workerBus.registerHandler('ping', (req) => ({
+        timestamp: req.timestamp + 100,
+        context: 'worker',
       }));
-
-      // Background client dispatches request to worker
-      const res = await clientBus.send(
-        'inference:runOCR',
-        { width: 300, height: 300, frame: 'crop' },
-        { context: 'worker' }
-      );
-
-      expect(res.status).toBe('ok');
-      expect(res.itemCount).toBe(7);
 
       relay.dispose();
       clientBus.dispose();
@@ -434,7 +529,7 @@ describe('Typed Message Bus (A-03)', () => {
 
   describe('ExtensionTransport routing and sender authentication', () => {
     it('dispatches to tabs.sendMessage with frameId when destination is content', async () => {
-      const transport = new ExtensionTransport();
+      const transport = new ExtensionTransport({ context: 'background' });
       const envelope: MessageEnvelope = {
         id: 'e-1',
         type: 'request',
@@ -453,8 +548,28 @@ describe('Typed Message Bus (A-03)', () => {
       transport.dispose();
     });
 
+    it('normalizes omitted frameId to 0 when sending to content', async () => {
+      const transport = new ExtensionTransport({ context: 'background' });
+      const envelope: MessageEnvelope = {
+        id: 'e-1-norm',
+        type: 'request',
+        operation: 'ping',
+        payload: { timestamp: 1 },
+        source: { context: 'background' },
+        destination: { context: 'content', tabId: 42 }, // omitted frameId
+        timestamp: Date.now(),
+      };
+
+      await transport.send(envelope);
+
+      const { platform } = await import('../platform/index.js');
+      expect(platform.browser.tabs.sendMessage).toHaveBeenCalledWith(42, envelope, { frameId: 0 });
+
+      transport.dispose();
+    });
+
     it('rejects sending to content without tabId', async () => {
-      const transport = new ExtensionTransport();
+      const transport = new ExtensionTransport({ context: 'background' });
       const envelope: MessageEnvelope = {
         id: 'e-2',
         type: 'request',

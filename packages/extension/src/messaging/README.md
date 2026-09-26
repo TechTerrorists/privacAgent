@@ -1,6 +1,6 @@
 # Typed Cross-Context Message Bus (`A-03`)
 
-The `messaging/` module provides a strongly-typed local request/response layer that connects all parts of the extension:
+The `messaging/` module provides a strongly-typed local request/response layer connecting all contexts in the extension:
 
 - **Background Context** (Service Worker in Chrome / Event Page in Firefox)
 - **Content Scripts** (Page isolated world, addressed by `tabId` and `frameId`)
@@ -12,13 +12,14 @@ The `messaging/` module provides a strongly-typed local request/response layer t
 
 ## 🚀 Quick Start for Contributors
 
-### 1. Sending a Request
+### 1. In Extension Contexts (Background, Content, Offscreen, UI)
 
 ```ts
 import { MessageBus, ExtensionTransport } from './messaging/index.js';
 
-// Initialize the bus in your context (e.g. background)
-const bus = new MessageBus({ context: 'background' }, new ExtensionTransport());
+// Initialize the bus in your extension context
+const transport = new ExtensionTransport({ context: 'background' });
+const bus = new MessageBus({ context: 'background' }, transport);
 
 // Dispatch a typed request with automatic timeout handling
 const response = await bus.send(
@@ -31,71 +32,52 @@ const response = await bus.send(
 console.log('Walked elements:', response.elementCount);
 ```
 
-### 2. Registering a Handler
+### 2. In Dedicated Web Workers (Decoupled, Zero-Extension Dependencies)
+
+Web Workers cannot access `chrome.*` or extension APIs. Use the dedicated worker entry point:
 
 ```ts
-// Handlers bind strictly to the request and response types in OperationMap
-const unregister = bus.registerHandler('dom:walk', async (req, source) => {
-  console.log(`Request from ${source.context}`);
+import { MessageBus, WorkerTransport } from './messaging/worker.js';
+
+// Dedicated Worker entry point has ZERO extension polyfill dependencies
+const transport = new WorkerTransport(self);
+const bus = new MessageBus({ context: 'worker' }, transport);
+
+bus.registerHandler('inference:runDetector', async (req) => {
   return {
-    docId: req.docId ?? 'default',
-    elementCount: 15,
-    timestamp: Date.now(),
+    status: 'ok',
+    synthetic: true,
+    itemCount: req.width,
+    durationMs: 12,
   };
 });
-
-// To unregister when done:
-unregister();
 ```
 
 ---
 
-## 🧩 Architectural Concepts
+## 🧩 Architectural Guarantees
 
-### 1. The Operation Map (`OperationMap`)
+### 1. Decoupled Worker Transport (`P1`)
 
-Every cross-context operation is registered in `OperationMap` inside `types.ts`.
-This ensures at compile-time that callers cannot send incorrect request shapes or cast arbitrary response objects:
+- `WorkerTransport` is completely separated from `ExtensionTransport`.
+- Dedicated Web Workers import from `./messaging/worker.js` or `./messaging/worker-transport.js`.
+- It executes in pure standard worker environments without requiring or loading `webextension-polyfill`.
 
-```ts
-export interface OperationMap {
-  ping: { request: PingRequest; response: PingResponse };
-  'inference:runDetector': { request: InferenceStubRequest; response: InferenceStubResponse };
-  'inference:runOCR': { request: InferenceStubRequest; response: InferenceStubResponse };
-  'dom:walk': { request: DomWalkStubRequest; response: DomWalkStubResponse };
-  // ... more operations
-}
-```
+### 2. Runtime Schema & Payload Validation (`P2`)
 
-### 2. Transports & Host Relay
+- Every request and response payload is validated at runtime before dispatching or resolving.
+- Malformed payloads (such as invalid `ping` timestamps or malformed inference requests) are rejected with `MALFORMED_MESSAGE` before reaching handlers.
 
-- **`ExtensionTransport`**: Uses standard browser extension messaging (`runtime.sendMessage` and `tabs.sendMessage`).
-- **`WorkerTransport`**: Connects directly to a `Worker` or `MessagePort` via `postMessage`.
-- **`HostRelay`**: Bridges the two worlds. Because Web Workers in MV3 cannot access `chrome.runtime`, the Host Relay running in the host document (Chrome Offscreen Document or Firefox Background Page) routes worker-bound messages into the worker and worker replies back out.
+### 3. Frame ID Normalization (`P2`)
 
-```text
-[Background / Content / UI]
-          │
-          │ ExtensionTransport (runtime.sendMessage / tabs.sendMessage)
-          ▼
-   [Host Document (Offscreen / BG)]
-          │
-          │ HostRelay (bridges Extension <-> Worker)
-          ▼
-   [Dedicated Web Worker] (WorkerTransport / postMessage)
-```
+- Content script endpoints normalize omitted `frameId` values to `0` (main frame).
+- Routing always supplies `{ frameId: destination.frameId ?? 0 }` to `tabs.sendMessage`, preventing unintended broadcasting to all subframes.
+- Reply correlation matches frames strictly so a subframe response cannot satisfy a main frame request.
 
-### 3. Fail-Fast & Bounded Errors
+### 4. Privacy & Sanitized Diagnostics (`P2`)
 
-Requests never hang indefinitely. Every request has a configurable timeout (default: 5,000ms).
-Errors return clean, bounded error codes (`MessageErrorCode`):
-
-- `TIMEOUT`: Missing receiver or slow operation.
-- `UNSUPPORTED_OPERATION`: No handler registered for this operation.
-- `HANDLER_ERROR`: Handler threw an exception.
-- `MALFORMED_MESSAGE`: Envelope or payload failed validation.
-- `UNSUPPORTED_PAYLOAD`: Attempted to send DOM nodes or functions across contexts.
-- `DISCONNECTED`: Bus was torn down while requests were pending.
+- Diagnostic error messages are mapped to fixed, bounded strings per `MessageErrorCode`.
+- Raw exception strings, email addresses, page-derived tokens, and arbitrary URLs are **never** echoed in error messages.
 
 ---
 

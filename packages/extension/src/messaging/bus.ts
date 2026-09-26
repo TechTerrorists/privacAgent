@@ -2,18 +2,20 @@
  * Core Typed Message Bus (feature A-03).
  *
  * Provides strongly-typed local request/response messaging with finite timeouts,
- * peer correlation, duplicate/late response protection, and complete disposal cleanup.
+ * peer correlation, duplicate/late response protection, runtime payload validation,
+ * and complete disposal cleanup.
  */
 
 import { MessageBusError, toMessageBusError } from './errors.js';
-import { type Transport } from './transport.js';
+import { type Transport } from './transport-types.js';
 import {
-  assertTransportable,
   assertValidEnvelope,
+  assertValidPayload,
   isErrorEnvelope,
   isRequestEnvelope,
   isResponseEnvelope,
   matchesEndpoint,
+  normalizeEndpoint,
 } from './validation.js';
 import {
   MessageErrorCode,
@@ -39,6 +41,7 @@ interface PendingRequest {
 }
 
 export class MessageBus {
+  public readonly localAddress: EndpointAddress;
   private readonly handlers = new Map<string, MessageHandler>();
   private readonly pending = new Map<string, PendingRequest>();
   private readonly cleanupTransport: () => void;
@@ -46,9 +49,10 @@ export class MessageBus {
   private idCounter = 0;
 
   constructor(
-    public readonly localAddress: EndpointAddress,
+    localAddress: EndpointAddress,
     private readonly transport: Transport
   ) {
+    this.localAddress = normalizeEndpoint(localAddress);
     this.cleanupTransport = this.transport.onMessage((envelope, senderAddress) => {
       this.handleIncoming(envelope, senderAddress);
     });
@@ -63,7 +67,7 @@ export class MessageBus {
     handler: MessageHandler<OperationMap[O]['request'], OperationMap[O]['response']>
   ): () => void {
     if (this.disposed) {
-      throw new MessageBusError(MessageErrorCode.DISCONNECTED, 'MessageBus is disposed');
+      throw new MessageBusError(MessageErrorCode.DISCONNECTED);
     }
     this.handlers.set(operation as string, handler as MessageHandler);
     return () => {
@@ -80,6 +84,7 @@ export class MessageBus {
 
   /**
    * Sends a typed request to a target endpoint and awaits the correlated reply.
+   * Validates operation payload shapes before dispatch.
    */
   async send<O extends keyof OperationMap>(
     operation: O,
@@ -88,11 +93,13 @@ export class MessageBus {
     options?: SendOptions
   ): Promise<OperationMap[O]['response']> {
     if (this.disposed) {
-      throw new MessageBusError(MessageErrorCode.DISCONNECTED, 'MessageBus is disposed');
+      throw new MessageBusError(MessageErrorCode.DISCONNECTED);
     }
 
-    assertTransportable(payload);
+    // Validate request payload shape before sending
+    assertValidPayload(operation as string, 'request', payload);
 
+    const normDest = normalizeEndpoint(destination);
     const id = this.generateId();
     const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
@@ -102,7 +109,7 @@ export class MessageBus {
       operation: operation as string,
       payload,
       source: this.localAddress,
-      destination,
+      destination: normDest,
       timestamp: Date.now(),
     };
 
@@ -111,18 +118,13 @@ export class MessageBus {
     return new Promise<OperationMap[O]['response']>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
-        reject(
-          new MessageBusError(
-            MessageErrorCode.TIMEOUT,
-            `Request "${String(operation)}" timed out after ${timeoutMs}ms`
-          )
-        );
+        reject(new MessageBusError(MessageErrorCode.TIMEOUT));
       }, timeoutMs);
 
       this.pending.set(id, {
         id,
         operation: operation as string,
-        expectedDestination: destination,
+        expectedDestination: normDest,
         resolve: resolve as (val: unknown) => void,
         reject,
         timer,
@@ -164,9 +166,16 @@ export class MessageBus {
       this.pending.delete(envelope.id);
 
       if (isResponseEnvelope(envelope)) {
-        pending.resolve(envelope.payload);
+        try {
+          // Runtime schema validation on received response payload
+          assertValidPayload(pending.operation, 'response', envelope.payload);
+          pending.resolve(envelope.payload);
+        } catch {
+          pending.reject(new MessageBusError(MessageErrorCode.MALFORMED_MESSAGE));
+        }
       } else {
-        pending.reject(new MessageBusError(envelope.error.code, envelope.error.message));
+        // Reconstruct error with fixed message, discarding arbitrary peer error strings
+        pending.reject(new MessageBusError(envelope.error.code));
       }
       return;
     }
@@ -175,6 +184,28 @@ export class MessageBus {
     if (isRequestEnvelope(envelope)) {
       if (!matchesEndpoint(this.localAddress, envelope.destination)) {
         // Message was not intended for this endpoint
+        return;
+      }
+
+      const normSource = normalizeEndpoint(envelope.source);
+
+      // Validate incoming request payload shape before invoking any handler
+      try {
+        assertValidPayload(envelope.operation, 'request', envelope.payload);
+      } catch {
+        const errorEnv: ErrorEnvelope = {
+          id: envelope.id,
+          type: 'error',
+          operation: envelope.operation,
+          error: {
+            code: MessageErrorCode.MALFORMED_MESSAGE,
+            message: new MessageBusError(MessageErrorCode.MALFORMED_MESSAGE).message,
+          },
+          source: this.localAddress,
+          destination: normSource,
+          timestamp: Date.now(),
+        };
+        void this.transport.send(errorEnv).catch(() => {});
         return;
       }
 
@@ -187,10 +218,10 @@ export class MessageBus {
           operation: envelope.operation,
           error: {
             code: MessageErrorCode.UNSUPPORTED_OPERATION,
-            message: `Unsupported operation: ${envelope.operation}`,
+            message: new MessageBusError(MessageErrorCode.UNSUPPORTED_OPERATION).message,
           },
           source: this.localAddress,
-          destination: envelope.source,
+          destination: normSource,
           timestamp: Date.now(),
         };
         void this.transport.send(errorEnv).catch(() => {});
@@ -199,42 +230,37 @@ export class MessageBus {
 
       // Execute handler and reply
       Promise.resolve()
-        .then(() => handler(envelope.payload, senderAddress ?? envelope.source))
-        .then(
-          (result) => {
-            if (this.disposed) return;
-            assertTransportable(result);
-            const responseEnv: ResponseEnvelope = {
-              id: envelope.id,
-              type: 'response',
-              operation: envelope.operation,
-              payload: result,
-              source: this.localAddress,
-              destination: envelope.source,
-              timestamp: Date.now(),
-            };
-            return this.transport.send(responseEnv);
-          },
-          (err) => {
-            if (this.disposed) return;
-            const busErr = toMessageBusError(err, MessageErrorCode.HANDLER_ERROR);
-            const errorEnv: ErrorEnvelope = {
-              id: envelope.id,
-              type: 'error',
-              operation: envelope.operation,
-              error: {
-                code: busErr.code,
-                message: busErr.message,
-              },
-              source: this.localAddress,
-              destination: envelope.source,
-              timestamp: Date.now(),
-            };
-            return this.transport.send(errorEnv);
-          }
-        )
-        .catch(() => {
-          // Swallow dispatch failure during reply send
+        .then(() => handler(envelope.payload, senderAddress ?? normSource))
+        .then((result) => {
+          if (this.disposed) return;
+          assertValidPayload(envelope.operation, 'response', result);
+          const responseEnv: ResponseEnvelope = {
+            id: envelope.id,
+            type: 'response',
+            operation: envelope.operation,
+            payload: result,
+            source: this.localAddress,
+            destination: normSource,
+            timestamp: Date.now(),
+          };
+          return this.transport.send(responseEnv);
+        })
+        .catch((err) => {
+          if (this.disposed) return;
+          const busErr = toMessageBusError(err, MessageErrorCode.HANDLER_ERROR);
+          const errorEnv: ErrorEnvelope = {
+            id: envelope.id,
+            type: 'error',
+            operation: envelope.operation,
+            error: {
+              code: busErr.code,
+              message: busErr.message,
+            },
+            source: this.localAddress,
+            destination: normSource,
+            timestamp: Date.now(),
+          };
+          return this.transport.send(errorEnv).catch(() => {});
         });
     }
   }
@@ -250,7 +276,7 @@ export class MessageBus {
     // Fail all pending requests with DISCONNECTED
     for (const [id, req] of this.pending.entries()) {
       clearTimeout(req.timer);
-      req.reject(new MessageBusError(MessageErrorCode.DISCONNECTED, 'MessageBus was disposed'));
+      req.reject(new MessageBusError(MessageErrorCode.DISCONNECTED));
       this.pending.delete(id);
     }
 

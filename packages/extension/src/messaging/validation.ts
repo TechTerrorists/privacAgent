@@ -4,6 +4,7 @@
  * Implements MV3-CSP compatible functional validation.
  * Verifies envelope structure, endpoint addresses, and rejects untransportable
  * data such as DOM nodes, functions, and symbols before dispatch.
+ * Enforces runtime schema validation on operation request and response payloads.
  */
 
 import { MessageBusError } from './errors.js';
@@ -27,6 +28,10 @@ const VALID_CONTEXTS: ReadonlySet<string> = new Set<ContextType>([
 
 const VALID_TYPES: ReadonlySet<string> = new Set(['request', 'response', 'error']);
 
+const TASK_STATES: ReadonlySet<string> = new Set(['idle', 'running', 'paused', 'done', 'failed']);
+
+const INFERENCE_STATUSES: ReadonlySet<string> = new Set(['ok', 'empty', 'unavailable']);
+
 /**
  * Checks if a value looks like a DOM node or window reference.
  * DOM nodes cannot cross extension message boundaries or workers.
@@ -34,7 +39,6 @@ const VALID_TYPES: ReadonlySet<string> = new Set(['request', 'response', 'error'
 export function isDOMNode(val: unknown): boolean {
   if (val === null || typeof val !== 'object') return false;
   try {
-    // Check standard browser Node properties without requiring Node global
     if ('nodeType' in val && typeof (val as { nodeType: unknown }).nodeType === 'number') {
       return true;
     }
@@ -64,7 +68,7 @@ export function assertTransportable(val: unknown, depth = 0): void {
   if (t === 'function' || t === 'symbol') {
     throw new MessageBusError(
       MessageErrorCode.UNSUPPORTED_PAYLOAD,
-      `Cannot transport unsupported data type: ${t}`
+      'Cannot transport functions or symbols across message boundaries'
     );
   }
 
@@ -89,6 +93,17 @@ export function assertTransportable(val: unknown, depth = 0): void {
         assertTransportable(item, depth + 1);
       }
       return;
+    }
+
+    const proto = Object.getPrototypeOf(val);
+    if (proto !== null && proto !== Object.prototype) {
+      if (typeof File !== 'undefined' && val instanceof File) return;
+      if (typeof Blob !== 'undefined' && val instanceof Blob) return;
+      if (ArrayBuffer.isView(val)) return;
+      throw new MessageBusError(
+        MessageErrorCode.UNSUPPORTED_PAYLOAD,
+        'Cannot transport non-plain object or class instance'
+      );
     }
 
     for (const key of Object.keys(val)) {
@@ -116,13 +131,148 @@ export function isEndpointAddress(val: unknown): val is EndpointAddress {
 }
 
 /**
+ * Normalizes an endpoint address.
+ * For content scripts, an omitted frameId defaults to 0 (the main frame).
+ */
+export function normalizeEndpoint(address: EndpointAddress): EndpointAddress {
+  if (address.context === 'content') {
+    return {
+      ...address,
+      frameId: address.frameId ?? 0,
+    };
+  }
+  return address;
+}
+
+/**
  * Validates whether two endpoint addresses refer to the same logical endpoint.
+ * Content scripts with omitted frameId normalize to 0 to prevent cross-frame confusion.
  */
 export function matchesEndpoint(actual: EndpointAddress, expected: EndpointAddress): boolean {
-  if (actual.context !== expected.context) return false;
-  if (expected.tabId !== undefined && actual.tabId !== expected.tabId) return false;
-  if (expected.frameId !== undefined && actual.frameId !== expected.frameId) return false;
+  const normActual = normalizeEndpoint(actual);
+  const normExpected = normalizeEndpoint(expected);
+
+  if (normActual.context !== normExpected.context) return false;
+  if (normActual.tabId !== normExpected.tabId) return false;
+  if (normActual.frameId !== normExpected.frameId) return false;
   return true;
+}
+
+/**
+ * Validates operation payload shapes at runtime.
+ * Guarantees that invalid or unverified payloads never reach typed handlers or callers.
+ */
+export function isValidOperationPayload(
+  operation: string,
+  direction: 'request' | 'response',
+  payload: unknown
+): boolean {
+  if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) {
+    return false;
+  }
+  const p = payload as Record<string, unknown>;
+
+  switch (operation) {
+    case 'ping': {
+      if (typeof p.timestamp !== 'number' || !Number.isFinite(p.timestamp)) {
+        return false;
+      }
+      if (p.echo !== undefined && typeof p.echo !== 'string') {
+        return false;
+      }
+      if (direction === 'response') {
+        if (typeof p.context !== 'string' || !VALID_CONTEXTS.has(p.context)) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    case 'inference:runDetector':
+    case 'inference:runOCR':
+    case 'inference:runFaces':
+    case 'inference:runIcons': {
+      if (direction === 'request') {
+        if (typeof p.width !== 'number' || !Number.isFinite(p.width) || p.width <= 0) return false;
+        if (typeof p.height !== 'number' || !Number.isFinite(p.height) || p.height <= 0)
+          return false;
+        if (p.frame !== 'image' && p.frame !== 'crop') return false;
+        if (p.region !== undefined) {
+          if (!Array.isArray(p.region) || p.region.length !== 4) return false;
+          if (!p.region.every((n) => typeof n === 'number' && Number.isFinite(n))) return false;
+        }
+        return true;
+      } else {
+        if (typeof p.status !== 'string' || !INFERENCE_STATUSES.has(p.status)) return false;
+        if (p.synthetic !== true) return false;
+        if (typeof p.itemCount !== 'number' || !Number.isFinite(p.itemCount) || p.itemCount < 0)
+          return false;
+        if (typeof p.durationMs !== 'number' || !Number.isFinite(p.durationMs) || p.durationMs < 0)
+          return false;
+        return true;
+      }
+    }
+
+    case 'dom:walk': {
+      if (direction === 'request') {
+        if (p.docId !== undefined && typeof p.docId !== 'string') return false;
+        return true;
+      } else {
+        if (typeof p.docId !== 'string') return false;
+        if (
+          typeof p.elementCount !== 'number' ||
+          !Number.isFinite(p.elementCount) ||
+          p.elementCount < 0
+        )
+          return false;
+        if (typeof p.timestamp !== 'number' || !Number.isFinite(p.timestamp)) return false;
+        return true;
+      }
+    }
+
+    case 'dom:probe': {
+      if (direction === 'request') {
+        if (typeof p.probe !== 'boolean') return false;
+        return true;
+      } else {
+        if (typeof p.active !== 'boolean') return false;
+        if (p.docId !== undefined && typeof p.docId !== 'string') return false;
+        return true;
+      }
+    }
+
+    case 'task:status': {
+      if (direction === 'request') {
+        if (typeof p.taskId !== 'string' || p.taskId.trim() === '') return false;
+        return true;
+      } else {
+        if (typeof p.taskId !== 'string' || p.taskId.trim() === '') return false;
+        if (typeof p.state !== 'string' || !TASK_STATES.has(p.state)) return false;
+        return true;
+      }
+    }
+
+    default:
+      // For extensible operations without registered schemas, require non-null plain object
+      return true;
+  }
+}
+
+/**
+ * Asserts that an operation payload is valid, throwing a bounded MessageBusError if invalid.
+ */
+export function assertValidPayload(
+  operation: string,
+  direction: 'request' | 'response',
+  payload: unknown
+): void {
+  assertTransportable(payload);
+  if (!isValidOperationPayload(operation, direction, payload)) {
+    throw new MessageBusError(
+      MessageErrorCode.MALFORMED_MESSAGE,
+      'Envelope or payload failed runtime schema validation'
+    );
+  }
 }
 
 /**
@@ -157,7 +307,7 @@ export function assertValidEnvelope(val: unknown): asserts val is MessageEnvelop
   if (!isMessageEnvelope(val)) {
     throw new MessageBusError(
       MessageErrorCode.MALFORMED_MESSAGE,
-      'Received invalid or malformed message envelope'
+      'Envelope or payload failed runtime schema validation'
     );
   }
   assertTransportable(val);

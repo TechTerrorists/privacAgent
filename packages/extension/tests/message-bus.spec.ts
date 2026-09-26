@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { build } from 'esbuild';
 import { fileURLToPath } from 'node:url';
+
 interface PrivacAgentMessaging {
   MessageBus: new (
     endpoint: { context: string; tabId?: number; frameId?: number },
@@ -12,6 +13,7 @@ interface PrivacAgentMessaging {
       destination: { context: string; tabId?: number; frameId?: number },
       options?: { timeoutMs?: number }
     ): Promise<T>;
+    registerHandler(op: string, handler: (req: unknown, source: unknown) => unknown): () => void;
     dispose(): void;
   };
   WorkerTransport: new (target: unknown) => {
@@ -29,34 +31,17 @@ declare global {
 let bundleSource: string;
 
 test.beforeAll(async () => {
+  // Bundle the standalone worker messaging entry point.
+  // Note: NO webextension-polyfill mocking! worker.ts has zero extension dependencies.
   const result = await build({
-    entryPoints: [fileURLToPath(new URL('../src/messaging/index.ts', import.meta.url))],
+    entryPoints: [fileURLToPath(new URL('../src/messaging/worker.ts', import.meta.url))],
     bundle: true,
     format: 'iife',
     globalName: 'privacAgentMessaging',
     platform: 'browser',
     write: false,
-    define: {
-      __BROWSER__: '"chrome"',
-    },
-    plugins: [
-      {
-        name: 'mock-polyfill',
-        setup(b) {
-          b.onResolve({ filter: /^webextension-polyfill$/ }, () => ({
-            path: 'webextension-polyfill',
-            namespace: 'mock-polyfill',
-          }));
-          b.onLoad({ filter: /.*/, namespace: 'mock-polyfill' }, () => ({
-            contents:
-              'export default { runtime: { sendMessage: () => Promise.resolve(), onMessage: { addListener: () => {}, removeListener: () => {} } } };',
-            loader: 'js',
-          }));
-        },
-      },
-    ],
     footer: {
-      js: 'if (typeof window !== "undefined") { window.privacAgentMessaging = privacAgentMessaging; }',
+      js: 'if (typeof self !== "undefined") { self.privacAgentMessaging = privacAgentMessaging; }',
     },
   });
   bundleSource = result.outputFiles[0]!.text;
@@ -73,62 +58,119 @@ test.beforeEach(async ({ page }) => {
   await page.addScriptTag({ content: bundleSource });
 });
 
-test('real Web Worker round trip with typed MessageBus', async ({ page }) => {
-  const result = await page.evaluate(async () => {
-    const { MessageBus, WorkerTransport } = window.privacAgentMessaging;
+test('real Web Worker runs typed MessageBus without extension polyfill crashes', async ({
+  page,
+}) => {
+  const result = await page.evaluate(
+    async ({ script }) => {
+      const { MessageBus, WorkerTransport } = window.privacAgentMessaging;
 
-    // Worker code running a deterministic stub responder
-    const workerScript = `
-      self.onmessage = function(e) {
-        var msg = e.data;
-        if (msg && msg.type === 'request') {
-          self.postMessage({
-            id: msg.id,
-            type: 'response',
-            operation: msg.operation,
-            payload: {
-              status: 'ok',
-              synthetic: true,
-              itemCount: 42,
-              durationMs: 12
-            },
-            source: { context: 'worker' },
-            destination: msg.source,
-            timestamp: Date.now()
-          });
-        }
-      };
-    `;
+      // Real worker executing our compiled worker messaging module
+      const workerScript = `
+        ${script}
+        var msgLib = self.privacAgentMessaging;
+        var transport = new msgLib.WorkerTransport(self);
+        var bus = new msgLib.MessageBus({ context: 'worker' }, transport);
 
-    const blob = new Blob([workerScript], { type: 'application/javascript' });
-    const workerUrl = URL.createObjectURL(blob);
-    const worker = new Worker(workerUrl);
+        bus.registerHandler('inference:runDetector', function(req) {
+          return {
+            status: 'ok',
+            synthetic: true,
+            itemCount: req.width,
+            durationMs: 12
+          };
+        });
+      `;
 
-    const transport = new WorkerTransport(worker);
-    const bus = new MessageBus({ context: 'background' }, transport);
+      const blob = new Blob([workerScript], { type: 'application/javascript' });
+      const workerUrl = URL.createObjectURL(blob);
+      const worker = new Worker(workerUrl);
 
-    try {
-      const response = await bus.send<{ status: string; itemCount: number }>(
-        'inference:runDetector',
-        { width: 512, height: 512, frame: 'image' },
-        { context: 'worker' },
-        { timeoutMs: 5000 }
-      );
-      return {
-        success: true,
-        response,
-      };
-    } finally {
-      bus.dispose();
-      transport.dispose();
-      worker.terminate();
-      URL.revokeObjectURL(workerUrl);
-    }
-  });
+      const transport = new WorkerTransport(worker);
+      const bus = new MessageBus({ context: 'background' }, transport);
+
+      try {
+        const response = await bus.send<{ status: string; itemCount: number }>(
+          'inference:runDetector',
+          { width: 512, height: 512, frame: 'image' },
+          { context: 'worker' },
+          { timeoutMs: 5000 }
+        );
+        return {
+          success: true,
+          response,
+        };
+      } finally {
+        bus.dispose();
+        transport.dispose();
+        worker.terminate();
+        URL.revokeObjectURL(workerUrl);
+      }
+    },
+    { script: bundleSource }
+  );
 
   expect(result.success).toBe(true);
   expect(result.response.status).toBe('ok');
-  expect(result.response.itemCount).toBe(42);
+  expect(result.response.itemCount).toBe(512);
+});
+
+test('real Web Worker enforces runtime payload validation', async ({ page }) => {
+  const result = await page.evaluate(
+    async ({ script }) => {
+      const { MessageBus, WorkerTransport } = window.privacAgentMessaging;
+
+      const workerScript = `
+        ${script}
+        var msgLib = self.privacAgentMessaging;
+        var transport = new msgLib.WorkerTransport(self);
+        var bus = new msgLib.MessageBus({ context: 'worker' }, transport);
+        var handlerCalled = false;
+
+        bus.registerHandler('ping', function(req) {
+          handlerCalled = true;
+          return {
+            timestamp: Date.now(),
+            context: 'worker'
+          };
+        });
+      `;
+
+      const blob = new Blob([workerScript], { type: 'application/javascript' });
+      const workerUrl = URL.createObjectURL(blob);
+      const worker = new Worker(workerUrl);
+
+      const transport = new WorkerTransport(worker);
+      const bus = new MessageBus({ context: 'background' }, transport);
+
+      try {
+        // Send invalid payload: width is a string instead of number
+        let errorCaught = '';
+        try {
+          await bus.send(
+            'inference:runDetector',
+            { width: 'not-a-number', height: 512, frame: 'image' },
+            { context: 'worker' },
+            { timeoutMs: 2000 }
+          );
+        } catch (err: unknown) {
+          errorCaught = (err as Error).message;
+        }
+
+        return {
+          errorCaught,
+        };
+      } finally {
+        bus.dispose();
+        transport.dispose();
+        worker.terminate();
+        URL.revokeObjectURL(workerUrl);
+      }
+    },
+    { script: bundleSource }
+  );
+
+  expect(result.errorCaught).toContain('MALFORMED_MESSAGE');
 });
 
 test('real MessageChannel / MessagePort round trip between two buses', async ({ page }) => {
