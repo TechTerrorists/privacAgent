@@ -1,8 +1,8 @@
 # Development environment setup
 
 This guide takes a fresh machine from tool installation to building and checking the
-current A-01 extension scaffold, E-01 shared protocol, and E-02 Agent API service. Run
-commands from the repository root unless a step says otherwise.
+current A-01/A-02/A-10 extension work, E-01 shared protocol, and E-02 Agent API service.
+Run commands from the repository root unless a step says otherwise.
 
 ## 1. Install the tools
 
@@ -140,13 +140,18 @@ Start with the builds from step 3. Each browser loads its own output directory.
    chrome-extension://EXTENSION_ID/src/ui/sidepanel.html
    ```
 
-5. Expect `privacAgent`, `Extension shell is loading.` and `Build target: chrome`.
+5. Expect the `privacAgent` shell with `Build target: chrome`, a task input, an action
+   trace, and a Settings button. Open Settings and change the theme; it is stored locally
+   in the browser.
 6. Use the card's **service worker** inspection link to inspect background errors. An
    inactive service worker after idle is normal for MV3.
 
-Opening the URL checks the UI page in a tab. The current scaffold has no toolbar-click
-handler to open the docked side panel, so clicking the toolbar icon is not a useful smoke
-test yet. See Chrome's [unpacked extension instructions](https://developer.chrome.com/docs/extensions/get-started/tutorial/hello-world).
+Opening the URL checks the UI page in a tab. The panel also opens in place, user-initiated
+and without extra host permissions: in Chrome, **Extensions → privacAgent → Open side
+panel** (the side panel button in the toolbar, since `side_panel.default_path` is set), and
+in Firefox through the sidebar selector described above. No toolbar-click handler is
+needed or added. See Chrome's
+[unpacked extension instructions](https://developer.chrome.com/docs/extensions/get-started/tutorial/hello-world).
 
 ### Firefox
 
@@ -156,7 +161,9 @@ test yet. See Chrome's [unpacked extension instructions](https://developer.chrom
 3. Confirm that **privacAgent** appears without loading errors.
 4. Open the browser's sidebar selector and choose **privacAgent**. In the traditional
    menu layout this is **View → Sidebar → privacAgent**.
-5. Expect `privacAgent`, `Extension shell is loading.` and `Build target: firefox`.
+5. Expect the `privacAgent` shell with `Build target: firefox`, a task input, an action
+   trace, and a Settings button. Open Settings and change the theme; it is stored locally
+   in the browser.
 6. Use **Inspect** on the temporary add-on entry to inspect extension errors.
 
 Firefox removes temporary add-ons when the browser restarts; load the manifest again
@@ -164,16 +171,17 @@ after restarting. See the [temporary installation instructions](https://www.exte
 
 ### What this smoke test proves
 
-A-01 provides the manifests, build tooling and placeholder entry points. The text
-`Extension shell is loading.` is static placeholder copy; it is not an unfinished network
-request. The build-target line confirms that the UI script ran for the selected browser.
+A-01 provides the manifests and build tooling. A-10 mounts the side-panel shell in both
+browser targets: the task input, synthetic action trace, stop control and hash-based
+Settings route are local UI only. The banner labels the demo controller and the shell
+makes no network calls. The build-target line confirms that the UI script ran for the
+selected browser.
 
 E-01 provides schemas, types, validators and fixtures, so it is exercised through the
 protocol checks and tests rather than a browser control. E-02 is exercised through
 `services/agent-api` tests (session endpoints, Redis TTL, scripted fake planner) rather
-than a browser control; the real planner is not wired yet. Task input, agent actions,
-content-script injection, perception and the privacy pipeline are not wired into this
-scaffold yet.
+than a browser control; the real planner is not wired yet. Agent actions, content-script
+injection, perception and the privacy pipeline are not wired into this shell yet.
 
 ## 5. Daily development commands
 
@@ -238,6 +246,11 @@ For B-02 browser tests, first run `pnpm exec playwright install chromium firefox
 See the [DOM walker guide](../packages/extension/src/content/dom-extract/README.md) for the
 API, test scope and benchmark limitations. These commands are separate from `pnpm test`.
 
+`pnpm test:browser` also runs `packages/extension/tests/sidepanel.spec.ts`, which loads
+`packages/extension/dist/chrome` as an unpacked extension and drives the A-10 panel in
+Chromium. It builds the Chrome target itself if `dist/chrome` is missing, and skips itself
+on the Firefox project because only the Chromium host can load an unpacked extension.
+
 ## 6. Working on the shared protocol
 
 Read the [protocol package guide](../packages/protocol/README.md) for schema locations,
@@ -296,7 +309,7 @@ the required checks and reviews pass.
 | Chrome reports a localhost connection failure                                            | Development output needs `pnpm dev:chrome` running. Alternatively stop the server, run `pnpm build:chrome`, and reload the extension.                                            |
 | Chrome development port 5173 is occupied                                                 | Stop your other process using that port before starting this project's development server.                                                                                       |
 | Firefox rejects the extension version or manifest                                        | Use Firefox 142 or newer and the Firefox build, not the Chrome build.                                                                                                            |
-| Toolbar clicks do nothing or the UI says it is loading                                   | The current A-01 UI is a placeholder. Follow the browser smoke test above and look for the build-target line.                                                                    |
+| Toolbar clicks do nothing or the UI says it is loading                                   | Rebuild the correct target, reload the extension, and reopen the panel from the Chrome side panel button or the Firefox sidebar selector.                                        |
 | Source changes do not appear                                                             | Rebuild the correct target, reload the extension, and reopen the UI. Confirm the browser loaded the same clone you are editing.                                                  |
 
 When reporting a setup failure, include your OS, tool versions, branch, failing command
