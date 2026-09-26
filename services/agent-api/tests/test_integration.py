@@ -12,9 +12,15 @@ from fastapi.testclient import TestClient
 
 from privacagent_protocol import is_message
 
-from privacagent_agent_api.fixtures import full_state_payload, scenario_by_task_id
+from privacagent_agent_api.fixtures import (
+    builtin_scenarios,
+    full_state_payload,
+    scenario_by_task_id,
+)
+from privacagent_agent_api.planner import ScriptedFakePlanner
+from privacagent_agent_api.prompt import SYSTEM_PREFIX
 
-from helpers import end_payload, feedback_payload, start_session
+from helpers import CapturingPlanner, end_payload, feedback_payload, start_session
 
 EMAIL = scenario_by_task_id("t_profile_upd")
 DOC_ID = "d_profile"
@@ -22,7 +28,12 @@ DOC_ID = "d_profile"
 
 def step_and_feedback(client: TestClient, sid: str, *, seq: int, observation_id: int):
     state = full_state_payload(
-        EMAIL, sid, seq=seq, observation_id=observation_id, step=observation_id - 1, doc_id=DOC_ID
+        EMAIL,
+        sid,
+        seq=seq,
+        observation_id=observation_id,
+        step=observation_id - 1,
+        doc_id=DOC_ID,
     )
     resp = client.post(f"/v1/sessions/{sid}/step", json=state)
     assert resp.status_code == 200, resp.text
@@ -113,3 +124,57 @@ def test_second_scenario_is_independently_scripted(client: TestClient) -> None:
         json=end_payload(session_id=sid, task_id=search.task_id, seq=4),
     )
     assert resp.status_code == 200
+
+
+def test_full_loop_prompt_memory_grows_and_session_ends(make_client) -> None:
+    planner = CapturingPlanner(ScriptedFakePlanner(builtin_scenarios()))
+    client = make_client(planner=planner)
+    start = start_session(client, EMAIL)
+    assert is_message("SessionStartResponse", start)
+    sid = start["session_id"]
+
+    # Step 1: no history yet, so memory reports the empty state.
+    action_1 = step_and_feedback(client, sid, seq=1, observation_id=1)
+    assert len(planner.prompts) == 1
+    prompt_1 = planner.prompts[0]
+    assert prompt_1.system == SYSTEM_PREFIX
+    assert "(no prior steps)" in prompt_1.memory
+    assert "== SCREEN STATE ==" in prompt_1.state
+
+    # Step 2: the first step replays with its reported outcome.
+    action_2 = step_and_feedback(client, sid, seq=2, observation_id=2)
+    assert len(planner.prompts) == 2
+    prompt_2 = planner.prompts[1]
+    assert prompt_2.system == SYSTEM_PREFIX
+    assert f"1) {action_1['action_id']}" in prompt_2.memory
+    assert "-> ok page_changed=false" in prompt_2.memory
+    assert "== SCREEN STATE ==" in prompt_2.state
+
+    # Step 3: two recorded steps, the second one now included.
+    action_3 = step_and_feedback(client, sid, seq=3, observation_id=3)
+    assert action_3["action"]["type"] == "done"
+    assert len(planner.prompts) == 3
+    prompt_3 = planner.prompts[2]
+    assert prompt_3.system == SYSTEM_PREFIX
+    assert f"2) {action_2['action_id']}" in prompt_3.memory
+    assert "-> ok page_changed=false" in prompt_3.memory
+    assert "== SCREEN STATE ==" in prompt_3.state
+
+    # Every prompt shares the byte-identical system prefix.
+    assert {prompt.system for prompt in planner.prompts} == {SYSTEM_PREFIX}
+
+    # End the session; afterwards the session is gone entirely.
+    resp = client.request(
+        "DELETE",
+        f"/v1/sessions/{sid}",
+        json=end_payload(session_id=sid, task_id=EMAIL.task_id, seq=3),
+    )
+    assert resp.status_code == 200
+    assert is_message("SessionEndResponse", resp.json())
+
+    resp = client.post(
+        f"/v1/sessions/{sid}/step",
+        json=full_state_payload(EMAIL, sid, seq=4, observation_id=4, doc_id=DOC_ID),
+    )
+    assert resp.status_code == 404
+    assert resp.json()["code"] == "session_expired"

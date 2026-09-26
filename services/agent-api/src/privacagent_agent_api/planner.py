@@ -19,6 +19,7 @@ from typing import Any, Protocol, Sequence
 
 from privacagent_protocol import PROTOCOL_VERSION, models
 
+from .prompt import BuiltPrompt
 from .session_store import SessionRecord
 
 LABEL = "scripted-fake-v1"
@@ -79,10 +80,18 @@ class Planner(Protocol):
 
     name: str
 
-    def plan(self, state: models.ScreenState, record: SessionRecord) -> dict[str, Any]: ...
+    def plan(
+        self,
+        state: models.ScreenState,
+        record: SessionRecord,
+        *,
+        prompt: BuiltPrompt | None = None,
+    ) -> dict[str, Any]: ...
 
 
-def _referenced_element_ids(command: dict[str, Any], expect: dict[str, Any] | None) -> set[str]:
+def _referenced_element_ids(
+    command: dict[str, Any], expect: dict[str, Any] | None
+) -> set[str]:
     ids: set[str] = set()
 
     def walk(value: Any) -> None:
@@ -126,12 +135,22 @@ class ScriptedFakePlanner:
 
     def __init__(self, scenarios: Sequence[Scenario]) -> None:
         self._scenarios = {scenario.task_id: scenario for scenario in scenarios}
-        self._orders = {scenario.task_id: list(scenario.steps) for scenario in scenarios}
+        self._orders = {
+            scenario.task_id: list(scenario.steps) for scenario in scenarios
+        }
 
     def scenarios(self) -> tuple[Scenario, ...]:
         return tuple(self._scenarios.values())
 
-    def plan(self, state: models.ScreenState, record: SessionRecord) -> dict[str, Any]:
+    def plan(
+        self,
+        state: models.ScreenState,
+        record: SessionRecord,
+        *,
+        prompt: BuiltPrompt | None = None,
+    ) -> dict[str, Any]:
+        """Emit the next scripted Action; the scripted planner is deterministic
+        and does not read the prompt."""
         node = state.root
         scenario = self._scenarios.get(record.task_id)
         steps = self._orders.get(record.task_id)

@@ -21,7 +21,9 @@ from privacagent_agent_api.planner import (
 from privacagent_agent_api.session_store import SessionRecord
 
 
-def record_for(scenario, *, plan_step: int = 0, session_id: str = "s_plan") -> SessionRecord:
+def record_for(
+    scenario, *, plan_step: int = 0, session_id: str = "s_plan"
+) -> SessionRecord:
     return SessionRecord(
         session_id=session_id,
         task_id=scenario.task_id,
@@ -31,7 +33,9 @@ def record_for(scenario, *, plan_step: int = 0, session_id: str = "s_plan") -> S
     )
 
 
-def state_for(scenario, *, seq: int = 1, observation_id: int = 1, session_id: str = "s_plan"):
+def state_for(
+    scenario, *, seq: int = 1, observation_id: int = 1, session_id: str = "s_plan"
+):
     payload = full_state_payload(
         scenario, session_id, seq=seq, observation_id=observation_id, doc_id="d_plan"
     )
@@ -53,9 +57,9 @@ def test_every_scenario_targets_only_present_fixture_elements() -> None:
     for scenario in builtin_scenarios():
         ids = [element["id"] for element in scenario.fixture_state["elements"]]
         assert len(ids) == len(set(ids)), f"{scenario.name} duplicates element ids"
-        assert scenario.referenced_element_ids() <= scenario.element_ids(), (
-            f"{scenario.name} references elements missing from its fixture state"
-        )
+        assert (
+            scenario.referenced_element_ids() <= scenario.element_ids()
+        ), f"{scenario.name} references elements missing from its fixture state"
 
 
 def test_each_scripted_step_yields_a_valid_identity_preserving_action(
@@ -100,9 +104,9 @@ def test_action_id_is_session_scoped_and_schema_valid() -> None:
     scenario = builtin_scenarios()[0]
     a = record_for(scenario, session_id="s_one")
     b = record_for(scenario, session_id="s_two")
-    assert action_id_for(a) != action_id_for(b), (
-        "two sessions with the same task_id must not collide on action_id"
-    )
+    assert action_id_for(a) != action_id_for(
+        b
+    ), "two sessions with the same task_id must not collide on action_id"
     from privacagent_protocol import models
 
     models.ActionId.model_validate(action_id_for(a))
@@ -128,7 +132,11 @@ def test_nested_element_references_are_detected() -> None:
         None,
     ) == {"e_mark"}
     assert _referenced_element_ids(
-        {"type": "answer", "text": "ok", "citations": [{"tab": "t1", "doc_id": "d1", "element": "e_cite"}]},
+        {
+            "type": "answer",
+            "text": "ok",
+            "citations": [{"tab": "t1", "doc_id": "d1", "element": "e_cite"}],
+        },
         None,
     ) == {"e_cite"}
 
@@ -163,7 +171,9 @@ def test_exhausted_scenario_returns_done(planner: ScriptedFakePlanner) -> None:
     assert action["action"]["summary"] == FALLBACK_DONE_FINISHED
 
 
-def test_unknown_task_returns_done_without_leaking(planner: ScriptedFakePlanner) -> None:
+def test_unknown_task_returns_done_without_leaking(
+    planner: ScriptedFakePlanner,
+) -> None:
     scenario = builtin_scenarios()[0]
     record = SessionRecord(
         session_id="s_plan", task_id="t_not_in_catalog", task_version=1, created_at=0.0
@@ -175,7 +185,9 @@ def test_unknown_task_returns_done_without_leaking(planner: ScriptedFakePlanner)
     assert "scenario=none" in action["thought"]
 
 
-def test_missing_target_yields_wait_not_substitution(planner: ScriptedFakePlanner) -> None:
+def test_missing_target_yields_wait_not_substitution(
+    planner: ScriptedFakePlanner,
+) -> None:
     scenario = builtin_scenarios()[0]
     payload = full_state_payload(scenario, "s_plan", doc_id="d_plan")
     payload["elements"] = [
@@ -196,7 +208,11 @@ def escalate_targets_scenario() -> Scenario:
         fixture_state=builtin_scenarios()[0].fixture_state,
         steps=(
             ScriptedStep(
-                command={"type": "escalate", "targets": ["e_missing"], "question": "q?"},
+                command={
+                    "type": "escalate",
+                    "targets": ["e_missing"],
+                    "question": "q?",
+                },
             ),
         ),
     )
