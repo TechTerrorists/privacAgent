@@ -295,6 +295,89 @@ def test_step_success_refreshes_session_ttl(make_client, redis_client) -> None:
     assert pttl_after > 4500
 
 
+def test_step_and_feedback_with_protocol_max_ids_keep_the_session_alive(
+    make_client, redis_client
+) -> None:
+    """Large protocol-valid identifiers must not brick a live session.
+
+    The history field used to be rewritten through a JSON parser inside Redis,
+    which rendered 9007199254740991 as ``9.007199254741e+15``; the decode check
+    then rejected the float, so a successful step was followed by 404
+    ``session_expired`` on every later request to that session.
+    """
+    big = 9007199254740991
+    client = make_client()
+    start = start_session(client, EMAIL)
+    sid = start["session_id"]
+
+    resp = client.post(
+        f"/v1/sessions/{sid}/step",
+        json=email_state(sid, seq=big, observation_id=big),
+    )
+    assert resp.status_code == 200, resp.text
+    action = resp.json()
+
+    # The stored history carries the caller's exact digits — not a rounded
+    # or exponent-formatted rendering of them.
+    raw = redis_client.hget(f"pa:agent:session:{sid}", "history")
+    assert raw is not None
+    assert f'"seq": {big}' in raw
+    assert f'"observation_id": {big}' in raw
+
+    fb = feedback_payload(
+        session_id=sid,
+        task_id=EMAIL.task_id,
+        seq=big,
+        doc_id=DOC_ID,
+        observation_id=big,
+        action_id=action["action_id"],
+        status="ok",
+    )
+    resp = client.post(f"/v1/sessions/{sid}/feedback", json=fb)
+    assert resp.status_code == 200, resp.text
+
+    resp = client.post(
+        f"/v1/sessions/{sid}/step",
+        json=email_state(sid, seq=big, observation_id=big, step=1),
+    )
+    assert resp.status_code == 200, resp.text
+
+
+def test_feedback_with_an_invalid_status_is_rejected_without_writing(
+    make_client, redis_client
+) -> None:
+    """A status outside the ActionResult enum never reaches the store.
+
+    The wire rejects it first, so the stored hash — history and tracking
+    fields alike — is left byte-for-byte as it was: invalid feedback cannot
+    mutate Redis.
+    """
+    client = make_client()
+    start = start_session(client, EMAIL)
+    sid = start["session_id"]
+    resp = client.post(
+        f"/v1/sessions/{sid}/step", json=email_state(sid, seq=1, observation_id=1)
+    )
+    assert resp.status_code == 200, resp.text
+    action = resp.json()
+    key = f"pa:agent:session:{sid}"
+    before = redis_client.hgetall(key)
+
+    fb = feedback_payload(
+        session_id=sid,
+        task_id=EMAIL.task_id,
+        seq=1,
+        doc_id=DOC_ID,
+        observation_id=1,
+        action_id=action["action_id"],
+        status="exploded",
+    )
+    resp = client.post(f"/v1/sessions/{sid}/feedback", json=fb)
+    assert_protocol_error(resp, "invalid_request", 400)
+
+    assert redis_client.hgetall(key) == before
+
+
 def test_step_diff_state_returns_resync_required(client: TestClient) -> None:
     start = start_session(client, EMAIL)
     sid = start["session_id"]
@@ -338,7 +421,7 @@ def test_step_hands_a_built_prompt_to_the_planner(make_client) -> None:
     assert len(planner.prompts) == 1
     prompt = planner.prompts[0]
     assert isinstance(prompt, BuiltPrompt)
-    assert prompt.prompt_version == PROMPT_VERSION == "e05-v1"
+    assert prompt.prompt_version == PROMPT_VERSION == "e05-v1.1"
     assert prompt.system == SYSTEM_PREFIX
     assert [m["role"] for m in prompt.as_messages()] == ["system", "user"]
     assert "== TASK ==" in prompt.user

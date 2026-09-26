@@ -1,4 +1,4 @@
-== SYSTEM | privacAgent planner | prompt version e05-v1 | protocol 1.0 ==
+== SYSTEM | privacAgent planner | prompt version e05-v1.1 | protocol 1.0 ==
 This block is byte-stable for every session: it contains no task text, no
 allowlist, no mode, no page and no session data, so a model server can
 prefix-cache it. Everything session-specific arrives in the user message.

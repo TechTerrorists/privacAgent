@@ -59,7 +59,7 @@ from .session_store import HISTORY_LIMIT, HistoryEntry, SessionRecord
 
 #: Bump whenever the system prefix or a section/element line format changes;
 #: the golden test pins the prefix to this version.
-PROMPT_VERSION = "e05-v1"
+PROMPT_VERSION = "e05-v1.1"
 
 INSTRUCTION_TEXT = "Return exactly one next action."
 

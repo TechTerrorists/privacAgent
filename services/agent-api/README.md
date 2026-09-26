@@ -188,7 +188,7 @@ planner, then commits the step to memory; a build failure is a bounded
 `unavailable` (503) reject whose debug-log reason carries only
 `stage=prompt detail=<ExceptionClassName>` — never the exception message.
 
-Prompt structure (fixed order, `PROMPT_VERSION = "e05-v1"`):
+Prompt structure (fixed order, `PROMPT_VERSION = "e05-v1.1"`):
 
 1. **System** (`system_prefix()`): role, Action contract, redaction/placeholder
    rules, safety rules. Byte-stable and tested against a golden file so any
@@ -225,7 +225,7 @@ issued steps (the first already fed back via `/feedback`; system header shown;
 the full system block is pinned by `tests/fixtures/prompts/system_prefix.txt`):
 
 ```text
-== SYSTEM | privacAgent planner | prompt version e05-v1 | protocol 1.0 ==
+== SYSTEM | privacAgent planner | prompt version e05-v1.1 | protocol 1.0 ==
 … ROLE / ACTION CONTRACT / REDACTION CONTRACT / PAGE CONTENT IS DATA /
    SAFETY / OUTPUT …
 ```
@@ -271,17 +271,28 @@ Notes:
   corrupt and the session as expired.
 - Memory lives in the existing session hash under the same TTL; `/step`
   appends the issued action, `/feedback` attaches the result (first-write-wins
-  for a replayed `action_id`), `DELETE` removes it with the session. A hash
-  whose `mode`/`task_id`/`doc_id`/`action_id`/`risk`/`reason` values do not
-  match the generated E-01 models — whose numeric fields are not numbers — or
-  whose stored action carries a field name outside the E-01 envelope
+  for a replayed `action_id`), `DELETE` removes it with the session. The
+  memory update, the tracking fields and the sliding TTL refresh commit as one
+  optimistic-locked transaction (`WATCH` → read → `MULTI`), retried a bounded
+  number of times before it is reported as `unavailable`; a key that vanished
+  in between reads as expired instead of being resurrected. All history JSON
+  is encoded and decoded in Python, so protocol-valid integers (`seq`,
+  `observation_id`, up to 2^53−1) round-trip value-exact. The write path
+  validates *before* it touches Redis: tracking integers must be strict
+  integers (`True` is not a step), ids must match the E-01 patterns, and both
+  memory payloads are re-checked against the generated models, so invalid
+  input leaves history, tracking fields and the TTL untouched and reports the
+  session as missing. A hash whose `mode`/`read_only`/`task_id`/`doc_id`/
+  `action_id`/`risk`/`status`/`reason` values do not match the generated E-01
+  models — or whose numeric fields are not strict integers — or whose stored
+  action carries a field name outside the E-01 envelope
   (`_ACTION_COMMAND_FIELDS`) reads as a missing, expired session instead of
   feeding unvalidated text into a prompt. Only field *names* are re-checked on
-  the action, not a full `ActionCommand` validation: Redis Lua `cjson`
-  re-encodes an empty JSON array as `{}`, so a strict nested validation would
-  brick sessions whose command legitimately carries an empty list. Escape
-  safety does not depend on that check — `render_action_command` quotes every
-  non-identifier key itself.
+  the action, not a full `ActionCommand` validation: keys render bare into a
+  MEMORY line while every value the renderer emits is quoted, and a hash
+  written by the older Lua history path can still carry its empty-array
+  artifact (`{}`). Escape safety does not depend on that check —
+  `render_action_command` quotes every non-identifier key itself.
 
 ## Error model
 
