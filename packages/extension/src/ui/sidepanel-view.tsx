@@ -48,6 +48,8 @@ function statusText(state: SidePanelState): string {
   switch (state.status) {
     case 'running':
       return 'Task running';
+    case 'stopping':
+      return 'Stopping…';
     case 'stopped':
       return 'Task stopped';
     case 'complete':
@@ -99,7 +101,11 @@ function Home(props: {
   readonly onStop: () => void;
 }): JSX.Element {
   const { state, draft, onDraftChange, onSubmit, onStop } = props;
-  const running = state.status === 'running';
+  // A pending stop still owns the panel: the run has not ended yet, so the task form stays locked
+  // while the cancellation is in flight. Only `running` can be stopped, though — a second press
+  // then has nothing to ask for, and the button shows the pending state instead.
+  const active = state.status === 'running' || state.status === 'stopping';
+  const stopping = state.status === 'stopping';
 
   return (
     <section class="flex flex-col gap-3 p-3">
@@ -134,7 +140,7 @@ function Home(props: {
           placeholder="Find the order status on this page"
           autocomplete="off"
           value={draft}
-          disabled={running}
+          disabled={active}
           data-testid="task-input"
           onInput={(event) => onDraftChange(event.currentTarget.value)}
         />
@@ -142,7 +148,7 @@ function Home(props: {
           label="Start task"
           variant="primary"
           type="submit"
-          disabled={running}
+          disabled={active}
           testId="start-task"
         />
       </form>
@@ -150,7 +156,9 @@ function Home(props: {
       <Button
         label="Stop task"
         variant="danger"
-        disabled={!running}
+        disabled={!active}
+        loading={stopping}
+        loadingLabel="Stopping…"
         testId="stop-task"
         onClick={onStop}
       />

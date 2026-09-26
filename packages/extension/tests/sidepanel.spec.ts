@@ -124,6 +124,16 @@ test.describe('A-10 side panel', () => {
     expect(dark).not.toBe(light);
   });
 
+  test('compiles the shell’s own utilities, not only the kit’s', async () => {
+    // The kit pins its sources with `source(none)`, so a utility only the shell uses is dropped
+    // unless the shell registers itself as a source. `p-3` is that case: the panel section is the
+    // only element carrying it, and it measures 0px when the shell's sources are missing.
+    const sectionPaddingTop = await readComputed(page, 'main > section', 'padding-top');
+    const sectionPaddingLeft = await readComputed(page, 'main > section', 'padding-left');
+    expect(Number.parseFloat(sectionPaddingTop)).toBeCloseTo(12, 1);
+    expect(Number.parseFloat(sectionPaddingLeft)).toBeCloseTo(12, 1);
+  });
+
   test('runs a task, shows the action trace and stops it', async () => {
     const input = page.getByTestId('task-input');
     await input.fill('Show the status of my latest order');

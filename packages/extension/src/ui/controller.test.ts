@@ -38,13 +38,81 @@ describe('demo side-panel controller', () => {
     expect(controller.getState().actions).toHaveLength(0);
   });
 
-  it('stops a running task and marks the active action stopped', () => {
-    const controller = createDemoController();
+  it('reports a pending stop before the run acknowledges it', async () => {
+    let acknowledge: (() => void) | undefined;
+    const controller = createDemoController({
+      acknowledgeStop: () =>
+        new Promise<void>((resolve) => {
+          acknowledge = resolve;
+        }),
+    });
     controller.submitTask('Summarize the page');
 
     controller.stop();
 
-    expect(controller.getState().status).toBe('stopped');
+    // The request is in flight and nothing has been cancelled yet.
+    expect(controller.getState().status).toBe('stopping');
+    expect(controller.getState().actions.find((action) => action.id === 'confirm')?.status).toBe(
+      'running'
+    );
+
+    acknowledge?.();
+    await vi.waitFor(() => expect(controller.getState().status).toBe('stopped'));
+    expect(controller.getState().actions.find((action) => action.id === 'confirm')?.status).toBe(
+      'stopped'
+    );
+  });
+
+  it('ignores a repeated stop while the first is still pending', async () => {
+    const acknowledgeStop = vi.fn().mockResolvedValue(undefined);
+    const controller = createDemoController({ acknowledgeStop });
+    controller.submitTask('Summarize the page');
+
+    controller.stop();
+    controller.stop();
+    controller.stop();
+
+    expect(controller.getState().status).toBe('stopping');
+    expect(acknowledgeStop).toHaveBeenCalledOnce();
+    await vi.waitFor(() => expect(controller.getState().status).toBe('stopped'));
+    expect(acknowledgeStop).toHaveBeenCalledOnce();
+  });
+
+  it('does not start a new task while a stop is still pending', async () => {
+    const controller = createDemoController({
+      acknowledgeStop: () => new Promise<void>(() => undefined),
+    });
+    controller.submitTask('Summarize the page');
+    controller.stop();
+
+    controller.submitTask('Something else entirely');
+
+    expect(controller.getState().status).toBe('stopping');
+    expect(controller.getState().task).toBe('Summarize the page');
+  });
+
+  it('reports a stop the run never acknowledged instead of claiming it stopped', async () => {
+    const controller = createDemoController({
+      acknowledgeStop: () => Promise.reject(new Error('no acknowledgement')),
+    });
+    controller.submitTask('Summarize the page');
+
+    controller.stop();
+
+    // Nothing confirmed the cancellation, so the panel must not report one.
+    await vi.waitFor(() => expect(controller.getState().status).toBe('running'));
+    expect(controller.getState().error).toBe(
+      'Stop was not confirmed. The task may still be running.'
+    );
+  });
+
+  it('stops a running task and marks the active action stopped', async () => {
+    const controller = createDemoController();
+    controller.submitTask('Summarize the page');
+
+    controller.stop();
+    await vi.waitFor(() => expect(controller.getState().status).toBe('stopped'));
+
     expect(controller.getState().actions.find((action) => action.id === 'confirm')?.status).toBe(
       'stopped'
     );

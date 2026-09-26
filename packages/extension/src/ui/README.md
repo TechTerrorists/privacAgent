@@ -19,11 +19,18 @@ manifests.
   disposes the injected controller.
 - `controller.ts` is the synthetic demo controller. It has no network client and creates
   a deterministic local action trace. A real A-03/A-12-backed controller can implement the
-  same `SidePanelController` contract without changing the view.
+  same `SidePanelController` contract without changing the view. Stopping is a handshake:
+  `stop()` moves the run to `stopping` and only an acknowledgement moves it to `stopped`, so
+  the panel can disable Stop and say so while a cancellation is in flight, and never report a
+  stop the run did not confirm.
 - The presentation layer is the F-01 kit (`@privacagent/ui-kit`): `Button`,
   `ActionTraceList`, `ErrorState` and `ThemeToggle` come from that package, and the shell
   imports its token stylesheet instead of shipping a second set of CSS variables. The
   interim DOM primitives that stood in for F-01 have been deleted.
+- `sidepanel.css` is the shell's stylesheet entry: it imports the kit's tokens and adds
+  `@source` for the shell's own files. The kit pins its sources with `source(none)`, so
+  without those declarations every utility used only by the shell (`p-3` on the panel
+  sections) is dropped and the panel ships with the elements but not the spacing.
 - The theme follows the kit's `data-pa-theme` contract, applied to `#root` through
   `applyTheme`, so panel and kit cannot drift apart.
 - `settings.ts` stores the `theme` key in local extension storage. No settings shown in

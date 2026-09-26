@@ -1,7 +1,8 @@
 import { createDemoController } from './controller.js';
 import { createStorageThemeStore } from './settings.js';
 import { mountSidePanel } from './sidepanel-view.js';
-import '@privacagent/ui-kit/tokens.css';
+// The shell's own stylesheet: the kit's tokens plus the sources for the classes this shell uses.
+import './sidepanel.css';
 import { activePlatform } from '../platform/active.js';
 
 const root = document.querySelector<HTMLElement>('#root');

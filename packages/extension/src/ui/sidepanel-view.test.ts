@@ -84,6 +84,31 @@ describe('side-panel shell', () => {
     expect(root.querySelectorAll('[data-status="stopped"]')).toHaveLength(1);
   });
 
+  it('disables Stop and shows the pending state until a stop is acknowledged', async () => {
+    const root = createRoot();
+    // The run never acknowledges, which is exactly the window a user can press Stop twice in.
+    const controller = createDemoController({
+      acknowledgeStop: () => new Promise<void>(() => undefined),
+    });
+    handle = mountSidePanel(root, controller);
+
+    await submitTask(root, 'Find the order status');
+    const stop = root.querySelector<HTMLButtonElement>('[data-testid="stop-task"]');
+    stop?.click();
+    await tick();
+
+    expect(root.querySelector('[data-testid="status"]')?.textContent).toBe('Stopping…');
+    const pending = root.querySelector<HTMLButtonElement>('[data-testid="stop-task"]');
+    expect(pending?.disabled).toBe(true);
+    expect(pending?.getAttribute('aria-busy')).toBe('true');
+    expect(pending?.textContent).toContain('Stopping');
+    // The run is not over, so the task form stays locked.
+    expect(root.querySelector<HTMLInputElement>('[data-testid="task-input"]')?.disabled).toBe(true);
+    expect(root.querySelector<HTMLButtonElement>('[data-testid="start-task"]')?.disabled).toBe(
+      true
+    );
+  });
+
   it('keeps the settings route real and persists the selected theme', async () => {
     const store: ThemeStore = {
       read: vi.fn().mockResolvedValue('dark'),
