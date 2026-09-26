@@ -14,6 +14,13 @@ function isVisionOnly(id: string): boolean {
   return id.startsWith('v');
 }
 
+/**
+ * `visibility` values that draw nothing while leaving the box in place. `collapse` is the
+ * table-row equivalent of `hidden`. Compared against explicitly rather than with
+ * `!== 'visible'`, so a computed style that reports nothing at all is not read as hidden.
+ */
+const NON_RENDERING_VISIBILITY: ReadonlySet<string> = new Set(['hidden', 'collapse']);
+
 export function createRegistryResolver(
   registry: ElementRegistry,
   topDocument: Document
@@ -43,6 +50,16 @@ export function createRegistryResolver(
       // registry that widens its scope cannot silently start feeding frame-local rectangles
       // into a viewport-coordinate positioner.
       if (element.ownerDocument !== topDocument) return { status: 'unsupported' };
+
+      // A rectangle is a box, not proof of rendering. `visibility: hidden` keeps the full box
+      // while drawing nothing, so the zero-area check downstream cannot see it and a hidden
+      // target would be handed a marker position; the computed style is the only thing that
+      // distinguishes the two. `display: none` also collapses the box, but asking for it
+      // explicitly keeps the rule readable and covers a display the rect has not settled on.
+      const style = topDocument.defaultView?.getComputedStyle(element);
+      if (style && (style.display === 'none' || NON_RENDERING_VISIBILITY.has(style.visibility))) {
+        return { status: 'hidden', element };
+      }
 
       const rect = element.getBoundingClientRect();
       return {

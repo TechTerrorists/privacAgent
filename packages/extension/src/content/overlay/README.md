@@ -86,14 +86,14 @@ Converting page, image, or frame-local coordinates into viewport space is A-08's
 
 ## Statuses
 
-| Status        | Meaning                                                         | Drawn |
-| ------------- | --------------------------------------------------------------- | ----- |
-| `visible`     | On screen and rendering an area.                                | yes   |
-| `offscreen`   | Connected and rendered, but outside the viewport.               | no    |
-| `hidden`      | Connected but rendering no area (`display: none`, zero size).   | no    |
-| `stale`       | The document generation moved on, so the id identifies nothing. | no    |
-| `missing`     | Unknown to the registry, or the node is detached.               | no    |
-| `unsupported` | Cannot be addressed in viewport coordinates (yet).              | no    |
+| Status        | Meaning                                                                             | Drawn |
+| ------------- | ----------------------------------------------------------------------------------- | ----- |
+| `visible`     | On screen and rendering an area.                                                    | yes   |
+| `offscreen`   | Connected and rendered, but outside the viewport.                                   | no    |
+| `hidden`      | Connected but rendering no area (`display: none`, `visibility: hidden`, zero size). | no    |
+| `stale`       | The document generation moved on, so the id identifies nothing.                     | no    |
+| `missing`     | Unknown to the registry, or the node is detached.                                   | no    |
+| `unsupported` | Cannot be addressed in viewport coordinates (yet).                                  | no    |
 
 An off-screen target draws nothing on purpose: a marker clamped to the window edge would point
 at a control the user cannot see, and the executor's rule is to re-observe rather than guess.

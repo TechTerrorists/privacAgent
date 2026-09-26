@@ -129,6 +129,9 @@ export function createOverlay(options: OverlayOptions): OverlayHandle {
 
       const resolution = resolver.resolve(annotation.anchor);
       if (resolution.status !== 'ok') {
+        // A hidden target is still observed: it notifies `ResizeObserver` the moment it gains a
+        // box, which beats waiting for the heartbeat when a modal or disclosure opens.
+        if (resolution.status === 'hidden' && resolution.element) targets.add(resolution.element);
         plan.push({ annotation, status: fromResolution(resolution), placement: null });
         continue;
       }
@@ -223,6 +226,19 @@ export function createOverlay(options: OverlayOptions): OverlayHandle {
     if (!resizeObserver && typeof ResizeObserver === 'function') {
       resizeObserver = new ResizeObserver(() => scheduleTick());
     }
+  }
+
+  /**
+   * Unobserves every target and drops the stored references. Only for the paths that end
+   * tracking altogether — the last annotation, `clear()`, `dispose()`. While any annotation
+   * remains the heartbeat and the next frame re-derive both, so a partial `remove()` is pruned
+   * by the next tick instead.
+   */
+  function releaseTargets(): void {
+    if (resizeObserver) {
+      for (const element of observed) resizeObserver.unobserve(element);
+    }
+    observed.clear();
   }
 
   // ---------------------------------------------------------------- signals
@@ -329,7 +345,11 @@ export function createOverlay(options: OverlayOptions): OverlayHandle {
       if (!annotation) return;
       annotations.delete(id);
       annotation.node.remove();
-      if (annotations.size === 0) stopListening();
+      if (annotations.size === 0) {
+        stopListening();
+        // Nothing will run another frame to prune the observation, so it is released here.
+        releaseTargets();
+      }
       coalescer.unsubscribe(tick);
     },
 
@@ -337,6 +357,9 @@ export function createOverlay(options: OverlayOptions): OverlayHandle {
       for (const annotation of annotations.values()) annotation.node.remove();
       annotations.clear();
       stopListening();
+      // Markers are gone, so their targets must be unobserved and unreferenced here rather than
+      // waiting for a `dispose()` that a live page may never reach.
+      releaseTargets();
       coalescer.unsubscribe(tick);
     },
 

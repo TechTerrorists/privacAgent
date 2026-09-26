@@ -41,7 +41,8 @@ export interface ViewportRect {
  *
  * - `stale`: the document generation moved on, so the id no longer identifies this target.
  * - `missing`: the id is unknown to the registry, or its node is detached.
- * - `hidden`: the node is connected but renders no area (display:none, zero size).
+ * - `hidden`: the node is connected but renders no area (`display: none`, `visibility: hidden`,
+ *   zero size).
  * - `unsupported`: the target cannot be addressed in viewport coordinates yet. Cross-frame
  *   and vision-only (`v…`) ids land here until A-08/A-09 land; they are never approximated.
  */
@@ -51,6 +52,13 @@ export const DRAWING_STATUSES: readonly AnchorStatus[] = ['visible', 'offscreen'
 
 export type ResolveResult =
   | { readonly status: 'ok'; readonly rect: ViewportRect; readonly element: Element | null }
+  /**
+   * Connected, but not rendered: `display: none`, or `visibility: hidden`/`collapse`. The node
+   * comes back so the caller can keep observing it — a target that gains a box again notifies
+   * `ResizeObserver`, which is a faster signal than the heartbeat for a modal or disclosure
+   * opening. No rectangle is reported, because a box is not what makes a target visible.
+   */
+  | { readonly status: 'hidden'; readonly element: Element | null }
   | { readonly status: 'missing' | 'stale' | 'unsupported' };
 
 /**

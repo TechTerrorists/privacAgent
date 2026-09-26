@@ -214,6 +214,17 @@ describe('positioning', () => {
     expect(harness.handle.statusOf(id)).toBe('hidden');
   });
 
+  it('suppresses a target the resolver reports as not rendered', () => {
+    harness = createHarness();
+    // `visibility: hidden` keeps the box, so the resolver has to rule on the computed style;
+    // whatever the reason, a hidden target gets no marker and no position.
+    harness.answer('e1', { status: 'hidden', element: null });
+    const id = harness.handle.update(anchor('e1'));
+    harness.tick();
+    expect(harness.handle.statusOf(id)).toBe('hidden');
+    expect(harness.handle.positionOf(id)).toBeNull();
+  });
+
   it('re-points an existing annotation instead of adding a second marker', () => {
     harness = createHarness();
     const first = harness.handle.update(anchor('e1'), { label: 'one' });
@@ -361,6 +372,97 @@ describe('teardown', () => {
     harness.tick();
     harness.handle.clear();
     expect(harness.handle.size).toBe(0);
+  });
+});
+
+describe('observer registrations', () => {
+  let registered: Set<Element>;
+  let restoreSpies: () => void;
+
+  beforeEach(() => {
+    registered = new Set();
+    const observe = vi
+      .spyOn(ResizeObserver.prototype, 'observe')
+      .mockImplementation((target: Element) => void registered.add(target));
+    const unobserve = vi
+      .spyOn(ResizeObserver.prototype, 'unobserve')
+      .mockImplementation((target: Element) => void registered.delete(target));
+    restoreSpies = () => {
+      observe.mockRestore();
+      unobserve.mockRestore();
+    };
+  });
+
+  afterEach(() => {
+    restoreSpies();
+  });
+
+  const target = (): HTMLElement => {
+    const node = document.createElement('button');
+    document.body.append(node);
+    return node;
+  };
+
+  it('observes the target of a live annotation', () => {
+    harness = createHarness();
+    const node = target();
+    harness.answer('e1', { status: 'ok', rect: rect(400, 400), element: node });
+    harness.handle.update(anchor('e1'));
+    harness.tick();
+    expect([...registered]).toEqual([node]);
+  });
+
+  it('keeps observing a not-rendered target, so opening a modal is noticed promptly', () => {
+    harness = createHarness();
+    const node = target();
+    harness.answer('e1', { status: 'hidden', element: node });
+    harness.handle.update(anchor('e1'));
+    harness.tick();
+    expect([...registered]).toEqual([node]);
+  });
+
+  it('unobserves every target once the last annotation is removed', () => {
+    harness = createHarness();
+    const node = target();
+    harness.answer('e1', { status: 'ok', rect: rect(400, 400), element: node });
+    const id = harness.handle.update(anchor('e1'));
+    harness.tick();
+    expect(registered.size).toBe(1);
+
+    // No frame runs after this, so nothing else would ever drop the registration.
+    harness.handle.remove(id);
+    expect(registered.size).toBe(0);
+  });
+
+  it('unobserves every target on clear', () => {
+    harness = createHarness();
+    const first = target();
+    const second = target();
+    harness.answer('e1', { status: 'ok', rect: rect(400, 400), element: first });
+    harness.answer('e2', { status: 'ok', rect: rect(100, 100), element: second });
+    harness.handle.update(anchor('e1'));
+    harness.handle.update(anchor('e2'));
+    harness.tick();
+    expect(registered.size).toBe(2);
+
+    harness.handle.clear();
+    expect(registered.size).toBe(0);
+  });
+
+  it('observes again after a clear, so a reused overlay still tracks', () => {
+    harness = createHarness();
+    const first = target();
+    const second = target();
+    harness.answer('e1', { status: 'ok', rect: rect(400, 400), element: first });
+    harness.answer('e2', { status: 'ok', rect: rect(100, 100), element: second });
+    harness.handle.update(anchor('e1'));
+    harness.tick();
+    harness.handle.clear();
+
+    harness.answer('e2', { status: 'ok', rect: rect(100, 100), element: second });
+    harness.handle.update(anchor('e2'));
+    harness.tick();
+    expect([...registered]).toEqual([second]);
   });
 });
 

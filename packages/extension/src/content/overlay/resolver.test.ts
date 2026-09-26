@@ -67,6 +67,46 @@ describe('createRegistryResolver', () => {
     expect(resolver.resolve(anchor)).toEqual({ status: 'stale' });
   });
 
+  it('reports a `visibility: hidden` target as hidden, not as a placeable rectangle', () => {
+    const { resolver, register } = setup();
+    const node = element();
+    // A hidden element keeps its box, so the rect is a real one: the geometry check alone would
+    // call this visible and hand the marker a position on a target the user cannot see.
+    node.style.visibility = 'hidden';
+    node.getBoundingClientRect = () => ({ x: 10, y: 20, width: 30, height: 40 }) as DOMRect;
+    const result = resolver.resolve(register(node));
+    expect(result.status).toBe('hidden');
+    // The node is still returned, so the caller can keep observing it and catch the frame it
+    // becomes visible again.
+    if (result.status !== 'hidden') return;
+    expect(result.element).toBe(node);
+  });
+
+  it('reports a `display: none` target as hidden', () => {
+    const { resolver, register } = setup();
+    const node = element();
+    node.style.display = 'none';
+    expect(resolver.resolve(register(node)).status).toBe('hidden');
+  });
+
+  it('reports a target hidden by an ancestor as hidden', () => {
+    const { resolver, register } = setup();
+    const parent = document.createElement('div');
+    parent.style.visibility = 'hidden';
+    const node = document.createElement('button');
+    parent.append(node);
+    document.body.append(parent);
+    node.getBoundingClientRect = () => ({ x: 0, y: 0, width: 30, height: 40 }) as DOMRect;
+    expect(resolver.resolve(register(node)).status).toBe('hidden');
+  });
+
+  it('still resolves a visible target, so the style check does not hide everything', () => {
+    const { resolver, register } = setup();
+    const node = element();
+    node.getBoundingClientRect = () => ({ x: 10, y: 20, width: 30, height: 40 }) as DOMRect;
+    expect(resolver.resolve(register(node)).status).toBe('ok');
+  });
+
   it('reports a detached node as missing even while the registry still holds it', () => {
     const { resolver, register } = setup();
     const node = element();
