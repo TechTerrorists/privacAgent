@@ -21,8 +21,14 @@ export type { BBox, DocumentId, ElementId, Placeholder, PiiClass };
  * scanned independently: an image button whose DOM label reads "Profile" may
  * render a person's name in pixels, and merging the two evidence streams
  * would destroy the distinction redaction needs.
+ *
+ * `dom_structure` (D-03) is not text evidence at all: a site/user policy
+ * finding comes from matching an element via a CSS selector, never from
+ * reading its text content, so it needs a provenance value that does not
+ * imply any text was scanned.
  */
-export type EvidenceSource = 'dom_text' | 'dom_attribute' | 'ocr' | 'user_text' | 'task_text';
+export type EvidenceSource =
+  'dom_text' | 'dom_attribute' | 'ocr' | 'user_text' | 'task_text' | 'dom_structure';
 
 /** Character offsets into the original evidence text, for provenance only. */
 export interface TextSpan {
@@ -43,6 +49,11 @@ export type TextField = 'name' | 'value' | 'text_context' | 'title' | 'url';
  * is no free-floating "somewhere in the page" location, because the Egress
  * Guard's coverage check (PRD §10.2) needs to attribute every finding to a
  * field it can then verify was actually redacted.
+ *
+ * `element_scope` (D-03) is coarser than `element_field`: it covers every
+ * field an element carries, for callers (site/user policy) that decide by
+ * matching the element itself — a CSS selector, not a specific text field —
+ * and cannot know in advance which fields that element will turn out to have.
  */
 export type FindingLocation =
   | {
@@ -58,7 +69,8 @@ export type FindingLocation =
       readonly kind: 'user_task_text';
       readonly source: 'user_turn' | 'task';
       readonly span?: TextSpan;
-    };
+    }
+  | { readonly kind: 'element_scope'; readonly elementId: ElementId; readonly docId: DocumentId };
 
 /**
  * Which detector layer produced a finding (CLAUDE.md, PII detector layers).
@@ -91,6 +103,14 @@ export interface PiiFinding {
   /** 0..1. The stub always reports 1 — it is certain only in the sense that it never guesses "safe". */
   readonly confidence: number;
   readonly decision: RedactionDecision;
+  /**
+   * Which specific rule or policy within `detector` produced this finding
+   * (D-03), e.g. `'input_type:email'`, `'label_keyword:phone'`,
+   * `'always_redact_selector'`. Optional and free-form: `detector` names the
+   * layer, this names the rule inside it, for diagnostics and for telling two
+   * findings from the same layer apart. Never derived from page content.
+   */
+  readonly rule?: string;
   /**
    * True when this finding was fabricated by a stand-in rather than produced
    * by a real detector pass. Mirrors `worker/inference`'s `synthetic` flag:

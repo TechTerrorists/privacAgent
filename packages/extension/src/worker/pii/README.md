@@ -1,4 +1,4 @@
-# Worker PII engine API (D-01, extended by D-02)
+# Worker PII engine API (D-01, extended by D-02, D-03)
 
 Finding and redaction types, a callable `PiiEngineApi`, and a conservative
 stub that masks or withholds everything, so other lanes can integrate with
@@ -163,12 +163,25 @@ false` only on a finding a real detector pass actually produced. See
 `l2/README.md` for exactly how `createLayeredPiiEngine` upholds this while
 preserving D-01's conservative fallback.
 
+## L1 semantic classification and L5 site policy (D-03)
+
+`stub.ts` and `layered.ts` now derive a field's `pii_class` (and the
+finding's `rule` provenance) via `semantic/l1.ts`'s `classifySemanticEvidence`
+instead of a hardcoded input-type map — see `semantic/README.md`. Separately,
+`policy/` adds per-origin always-redact selectors, a never-send flag and
+user-marked regions, merged with detector output through
+`policy/evaluate.ts`'s `mergeDetectorAndPolicy` (monotonic: policy can only
+add protection) — see `policy/README.md`. `background/policyGuard.ts` exposes
+the policy store over the message bus for F-07/F-13's settings UI and a
+`guardEgress` hook for D-11/A-06.
+
 ## Boundaries
 
 | Concern                                                | Owner               |
 | ------------------------------------------------------ | ------------------- |
 | L2 pattern/checksum detectors                          | D-02 (`l2/`)        |
-| Semantic DOM / site policy (L1/L5)                     | D-03                |
+| Semantic DOM classification (L1)                       | D-03 (`semantic/`)  |
+| Per-site/per-user policy (L5)                          | D-03 (`policy/`)    |
 | NER (L3), vision (L4)                                  | D-07, D-08          |
 | Vault storage                                          | D-04                |
 | Consistent session vault mappings, destination binding | D-04, D-09          |

@@ -1,9 +1,10 @@
 import type { PiiClass } from '@privacagent/protocol';
 
-import { classifyFromHints, classPlaceholder, SECRET_PLACEHOLDER, TEXT_WITHHELD } from './stub.js';
+import { classPlaceholder, SECRET_PLACEHOLDER, TEXT_WITHHELD } from './stub.js';
 import { buildPiiEngine } from './engineBase.js';
 import { scanText as l2ScanText } from './l2/scan.js';
 import type { L2Match } from './l2/types.js';
+import { classifySemanticEvidence } from './semantic/l1.js';
 import type { PiiEngineApi } from './api.js';
 import type { PiiFinding, PiiTextInput, PiiTextResult } from './types.js';
 
@@ -53,6 +54,7 @@ export function createLayeredPiiEngine(): PiiEngineApi {
         confidence: 1,
         decision: 'mask',
         synthetic: true,
+        rule: 'input_type:password',
       };
       return { outcome: 'redacted', value: SECRET_PLACEHOLDER, piiClass: 'secret', finding };
     }
@@ -75,12 +77,14 @@ export function createLayeredPiiEngine(): PiiEngineApi {
           confidence: 1,
           decision: 'mask',
           synthetic: false,
+          rule: match.ruleId,
         };
         return { outcome: 'redacted', value, piiClass: match.piiClass, finding };
       }
 
-      const { piiClass, fromHint } = classifyFromHints(hints);
-      if (fromHint) {
+      const classification = classifySemanticEvidence(hints);
+      if (classification.matched) {
+        const { piiClass, confidence, rule } = classification;
         const value =
           piiClass === 'secret'
             ? SECRET_PLACEHOLDER
@@ -90,22 +94,29 @@ export function createLayeredPiiEngine(): PiiEngineApi {
           location,
           piiClass,
           detector: 'l1_semantic',
-          confidence: 1,
+          confidence,
           decision: 'mask',
           synthetic: true,
+          rule,
         };
         return { outcome: 'redacted', value, piiClass, finding };
       }
       const finding: PiiFinding = {
         evidence,
         location,
-        piiClass,
+        piiClass: classification.piiClass,
         detector: 'stub',
         confidence: 1,
         decision: 'withhold',
         synthetic: true,
+        rule: classification.rule,
       };
-      return { outcome: 'withheld', value: TEXT_WITHHELD, piiClass, finding };
+      return {
+        outcome: 'withheld',
+        value: TEXT_WITHHELD,
+        piiClass: classification.piiClass,
+        finding,
+      };
     }
 
     const piiClass = match?.piiClass ?? 'other';
@@ -117,6 +128,7 @@ export function createLayeredPiiEngine(): PiiEngineApi {
       confidence: 1,
       decision: 'withhold',
       synthetic: !l2Ran,
+      ...(match && { rule: match.ruleId }),
     };
     return { outcome: 'withheld', value: TEXT_WITHHELD, piiClass, finding };
   }
