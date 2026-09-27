@@ -1,4 +1,4 @@
-# Worker PII engine API (D-01, extended by D-02, D-03)
+# Worker PII engine API (D-01, extended by D-02, D-03, D-05)
 
 Finding and redaction types, a callable `PiiEngineApi`, and a conservative
 stub that masks or withholds everything, so other lanes can integrate with
@@ -175,6 +175,106 @@ add protection) — see `policy/README.md`. `background/policyGuard.ts` exposes
 the policy store over the message bus for F-07/F-13's settings UI and a
 `guardEgress` hook for D-11/A-06.
 
+## Span-aware redaction and the vault (D-05)
+
+`layered.ts`'s `scanText` no longer collapses a whole `name`/`text_context`
+field to one placeholder the instant _any_ signal fires. It now runs L2
+across the full text, and for every match it finds it substitutes only that
+span, in place, with a class placeholder — leaving the rest of the sentence
+exactly where it was. What surrounds a match is still not free to pass
+through verbatim: this codebase has no NER pass yet (D-08), so a clean L2
+result over the surrounding words is not proof they carry no PII. Each gap
+between matches is inspected on its own account: a gap that is only
+whitespace and punctuation is preserved byte-for-byte (spaces and commas
+cannot leak identity); a gap containing any letter or digit is replaced by
+the same `{{TEXT_WITHHELD}}` marker D-01 always used for a fully-unclassified
+field. `redact.ts`'s `composeSpanRedaction` implements exactly this rule, and
+`mergeOverlappingSpans` resolves any spans that overlap by widening to their
+union — merging two matches of the same class keeps that class; merging two
+of _different_ classes forces the widened region to `'other'` and marks it
+`ambiguous`, so a widened span is never mislabelled with a specific class it
+cannot back.
+
+**`value` fields are the one exception.** The protocol schema
+(`protocol.schema.json`) constrains `RedactedElement.value` to the exact,
+anchored `Placeholder` pattern — one whole token, `{{CLASS_N}}` /
+`{{SECRET}}` / `{{TEXT_WITHHELD}}`, never a string with a placeholder
+embedded in surrounding text. So for a `value` field, `scanText` only mints a
+real placeholder when exactly one, unambiguous match covers the _entire_
+value (the common case: the field's whole value is the PII); anything less
+clean-cut — several matches in one value, or a match that only covers part
+of it — is withheld wholesale rather than emitting a non-placeholder string
+that would fail schema validation. `schema-safety.test.ts` proves both
+directions against the real generated validator (`isMessage('ScreenState',
+...)`), not just against a written description of the schema.
+
+```ts
+const result = await engine.scanText({
+  evidence: 'dom_text',
+  text: 'Contact person@example.com or +14155550100 for help',
+  location: { kind: 'text_context_entry', index: 0 },
+  vaultContext: { vault, scopeId, binding }, // optional — see below
+});
+// result.value: '{{TEXT_WITHHELD}}{{EMAIL_1}}{{TEXT_WITHHELD}}{{PHONE_1}}{{TEXT_WITHHELD}}'
+// result.outcome: 'redacted' (at least one span was masked)
+// result.piiClass: 'other' (more than one distinct class matched — see below)
+// result.findings: one PiiFinding per matched span, plus one residual
+//                  "unchecked free text withheld" finding for the gaps
+```
+
+`PiiTextResult.piiClass` stays a single optional field, so when a field's
+matches span more than one class it is `'other'` rather than an arbitrary
+pick — the per-span class is never lost, it just lives in the composed
+`value` string's own placeholders (`{{EMAIL_1}}`, `{{PHONE_1}}`), not in this
+one summary slot. `PiiTextResult.finding` remains the first finding for any
+caller that only ever read one; `PiiTextResult.findings` (new) carries all of
+them, in text order, for D-11's coverage check.
+
+`redactTextContext` (in `engineBase.ts`) changed to match: an entry whose
+scan outcome is `'redacted'` is now kept (with its placeholders in place)
+instead of being dropped. An entry that comes back `'withheld'` — nothing in
+it was positively classified at all — is still dropped rather than sent as a
+lone `{{TEXT_WITHHELD}}`, unchanged from D-01.
+
+### Vault-backed placeholders
+
+`PiiTextInput.vaultContext` (`types.ts`) is optional: `{ vault, scopeId,
+binding }`, where `vault` needs only an `intern` method (D-04's `VaultApi`
+already has exactly that shape). When present, every class placeholder this
+module mints comes from `vault.intern(scopeId, { piiClass, value, binding
+})` — the same call D-04 uses to guarantee `{{EMAIL_1}}` means the same
+value everywhere in a session, across different elements, different
+observations, different `scanText` calls entirely. `redact.ts`'s
+`createVaultPlaceholderMinter` never calls `intern` for `piiClass === 'secret'`
+at all (secrets are never session-mapped — D-04's vault.ts returns the bare
+`{{SECRET}}` literal for that class without creating any entry), and treats
+an `'unavailable'` outcome (missing scope, task mismatch, capacity exceeded)
+as an **explicit detector-error case**: that specific span is withheld
+instead of masked, never silently downgraded to a locally-minted,
+not-actually-registered placeholder that would claim resolvability it
+doesn't have.
+
+When `vaultContext` is absent, `createLocalPlaceholderMinter` is used
+instead — still stable for repeated equal values and monotonic across
+distinct ones, but only within the lifetime of the single engine instance
+that created it, never across engine instances or sessions. This is the
+same fallback D-01/D-02 always had; D-05 only makes the "give me a real,
+session-wide mapping" path exist and adds real value-equality dedup to the
+fallback too, so a value repeated _within one call_ still gets one
+placeholder even with no vault attached.
+
+### Safety against spoofed or already-processed text
+
+Page content that happens to look like `{{SECRET}}` or `{{EMAIL_3}}` is never
+treated as an existing, authorized placeholder — there is no code path that
+inspects text for that shape and skips re-redaction. It is scanned like any
+other text: L2 will not match it as any recognized class, so it falls
+through to the same unchecked-free-text withholding every other unclassified
+span gets. Re-scanning already-redacted output is therefore safe in effect
+(fail-closed, never a leak, never a new fabricated vault entry) even though
+the literal text changes on a second pass — `vault-integration.test.ts`
+asserts this directly.
+
 ## Boundaries
 
 | Concern                                                | Owner               |
@@ -185,7 +285,7 @@ the policy store over the message bus for F-07/F-13's settings UI and a
 | NER (L3), vision (L4)                                  | D-07, D-08          |
 | Vault storage                                          | D-04                |
 | Consistent session vault mappings, destination binding | D-04, D-09          |
-| Text substitution using vault placeholders             | D-05                |
+| Span-aware, vault-backed text substitution             | D-05 (`redact.ts`)  |
 | Text/pixel crop redaction                              | D-13, D-14          |
 | Restricted egress mode                                 | D-10                |
 | Final outbound scan, fail-closed enforcement           | D-11 (Egress Guard) |

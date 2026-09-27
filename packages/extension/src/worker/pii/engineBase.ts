@@ -124,7 +124,7 @@ export function buildPiiEngine(deps: EngineBaseDeps): PiiEngineApi {
         text,
         location: { kind: 'text_context_entry', index },
       });
-      if (result.outcome === 'clear') {
+      if (result.outcome === 'clear' || result.outcome === 'redacted') {
         values.push(result.value);
       } else {
         withheldCount += 1;

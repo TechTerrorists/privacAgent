@@ -22,6 +22,26 @@ describe('layered PII engine (D-02 integration)', () => {
     });
   });
 
+  it('withholds a value field wholesale when a match only covers part of it, never emitting a non-placeholder string', async () => {
+    const result = await engine.scanText({
+      evidence: 'dom_text',
+      text: 'contact CANARY-PARTIAL@example.test now',
+      location: { kind: 'element_field', elementId: 'e1', field: 'value' },
+    });
+    expect(result.outcome).toBe('withheld');
+    expect(result.value).toBe('{{TEXT_WITHHELD}}');
+  });
+
+  it('withholds a value field wholesale when multiple matches are found in it', async () => {
+    const result = await engine.scanText({
+      evidence: 'dom_text',
+      text: 'CANARY-A@example.test CANARY-B@example.test',
+      location: { kind: 'element_field', elementId: 'e1', field: 'value' },
+    });
+    expect(result.outcome).toBe('withheld');
+    expect(result.value).toBe('{{TEXT_WITHHELD}}');
+  });
+
   it('falls back to L1-hint classification when L2 finds nothing', async () => {
     const result = await engine.scanText({
       evidence: 'dom_text',
@@ -57,19 +77,23 @@ describe('layered PII engine (D-02 integration)', () => {
     expect(result.finding?.detector).toBe('l1_semantic');
   });
 
-  it('still withholds a name field even when L2 finds a match inside it', async () => {
+  it('masks only the matched span in a name field, withholding the unchecked surrounding words (D-05)', async () => {
     const result = await engine.scanText({
       evidence: 'dom_text',
       text: 'Contact CANARY-NAME-EMAIL@example.test for help',
       location: { kind: 'element_field', elementId: 'e1', field: 'name' },
     });
-    expect(result.outcome).toBe('withheld');
-    expect(result.value).toBe('{{TEXT_WITHHELD}}');
+    expect(result.outcome).toBe('redacted');
+    expect(result.value).toMatch(/^\{\{TEXT_WITHHELD\}\}\{\{EMAIL_\d+\}\}\{\{TEXT_WITHHELD\}\}$/);
+    expect(result.piiClass).toBe('email');
     expect(result.finding).toMatchObject({
       detector: 'l2_pattern',
       synthetic: false,
+      decision: 'mask',
       piiClass: 'email',
     });
+    expect(result.findings).toHaveLength(2);
+    expect(result.findings?.[1]).toMatchObject({ decision: 'withhold', piiClass: 'other' });
   });
 
   it('marks a name field finding synthetic:false when L2 ran and simply found nothing — ran-and-clean is still real coverage', async () => {

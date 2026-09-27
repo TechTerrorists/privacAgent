@@ -12,6 +12,8 @@
 
 import type { BBox, DocumentId, ElementId, Placeholder, PiiClass } from '@privacagent/protocol';
 
+import type { InternResult, UseBinding, VaultScopeId } from '../vault/index.js';
+
 export type { BBox, DocumentId, ElementId, Placeholder, PiiClass };
 
 /**
@@ -158,7 +160,16 @@ export interface PiiTextResult {
   readonly outcome: PiiTextOutcome;
   readonly value: string;
   readonly piiClass?: PiiClass;
+  /** The first (or only) finding, for callers that only ever handled one. Equal to `findings?.[0]`. */
   readonly finding?: PiiFinding;
+  /**
+   * Every finding produced while scanning this text, in text order (D-05).
+   * Span-aware redaction can mask several distinct spans plus a residual
+   * "unchecked free text withheld" finding for whatever text is not covered
+   * by any span, so a single `finding` can no longer represent everything a
+   * caller (D-11's coverage check) needs to see.
+   */
+  readonly findings?: readonly PiiFinding[];
 }
 
 /** Optional DOM semantic hints (PRD L1) that help classify, never authorize, a redaction. */
@@ -168,12 +179,35 @@ export interface TextEvidenceHints {
   readonly labelKeywords?: readonly string[];
 }
 
+/**
+ * Optional binding to D-04's vault for stable, session-consistent placeholders
+ * (D-05). Only the `intern` method is depended on, so a test double needs no
+ * more than that one method. When absent, an engine may fall back to a
+ * locally value-memoized placeholder that is consistent only within the
+ * current call chain, never across separate elements or observations.
+ */
+export interface VaultTextContext {
+  readonly vault: {
+    readonly intern: (
+      scopeId: VaultScopeId,
+      input: {
+        readonly piiClass: PiiClass;
+        readonly value: string;
+        readonly binding: UseBinding;
+      }
+    ) => InternResult;
+  };
+  readonly scopeId: VaultScopeId;
+  readonly binding: UseBinding;
+}
+
 /** Input to a text scan. */
 export interface PiiTextInput {
   readonly evidence: EvidenceSource;
   readonly text: string;
   readonly location: FindingLocation;
   readonly hints?: TextEvidenceHints;
+  readonly vaultContext?: VaultTextContext;
 }
 
 /**
