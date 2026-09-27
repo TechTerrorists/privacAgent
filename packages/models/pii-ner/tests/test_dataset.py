@@ -45,13 +45,18 @@ def test_long_text_windows_preserve_original_text_offsets(tmp_path):
 
     assert len(windows) > 1
 
-    offsets_seen = [pair for w in windows for pair in w["offset_mapping"] if pair[1] > pair[0]]
+    offsets_seen = [
+        pair for w in windows for pair in w["offset_mapping"] if pair[1] > pair[0]
+    ]
     assert max(end for _, end in offsets_seen) > 32
 
-    later_window_offsets = [pair for pair in windows[-1]["offset_mapping"] if pair[1] > pair[0]]
+    later_window_offsets = [
+        pair for pair in windows[-1]["offset_mapping"] if pair[1] > pair[0]
+    ]
     assert min(s for s, _ in later_window_offsets) > 0
 
     entity_found_in_some_window = any(
-        any(label not in (LABEL_TO_ID["O"], -100) for label in w["labels"]) for w in windows
+        any(label not in (LABEL_TO_ID["O"], -100) for label in w["labels"])
+        for w in windows
     )
     assert entity_found_in_some_window

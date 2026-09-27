@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import os
+from pathlib import Path
 
 import onnx
 import torch
@@ -21,8 +22,12 @@ class _LogitsOnly(torch.nn.Module):
         super().__init__()
         self.model = model
 
-    def forward(self, input_ids: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
-        return self.model(input_ids=input_ids, attention_mask=attention_mask, return_dict=False)[0]
+    def forward(
+        self, input_ids: torch.Tensor, attention_mask: torch.Tensor
+    ) -> torch.Tensor:
+        return self.model(
+            input_ids=input_ids, attention_mask=attention_mask, return_dict=False
+        )[0]
 
 
 def sha256_of_file(path: str) -> str:
@@ -74,7 +79,33 @@ def export(
     tokenizer = load_tokenizer(model_dir)
     tokenizer.save_pretrained(tokenizer_dir)
 
+    from privacagent_pii_ner_dataset.labels import LABEL_TO_ID
+
+    (Path(out_dir) / "label_map.json").write_text(
+        json.dumps(LABEL_TO_ID, indent=2) + "\n"
+    )
+    files = sorted(
+        p
+        for p in Path(out_dir).rglob("*")
+        if p.is_file()
+        and (
+            p.parent.name == "tokenizer"
+            or p.name in ("model.onnx", "model.quant.onnx", "label_map.json")
+        )
+    )
     manifest = {
+        "format_version": 1,
+        "detector_coverage_validated": False,
+        "python_offset_unit": "unicode_code_point",
+        "browser_offset_unit": "utf16_code_unit",
+        "window_merge": "max_context_token_then_decode_bio",
+        "files": {
+            str(p.relative_to(out_dir)): {
+                "sha256": sha256_of_file(str(p)),
+                "size_bytes": p.stat().st_size,
+            }
+            for p in files
+        },
         "opset": opset,
         "max_length": max_length,
         "input_names": ["input_ids", "attention_mask"],
@@ -82,18 +113,20 @@ def export(
         "dynamic_axes": ["batch", "sequence"],
         "artifacts": {
             "fp32_onnx": {
-                "path": fp32_path,
+                "path": "model.onnx",
                 "size_bytes": os.path.getsize(fp32_path),
                 "sha256": sha256_of_file(fp32_path),
             },
             "quantized_onnx": {
-                "path": quantized_path,
+                "path": "model.quant.onnx",
                 "size_bytes": os.path.getsize(quantized_path),
                 "sha256": sha256_of_file(quantized_path),
             },
         },
     }
-    with open(os.path.join(out_dir, "export_manifest.json"), "w", encoding="utf-8") as f:
+    with open(
+        os.path.join(out_dir, "export_manifest.json"), "w", encoding="utf-8"
+    ) as f:
         json.dump(manifest, f, ensure_ascii=False, indent=2)
 
     return manifest

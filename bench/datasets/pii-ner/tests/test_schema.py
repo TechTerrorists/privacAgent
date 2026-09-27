@@ -1,6 +1,12 @@
 import pytest
 
-from privacagent_pii_ner_dataset.schema import Entity, InvalidRecordError, Record, read_jsonl, write_jsonl
+from privacagent_pii_ner_dataset.schema import (
+    Entity,
+    InvalidRecordError,
+    Record,
+    read_jsonl,
+    write_jsonl,
+)
 
 
 def test_valid_record_construction():
@@ -10,7 +16,10 @@ def test_valid_record_construction():
         lang="en",
         source="synthetic",
         family="f1",
-        entities=(Entity(start=6, end=11, label="NAME"), Entity(start=17, end=21, label="LOCATION")),
+        entities=(
+            Entity(start=6, end=11, label="NAME"),
+            Entity(start=17, end=21, label="LOCATION"),
+        ),
     )
     assert record.text[6:11] == "Priya"
     assert record.text[17:21] == "Pune"
@@ -48,9 +57,10 @@ def test_unsupported_lang_raises():
         Record(id="r1", text="x", lang="fr", source="synthetic", family="f1")
 
 
-def test_non_bmp_character_offsets_are_utf16_code_units():
+def test_non_bmp_character_offsets_are_python_code_points():
     text = "🔥🔥 Priya Sharma called."
     start = text.index("Priya")
+    assert start == 3
     end = start + len("Priya Sharma")
     record = Record(
         id="r1",

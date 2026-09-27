@@ -1,106 +1,73 @@
 # PII NER dataset (D-07)
 
-Reproducible English/Hindi dataset for the on-device PII NER detector (L3),
-built from two sources combined at a fixed seed.
+Seeded English/Hindi data for local NER experiments. Version 2 supersedes the
+original PR dataset and its leaked-entity evaluation. No corpus records are
+committed; the small synthetic fixture set remains available for tests.
 
-## Composition
+## Sources and reproducibility
 
-| Source | Records | Provenance | License | Redistribution |
-| --- | --- | --- | --- | --- |
-| Synthetic (English) | ~280 | Faker `en_IN` locale filled into 18 hand-written positive templates + 10 negative templates | N/A (generated, no real personal data) | Freely redistributable — code + committed small fixture sample only |
-| Synthetic (Hindi) | ~226 | 18 hand-reviewed Hindi templates + a curated, hand-written pool of fictitious Devanagari names/addresses/organizations/locations/dates (`hi_values.py`) filled in by a seeded RNG + 10 negative templates | N/A (generated, no real personal data) | Freely redistributable — code + committed small fixture sample only |
-| WikiAnn (`en`, `hi` configs) | up to 400/lang (configurable via `--wikiann-per-lang`) | `unimelb-nlp/wikiann` on the Hugging Face Hub — silver-standard NER tags automatically derived from Wikipedia hyperlinks (Pan et al. 2017, "Cross-lingual Name Tagging and Linking for 282 Languages", ACL) | CC BY-SA 3.0 | Permitted with attribution; **not committed to this repository** — downloaded on demand via `datasets.load_dataset`, pinned by dataset id + config + slice size in `corpus.py` |
+- English: Faker `en_IN`, version locked in `uv.lock`. Dates are sampled from
+  1950-01-01 through 2007-12-31, independent of the wall clock and locale.
+- Hindi: reviewed templates and small fixed Devanagari value pools. The pools
+  are intentionally limited and do not represent the diversity of real pages.
+- WikiAnn: `unimelb-nlp/wikiann`, revision
+  `f0a3be6dc5564c0cc4150bb660144800a1f539d4`, English and Hindi, first 400 rows
+  of each official train/validation/test split. Source: Pan et al. (2017),
+  _Cross-lingual Name Tagging and Linking for 282 Languages_, ACL.
+  License: CC BY-SA 3.0, derived from Wikipedia. Preserve source attribution
+  and applicable share-alike terms if redistributing corpus derivatives.
+  Tags are silver-standard hyperlink annotations, not reviewed PII ground truth.
 
-Every synthetic value (names, addresses, organizations, phone-free-text dates)
-is fabricated. No real personal records are generated or committed.
-WikiAnn's own license permits redistribution, but this repository still does
-not commit it — corpus records are downloaded fresh at build/train time and
-never persisted to Git, per the project's rule against committing bulk
-external data.
-
-**WikiAnn is a silver-standard corpus**: its NER tags come from an automatic
-Wikipedia-hyperlink heuristic, not human annotation, and are measurably
-noisier than the hand-reviewed synthetic templates (e.g. some geographic
-features get tagged `ORG` instead of `LOC` upstream). This is a real,
-documented limitation of that slice of the training data, not a bug in the
-conversion code in `corpus.py` (verified directly against the raw
-`unimelb-nlp/wikiann` tag sequence).
-
-## Label taxonomy — mapping to D-01/E-01
-
-| NER entity | E-01 `PiiClass` |
-| --- | --- |
-| `NAME` | `name` |
-| `ADDRESS` | `address` |
-| `ORG` | `organization` |
-| `LOCATION` | `location` |
-| `DOB` | `dob` |
-
-No new taxonomy is invented — every entity type maps onto an existing E-01
-`PiiClass` value (`labels.py`). Token tags use standard BIO
-(`O`, `B-<TYPE>`, `I-<TYPE>`), 11 labels total (`build_label_list`).
-
-## Span and offset semantics
-
-- Every `Entity.start`/`Entity.end` is a **UTF-16 code-unit offset into the
-  original record `text`**, end-exclusive — the same convention as D-01's
-  `TextSpan`. `test_schema.py` asserts this holds across a non-BMP emoji
-  (surrogate pair) and Devanagari combining vowel signs (मात्रा) placed
-  immediately before an entity, with no separating space in either case.
-- `Record.__post_init__` (`schema.py`) rejects any entity whose span exceeds
-  the text length or overlaps another entity in the same record — this is
-  enforced at construction, not just checked later by a validator that could
-  be skipped.
-- Tokenizer subword alignment (mapping these character spans onto a model's
-  wordpiece/BPE token boundaries, including truncation and long-input
-  windowing) is `packages/models/pii-ner`'s concern
-  (`tokenize_align.py`), not this package's — this package only guarantees
-  the character-level spans are correct and internally consistent.
-
-## Splits and leakage prevention
-
-`splits.py` groups every record into a **family** before splitting:
-
-- Each synthetic template (positive or negative) is its own family — so the
-  same template filled with different names never appears in more than one
-  split.
-- Each WikiAnn language slice is chunked into families of 25 consecutive
-  records (`corpus.py`'s `family_chunk_size`) — large enough to avoid
-  creating hundreds of one-record families, small enough that no single
-  family dominates a split disproportionately.
-
-Splitting shuffles **families**, not individual records, into train
-(70%)/val (15%)/test (15%) by family count, then exact-text deduplication
-runs first (`deduplicate`) so a duplicate string can never land in two
-splits. `assert_no_leakage` checks both family-id and exact-text overlap
-across all three splits and raises if either occurs; `test_splits.py` runs
-this on a real generated dataset, not a hand-constructed one.
-
-The test split is not truly "frozen" as a checked-in file (WikiAnn isn't
-committed), but it **is** deterministic: the same `--seed` always regenerates
-byte-identical splits, which is the reproducibility property that matters
-here — see `MODEL_CARD.md` for the exact seed used for the reported numbers.
-
-## Reproducing the dataset
+`dataset_manifest.json` freezes seed, revision, slice size and SHA-256 hashes
+of all three prepared JSONL files. JSONL uses UTF-8 and LF on every platform.
+Use the locked dependencies and verify the manifest before training:
 
 ```bash
-cd bench/datasets/pii-ner
-uv run python -m privacagent_pii_ner_dataset.build --seed 20260215 --wikiann-per-lang 400 --out-dir artifacts
+# From repository root
+uv run --locked python -m privacagent_pii_ner_dataset.build \
+  --seed 20260215 --wikiann-per-lang 400 \
+  --out-dir bench/datasets/pii-ner/artifacts/frozen \
+  --verify-manifest bench/datasets/pii-ner/dataset_manifest.json
 ```
 
-Writes `artifacts/{train,val,test}.jsonl` and `artifacts/stats.json` (support
-counts by split/lang/label — see that file for exact figures on a given
-run). `artifacts/` is git-ignored; nothing this command produces is
-committed. The committed `fixtures/sample_records.jsonl` (30 synthetic-only
-records, no WikiAnn) is a small, stable sample for tests and for anyone
-reviewing the schema without running a build.
+A mismatch fails the command. Do not silently replace the frozen manifest to
+accommodate changed data; create a new dataset version and evaluation instead.
+The build also emits metrics-only `stats.json` with language/class support.
 
-## Secure handling of source data
+## Split policy
 
-- WikiAnn is fetched through the Hugging Face `datasets` library's own cache
-  (`~/.cache/huggingface` by default) — this repository never copies it
-  elsewhere.
-- To remove it: delete that cache directory, or run
-  `uv run python -c "from datasets import config; import shutil; shutil.rmtree(config.HF_DATASETS_CACHE, ignore_errors=True)"`.
-- Nothing in this package logs record text or writes it outside the
-  `--out-dir` the caller specifies.
+Translated English/Hindi templates share one family and split. The seeded
+family allocation ensures all five labels appear in every synthetic split.
+English values are assigned to disjoint pools by a seeded hash of NFC/casefolded
+values; Hindi pools are shuffled and partitioned before filling templates.
+The validator rejects cross-split synthetic entity reuse, family reuse and
+exact-text duplicates. It checks actual entity substrings, not only sentences.
+
+WikiAnn retains its official splits; arbitrary groups of adjacent rows are no
+longer called site families. WikiAnn does not expose source-site family metadata
+in this adapter, so this corpus is not proof of site-family generalization.
+Synthetic templates are the controlled family-disjoint benchmark. Full-text
+duplicates across the combined dataset are removed deterministically.
+
+## Labels and offsets
+
+`NAME`, `ADDRESS`, `ORG`, `LOCATION`, `DOB` map to D-01/E-01 classes through
+`labels.py`. BIO tagging uses 11 labels including `O`.
+
+Dataset `Entity.start/end` are half-open **Unicode code-point** offsets into
+original Python text, matching Hugging Face tokenizer offsets. They are not
+JavaScript offsets. No normalization is applied to stored text or spans.
+Validation rejects overlapping/out-of-bounds annotations.
+
+For D-08, decode and stitch original-text spans first, then call the reference
+`spans_to_utf16` in the model's `align.py` exactly once at the browser boundary.
+It maps code points to UTF-16 code units without stripping combining marks.
+Regression tests verify emoji before Hindi entities through actual UTF-16 slicing.
+B-16 still owns normalization-to-original index mapping.
+
+## Local handling
+
+External corpus downloads use the Hugging Face cache; prepared records stay in
+the chosen local output directory. Neither is uploaded with the model bundle.
+Remove the output directory and the relevant WikiAnn cache when finished.
+Do not log or commit downloaded personal-record examples.

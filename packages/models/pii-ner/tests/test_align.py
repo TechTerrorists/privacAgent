@@ -1,6 +1,9 @@
 from privacagent_pii_ner_dataset.labels import LABEL_TO_ID, ID_TO_LABEL
 
-from privacagent_pii_ner_model.align import align_labels_with_offsets, decode_predictions_to_spans
+from privacagent_pii_ner_model.align import (
+    align_labels_with_offsets,
+    decode_predictions_to_spans,
+)
 
 
 def test_align_single_token_entity():
@@ -53,3 +56,27 @@ def test_decode_handles_second_window_offsets_not_reset_to_zero():
     predicted = [-100, LABEL_TO_ID["B-LOCATION"], LABEL_TO_ID["I-LOCATION"], -100]
     spans = decode_predictions_to_spans(offsets, predicted, ID_TO_LABEL)
     assert spans == [(200, 211, "LOCATION")]
+
+
+def test_browser_offsets_convert_non_bmp_and_combining_characters():
+    from privacagent_pii_ner_model.align import spans_to_utf16
+    from privacagent_pii_ner_dataset.render import render
+
+    text, entities = render("🔥🔥 नमस्ते {NAME}", {"NAME": "प्रिया शर्मा"})
+    converted = spans_to_utf16(text, [(e.start, e.end, e.label) for e in entities])
+    start, end, label = converted[0]
+    assert start == entities[0].start + 2
+    assert end == entities[0].end + 2
+    assert (
+        text.encode("utf-16-le")[2 * start : 2 * end].decode("utf-16-le")
+        == "प्रिया शर्मा"
+    )
+    assert label == "NAME"
+
+
+def test_browser_offsets_reject_out_of_range_spans():
+    import pytest
+    from privacagent_pii_ner_model.align import spans_to_utf16
+
+    with pytest.raises(ValueError):
+        spans_to_utf16("abc", [(0, 4, "NAME")])

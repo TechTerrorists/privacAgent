@@ -70,7 +70,9 @@ def train(
 
     model = build_model(vocab_size=tokenizer.vocab_size)
 
-    train_dataset = PiiNerDataset(tokenizer, train_records, max_length=max_length, stride=stride)
+    train_dataset = PiiNerDataset(
+        tokenizer, train_records, max_length=max_length, stride=stride
+    )
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
@@ -109,11 +111,15 @@ def train(
     trained_predict_fn = torch_model_predict_fn(model)
     baseline_fn = baseline_predict_fn()
 
-    val_metrics = evaluate(trained_predict_fn, tokenizer, val_records, max_length, stride)
+    val_metrics = evaluate(
+        trained_predict_fn, tokenizer, val_records, max_length, stride
+    )
     test_metrics_trained = evaluate(
         trained_predict_fn, tokenizer, test_records, max_length, stride
     )
-    test_metrics_baseline = evaluate(baseline_fn, tokenizer, test_records, max_length, stride)
+    test_metrics_baseline = evaluate(
+        baseline_fn, tokenizer, test_records, max_length, stride
+    )
 
     report = {
         "seed": seed,
@@ -169,7 +175,21 @@ def main() -> None:
         max_length=args.max_length,
         stride=args.stride,
     )
-    print(json.dumps({k: v for k, v in report.items() if k not in ("val_metrics_trained", "test_metrics_trained", "test_metrics_baseline")}, indent=2))
+    print(
+        json.dumps(
+            {
+                k: v
+                for k, v in report.items()
+                if k
+                not in (
+                    "val_metrics_trained",
+                    "test_metrics_trained",
+                    "test_metrics_baseline",
+                )
+            },
+            indent=2,
+        )
+    )
 
 
 if __name__ == "__main__":

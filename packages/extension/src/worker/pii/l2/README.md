@@ -119,20 +119,16 @@ broad early match never suppresses a later, narrower one. Candidates from
 every rule are collected first, then resolved deterministically in one pass
 (`scan.ts`'s `mergeOverlaps`):
 
-1. Highest rule priority wins (`iban` > `card_luhn` > `aadhaar_verhoeff` >
-   `jwt` > `pan` > `ifsc` > `email` > `upi` > `api_key` > `phone_in` >
-   `phone_e164` > `otp_context` — checksum-verified numeric classes first,
-   the purely-contextual OTP rule last).
-2. Ties broken by longer span, then by earlier start position.
+Findings with different classes or original spans are retained, including
+contained and partially overlapping findings. Consumers must redact the union
+of ranges; overlaps are not permission to discard evidence. No verified span
+is widened or relabeled. Equivalent findings (identical class and range) are
+coalesced with deterministic rule priority, e.g. `phone_in` before `phone_e164`.
 
-Two concrete cases this resolves, both covered by fixtures:
-
-- A `+91`-prefixed number matches both `phone_in` and `phone_e164` at the
-  identical span — `phone_in` (more specific) wins.
-- `user@ybl.co.in` matches `upi` on `user@ybl` (stops before the dot) _and_
-  `email` on the full `user@ybl.co.in` (a longer, overlapping span) — `email`
-  outranks `upi` specifically so the longer, correctly domain-shaped match
-  wins rather than a truncated UPI guess.
+`4111111111111111@example.test` retains both the card and full email.
+`user@ybl.co.in` retains the full email and the conservative UPI-shaped prefix.
+IBAN extraction stops at its country's exact length before checksum validation,
+so a following uppercase word or another IBAN cannot swallow the valid match.
 
 ## Bounded runtime
 

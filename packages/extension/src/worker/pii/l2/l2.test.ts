@@ -183,3 +183,45 @@ describe('checksum functions (unit-level, independent of regex matching)', () =>
     expect(ibanValid('XX89370400440532013000')).toBe(false);
   });
 });
+
+describe('privacy evidence regressions', () => {
+  it.each([
+    '4111111111111111@example.test',
+    '4111111111111111.alice@example.test',
+    'ABCD0001234@example.test',
+  ])('keeps the entire email even when another rule overlaps: %s', (text) => {
+    const result = scanText(text, 'ocr');
+    expect(result.status).toBe('ok');
+    if (result.status !== 'ok') return;
+    expect(result.matches).toContainEqual(
+      expect.objectContaining({
+        ruleId: 'email',
+        evidence: 'ocr',
+        span: { start: 0, end: text.length },
+      })
+    );
+    expect(result.matches.length).toBeGreaterThan(1);
+  });
+  it.each(['BE68539007547034', 'BE68 5390 0754 7034'])(
+    'bounds IBAN extraction before adjacent text: %s',
+    (iban) => {
+      const text = `🔥 ${iban} TEST ${iban},`;
+      const result = scanText(text, 'dom_text');
+      if (result.status !== 'ok') throw new Error('scan unavailable');
+      expect(result.matches.filter((m) => m.ruleId === 'iban').map((m) => m.span)).toEqual([
+        { start: 3, end: 3 + iban.length },
+        { start: 9 + iban.length, end: 9 + 2 * iban.length },
+      ]);
+    }
+  );
+  it.each([
+    'BE00539007547034 TEST',
+    'XX68539007547034 TEST',
+    'BE68539007547034X',
+    'XBE68539007547034',
+  ])('does not accept invalid IBANs or truncate contiguous tokens: %s', (text) => {
+    const result = scanText(text, 'dom_text');
+    if (result.status !== 'ok') throw new Error('scan unavailable');
+    expect(result.matches.filter((m) => m.ruleId === 'iban')).toEqual([]);
+  });
+});

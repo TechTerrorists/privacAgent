@@ -21,7 +21,9 @@ def render(template: str, values: dict[str, str]) -> tuple[str, tuple[Entity, ..
         entity_type = match.group(1)
         value = values[entity_type]
         parts.append(value)
-        entities.append(Entity(start=offset, end=offset + len(value), label=entity_type))
+        entities.append(
+            Entity(start=offset, end=offset + len(value), label=entity_type)
+        )
         offset += len(value)
 
         cursor = match.end()

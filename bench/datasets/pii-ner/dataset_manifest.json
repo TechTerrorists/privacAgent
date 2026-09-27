@@ -1,0 +1,15 @@
+{
+  "format_version": 1,
+  "offset_unit": "unicode_code_point",
+  "seed": 20260215,
+  "wikiann_per_lang_per_split": 400,
+  "corpus": {
+    "id": "unimelb-nlp/wikiann",
+    "revision": "f0a3be6dc5564c0cc4150bb660144800a1f539d4"
+  },
+  "sha256": {
+    "train.jsonl": "f4f7ae9f0512a5fa7d6f469571fff253d00b0a2c6bb6ddd3356b9cf3fdf4904e",
+    "val.jsonl": "20e9b93a5840ebd7c48cdf574cd55c0eeae8fe765936536c2caba993b3f87646",
+    "test.jsonl": "13b6bcb5a2f76e7b3ee34c862a14f212333d51bf062d1c2c563ac5826b361026"
+  }
+}

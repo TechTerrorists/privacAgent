@@ -9,17 +9,18 @@ WIKIANN_TAG_TO_ENTITY: dict[str, str] = {
 }
 
 WIKIANN_DATASET_ID = "unimelb-nlp/wikiann"
+WIKIANN_REVISION = "f0a3be6dc5564c0cc4150bb660144800a1f539d4"
 WIKIANN_LICENSE = "CC BY-SA 3.0 (derived from Wikipedia via WikiAnn/PAN-X, redistributed through the Hugging Face Hub)"
-WIKIANN_CITATION = "Pan et al. 2017, 'Cross-lingual Name Tagging and Linking for 282 Languages', ACL."
+WIKIANN_CITATION = (
+    "Pan et al. 2017, 'Cross-lingual Name Tagging and Linking for 282 Languages', ACL."
+)
 
 
 def _wikiann_tag_names(ner_tags_feature) -> list[str]:
     return ner_tags_feature.feature.names
 
 
-def convert_wikiann_split(
-    hf_split, lang: str, split_name: str, family_chunk_size: int = 25
-) -> list[Record]:
+def convert_wikiann_split(hf_split, lang: str, split_name: str) -> list[Record]:
     tag_names = _wikiann_tag_names(hf_split.features["ner_tags"])
     records: list[Record] = []
 
@@ -69,14 +70,13 @@ def convert_wikiann_split(
             label, e_start, e_end = open_entity
             entities.append(Entity(start=e_start, end=e_end, label=label))
 
-        chunk_idx = row_idx // family_chunk_size
         records.append(
             Record(
                 id=f"wikiann_{lang}_{split_name}_{row_idx}",
                 text=text,
                 lang=lang,
                 source="wikiann",
-                family=f"wikiann_{lang}_chunk_{chunk_idx}",
+                family=f"wikiann_{lang}_{split_name}",
                 entities=tuple(entities),
             )
         )
@@ -87,5 +87,10 @@ def convert_wikiann_split(
 def load_wikiann(lang: str, max_examples: int, split: str = "train") -> list[Record]:
     from datasets import load_dataset
 
-    hf_split = load_dataset(WIKIANN_DATASET_ID, lang, split=f"{split}[:{max_examples}]")
+    hf_split = load_dataset(
+        WIKIANN_DATASET_ID,
+        lang,
+        split=f"{split}[:{max_examples}]",
+        revision=WIKIANN_REVISION,
+    )
     return convert_wikiann_split(hf_split, lang=lang, split_name=split)

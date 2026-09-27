@@ -9,6 +9,9 @@ import torch
 from transformers import BertForTokenClassification, BertTokenizerFast
 
 from .export_onnx import DEFAULT_MAX_LENGTH
+from .evaluate import predict_spans, torch_model_predict_fn
+from .align import spans_to_utf16
+from privacagent_pii_ner_dataset.schema import Record
 
 
 def check_parity(
@@ -27,13 +30,18 @@ def check_parity(
     label_agreement = 0
     total_tokens = 0
 
-    for text in texts:
+    span_agreement = 0
+    native_predict = torch_model_predict_fn(model)
+    for index, text in enumerate(texts):
         encoding = tokenizer(
             text,
             truncation=True,
             max_length=max_length,
             padding="max_length",
             return_tensors="pt",
+            stride=min(16, max_length - 3),
+            return_overflowing_tokens=True,
+            return_special_tokens_mask=True,
         )
         with torch.no_grad():
             torch_logits = model(
@@ -52,14 +60,45 @@ def check_parity(
         diff = float(np.max(np.abs(torch_logits - onnx_logits)))
         max_abs_diff = max(max_abs_diff, diff)
 
-        torch_labels = torch_logits.argmax(axis=-1)[0]
-        onnx_labels = onnx_logits.argmax(axis=-1)[0]
-        mask = encoding["attention_mask"][0].numpy().astype(bool)
+        torch_labels = torch_logits.argmax(axis=-1)
+        onnx_labels = onnx_logits.argmax(axis=-1)
+        mask = encoding["attention_mask"].numpy().astype(bool) & ~encoding[
+            "special_tokens_mask"
+        ].numpy().astype(bool)
         label_agreement += int((torch_labels[mask] == onnx_labels[mask]).sum())
         total_tokens += int(mask.sum())
 
+        def exported_predict(ids, mask):
+            return (
+                session.run(
+                    ["logits"],
+                    {
+                        "input_ids": np.array([ids], dtype=np.int64),
+                        "attention_mask": np.array([mask], dtype=np.int64),
+                    },
+                )[0]
+                .argmax(axis=-1)[0]
+                .tolist()
+            )
+
+        record = Record(str(index), text, "en", "fixture", "parity")
+        native_spans = spans_to_utf16(
+            text,
+            predict_spans(
+                native_predict, tokenizer, record, max_length, min(16, max_length - 3)
+            ),
+        )
+        exported_spans = spans_to_utf16(
+            text,
+            predict_spans(
+                exported_predict, tokenizer, record, max_length, min(16, max_length - 3)
+            ),
+        )
+        span_agreement += native_spans == exported_spans
+
     return {
         "num_examples": len(texts),
+        "utf16_span_agreement_rate": span_agreement / len(texts) if texts else 1.0,
         "max_abs_logit_diff": max_abs_diff,
         "label_agreement_rate": label_agreement / total_tokens if total_tokens else 1.0,
         "total_tokens_compared": total_tokens,

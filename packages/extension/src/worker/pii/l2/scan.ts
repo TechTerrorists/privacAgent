@@ -35,10 +35,15 @@ function mergeOverlaps(candidates: readonly L2Candidate[]): L2Candidate[] {
 
   const kept: L2Candidate[] = [];
   for (const candidate of sorted) {
-    const overlapsKept = kept.some(
-      (existing) => candidate.start < existing.end && existing.start < candidate.end
+    // Only equivalent findings may be coalesced. Different classes or spans
+    // remain independent evidence, even when one contains the other.
+    const duplicate = kept.some(
+      (existing) =>
+        existing.start === candidate.start &&
+        existing.end === candidate.end &&
+        existing.piiClass === candidate.piiClass
     );
-    if (!overlapsKept) kept.push(candidate);
+    if (!duplicate) kept.push(candidate);
   }
   return kept.sort((a, b) => a.start - b.start);
 }

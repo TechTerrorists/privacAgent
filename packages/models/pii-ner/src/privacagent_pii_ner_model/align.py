@@ -74,3 +74,22 @@ def decode_predictions_to_spans(
         spans.append(open_span)
 
     return spans
+
+
+def spans_to_utf16(
+    text: str, spans: Sequence[tuple[int, int, str]]
+) -> list[tuple[int, int, str]]:
+    """Convert original-text code-point spans to the browser TextSpan contract.
+
+    Call exactly once after decoding and mapping back to the original text.
+    No normalization or grapheme splitting occurs here.
+    """
+    boundaries = [0]
+    for char in text:
+        boundaries.append(boundaries[-1] + (2 if ord(char) > 0xFFFF else 1))
+    result = []
+    for start, end, label in spans:
+        if not 0 <= start < end <= len(text):
+            raise ValueError("span outside original text")
+        result.append((boundaries[start], boundaries[end], label))
+    return result

@@ -1,0 +1,7 @@
+{
+  "num_examples": 30,
+  "utf16_span_agreement_rate": 1.0,
+  "max_abs_logit_diff": 3.5762786865234375e-6,
+  "label_agreement_rate": 1.0,
+  "total_tokens_compared": 650
+}

@@ -175,7 +175,10 @@ const validUpi = [
 const upiFixtures: L2Fixture[] = [
   ...validUpi.flatMap((v) => contextFixtures('upi', 'upi', v).slice(0, 5)),
   negative('upi', 'pay to user@randombank now'),
-  multi('upi', 'pay to user@ybl.co.in now', [at('email', 'pay to ', 'user@ybl.co.in')]),
+  multi('upi', 'pay to user@ybl.co.in now', [
+    at('email', 'pay to ', 'user@ybl.co.in'),
+    at('upi', 'pay to ', 'user@ybl'),
+  ]),
   negative('upi', 'pay to @ybl now'),
 ];
 

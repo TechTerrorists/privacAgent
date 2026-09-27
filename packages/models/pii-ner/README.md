@@ -1,64 +1,34 @@
-# PII NER training, export and evaluation (D-07)
+# Local PII NER model (D-07)
 
-Trains a small from-scratch token classifier for English/Hindi PII NER
-(name, address, person-linked organization, location, date of birth),
-exports it to ONNX, quantizes it, and reports metrics-only evaluation
-against a held-out test set. See `MODEL_CARD.md` for full results,
-reproduction commands, checksums and the D-08 handoff. See
-`../../../bench/datasets/pii-ner/DATASET_CARD.md` for the dataset this
-trains on.
+Training, original-span evaluation, ONNX export and tokenizer handoff for the
+experimental English/Hindi token classifier. See `MODEL_CARD.md` for current
+results, limitations and repository-root reproduction commands, and
+`../../../bench/datasets/pii-ner/DATASET_CARD.md` for data preparation.
 
-## Layout
+- `artifact_manifest.json`: versioned downloadable bundle URL, size and SHA-256.
+- `export_manifest.json`: per-file hashes, shapes, offsets and window contract.
+- `reports/`: metrics-only training, quantization, parity and latency results.
+- `align.py`: BIO decoding and checked code-point-to-UTF-16 conversion.
+- `evaluate.py`: original-document span evaluation after window stitching.
 
-| File | Purpose |
-| --- | --- |
-| `tokenizer.py` | Trains a from-scratch WordPiece tokenizer covering both scripts |
-| `model.py` | Builds the small `BertForTokenClassification` config |
-| `align.py` | Pure functions: char-span ↔ token-label alignment, both directions |
-| `dataset.py` | Tokenizes + aligns records into training examples, with long-input windowing |
-| `train.py` | CLI: trains, evaluates (baseline + trained, val + test), saves everything |
-| `evaluate.py` | seqeval-based per-class/per-lang precision/recall/F1 |
-| `export_onnx.py` | ONNX export (opset 17) + dynamic int8 quantization + checksums |
-| `parity.py` | Native vs. ONNX prediction/logit comparison on a fixture set |
-
-## Running it yourself
+The model is not approved detector coverage. Its low recall must not weaken
+restricted egress. D-08 owns worker integration and C-02 owns runtime sessions.
+Bulk artifacts remain outside Git; the small manifests and reports are committed.
 
 ```bash
-# 1. Build the dataset (see bench/datasets/pii-ner)
-cd bench/datasets/pii-ner
-uv run python -m privacagent_pii_ner_dataset.build --out-dir artifacts
-
-# 2. Train
-cd ../../../packages/models/pii-ner
-uv run python -m privacagent_pii_ner_model.train --dataset-dir ../../../bench/datasets/pii-ner/artifacts --out-dir artifacts/run1
-
-# 3. Export + quantize
-uv run python -m privacagent_pii_ner_model.export_onnx --model-dir artifacts/run1/model --out-dir artifacts/run1/export
-
-# 4. Check native/ONNX parity on the committed fixture set
-uv run python -m privacagent_pii_ner_model.parity \
-  --model-dir artifacts/run1/model \
-  --onnx-path artifacts/run1/export/model.onnx \
-  --fixtures ../../../bench/datasets/pii-ner/fixtures/sample_records.jsonl
+uv run --locked pytest bench/datasets/pii-ner/tests packages/models/pii-ner/tests
 ```
 
-Everything under `artifacts/` is git-ignored — nothing this produces is
-committed (see `MODEL_CARD.md`'s **Hosting** section).
+Tests train tiny in-memory models and do not download corpora or require a GPU.
 
-On a memory-constrained machine, set `OMP_NUM_THREADS=1`,
-`OPENBLAS_NUM_THREADS=1` and `MKL_NUM_THREADS=1` before running `train.py`
-— multi-threaded BLAS allocations were the only real failure mode
-encountered while producing the numbers in `MODEL_CARD.md`, not model size.
+Download the release bundle using its URL (or `gh release download
+ d07-ner-pr58-v2 --repo TechTerrorists/privacAgent --pattern pii-ner-d07-v2.zip`
+for authenticated repository access). Compare its SHA-256 and size against the
+committed `artifact_manifest.json` before extracting it. Then verify the
+extracted runtime files against the committed manifest:
 
-## Tests
-
-`pytest packages/models/pii-ner/tests` (also wired into the root
-`pnpm test` / `uv run pytest` via `pyproject.toml`'s `testpaths`) runs in
-a few seconds, with **no GPU and no download** — it trains a tiny
-tokenizer and a tiny randomly-initialized model on a handful of in-memory
-sentences purely to exercise the alignment, dataset-windowing and ONNX
-export/parity *contracts* (shapes, names, opset, offset correctness). It
-does not depend on, and does not reproduce, the real training run reported
-in `MODEL_CARD.md` — that run's exact commands are documented there
-separately, per this issue's own instruction to keep CI decoupled from full
-training/corpus downloads.
+```bash
+uv run --locked python -m privacagent_pii_ner_model.verify_bundle \
+  --directory packages/models/pii-ner/artifacts/downloaded \
+  --manifest packages/models/pii-ner/export_manifest.json
+```

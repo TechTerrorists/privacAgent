@@ -13,7 +13,9 @@ from transformers import BertTokenizerFast
 SPECIAL_TOKENS = ["[PAD]", "[UNK]", "[CLS]", "[SEP]", "[MASK]"]
 
 
-def train_tokenizer(texts: list[str], vocab_size: int, save_dir: str) -> BertTokenizerFast:
+def train_tokenizer(
+    texts: list[str], vocab_size: int, save_dir: str
+) -> BertTokenizerFast:
     tokenizer = Tokenizer(WordPiece(unk_token="[UNK]"))
     tokenizer.normalizer = BertNormalizer(
         clean_text=True, handle_chinese_chars=True, strip_accents=False, lowercase=False

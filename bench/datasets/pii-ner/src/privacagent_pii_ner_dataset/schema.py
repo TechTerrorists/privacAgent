@@ -12,6 +12,8 @@ class InvalidRecordError(ValueError):
 
 @dataclass(frozen=True)
 class Entity:
+    """Half-open Unicode code-point offsets, matching Python/HF tokenizers."""
+
     start: int
     end: int
     label: str
@@ -57,7 +59,8 @@ class Record:
             "source": self.source,
             "family": self.family,
             "entities": [
-                {"start": e.start, "end": e.end, "label": e.label} for e in self.entities
+                {"start": e.start, "end": e.end, "label": e.label}
+                for e in self.entities
             ],
         }
 
@@ -78,7 +81,7 @@ class Record:
 
 
 def write_jsonl(records: list[Record], path: str) -> None:
-    with open(path, "w", encoding="utf-8") as f:
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
         for record in records:
             f.write(json.dumps(record.to_json_dict(), ensure_ascii=False))
             f.write("\n")
