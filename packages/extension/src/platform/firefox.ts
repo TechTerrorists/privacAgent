@@ -74,6 +74,12 @@ export const firefoxPlatform: PlatformAdapter = {
     throw new Error('browser.sidebarAction.setPanel is not available in the current context');
   },
 
+  async setSidePanelBehavior(): Promise<void> {
+    // Firefox's sidebar_action toolbar button toggles the sidebar on its own,
+    // so there is no behaviour to configure.
+    throw new UnsupportedPlatformCapabilityError('setSidePanelBehavior', 'firefox');
+  },
+
   async createOffscreenDocument(_options: OffscreenDocumentOptions): Promise<void> {
     throw new UnsupportedPlatformCapabilityError('offscreen', 'firefox');
   },

@@ -14,6 +14,10 @@ dependencies = [
     "redis>=5,<7",
 ]
 
+[tool.black]
+line-length = 88
+target-version = ["py312"]
+
 [tool.uv.sources]
 privacagent-protocol = { workspace = true }
 

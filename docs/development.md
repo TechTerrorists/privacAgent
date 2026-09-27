@@ -180,8 +180,11 @@ selected browser.
 E-01 provides schemas, types, validators and fixtures, so it is exercised through the
 protocol checks and tests rather than a browser control. E-02 is exercised through
 `services/agent-api` tests (session endpoints, Redis TTL, scripted fake planner) rather
-than a browser control; the real planner is not wired yet. Agent actions, content-script
-injection, perception and the privacy pipeline are not wired into this shell yet.
+than a browser control; the real planner is not wired yet. E-05 is exercised the same way:
+`prompt.py` is a pure prompt builder covered by unit tests, a byte-for-byte golden for
+the system prefix, and route tests that read the prompt the fake planner receives.
+Agent actions, content-script injection, perception and the privacy pipeline are not
+wired into this shell yet.
 
 ## 5. Daily development commands
 
@@ -194,6 +197,8 @@ injection, perception and the privacy pipeline are not wired into this shell yet
 | `pnpm test`                                            | Run TypeScript and Python tests once                                           |
 | `pnpm test:watch`                                      | Watch TypeScript tests only                                                    |
 | `uv run --locked pytest`                               | Run Python tests only                                                          |
+| `uv run black services/agent-api`                      | Normalize Python formatting (pinned in the workspace dev dependencies)         |
+| `uv run black --check services/agent-api`              | Verify Python formatting without changing files                                |
 | `pnpm lint`                                            | Run ESLint                                                                     |
 | `pnpm typecheck`                                       | Check TypeScript projects                                                      |
 | `pnpm format:check`                                    | Check formatting without changing files                                        |
@@ -275,22 +280,30 @@ personal data must stay out of outbound messages and test fixtures.
 
 ## 7. Before committing and pushing
 
-Run the verification commands from step 3, then inspect your changes:
+Run the verification commands from step 3, normalize Python formatting, then inspect your
+changes:
 
 ```sh
+uv run black services/agent-api
 git diff --check
 git diff
 git status --short --branch
 ```
+
+Python under `services/agent-api` is formatted with `black`, pinned in the workspace dev
+dependencies so its output is stable across machines. No CI job checks Python formatting
+(the `services/` tree is prettier-ignored), so run it before every push. Scope the command
+to `services/agent-api`: `packages/protocol/python` holds generated sources that must not
+be reformatted.
 
 Stage only files that belong to your issue. Keep build outputs, virtual environments,
 credentials and local debugging data out of commits. Commit and push to the issue branch,
 then open a PR against `main` with a closing keyword such as `Closes #12` in its description.
 Follow-up pushes to the same branch automatically update the existing PR.
 
-The [CI workflow](../.github/workflows/ci.yml) checks generated protocol drift, formatting,
-lint, types, tests, both browser builds and Firefox extension linting. Merge only after
-the required checks and reviews pass.
+The [CI workflow](../.github/workflows/ci.yml) checks generated protocol drift, formatting
+(prettier only — Python is not checked in CI), lint, types, tests, both browser builds and
+Firefox extension linting. Merge only after the required checks and reviews pass.
 
 ## 8. Troubleshooting
 

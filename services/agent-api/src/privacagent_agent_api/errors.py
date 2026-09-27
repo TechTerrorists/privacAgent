@@ -8,6 +8,7 @@ request bodies.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from enum import Enum
 from typing import Any
@@ -68,11 +69,35 @@ class RejectReason(str, Enum):
     BODY_TOO_LARGE = "stage=read_json detail=body_too_large"
 
 
+# Bounded shape for dynamic reasons: a stage token plus a detail token, both
+# derived from code (never from request or payload content), so a dynamic
+# reason can be validated exactly like an enum member.
+_DYNAMIC_REASON_RE = re.compile(
+    r"\Astage=[a-z][a-z_]{0,31} detail=[A-Za-z_][A-Za-z0-9_]{0,63}\Z"
+)
+
+
+def prompt_build_reason(exc: BaseException) -> str:
+    """``stage=prompt detail=<ExceptionClassName>`` for prompt-build failures.
+
+    Only the exception class name is carried (code-derived); its message and
+    args are never included. A name that does not fit the bounded pattern
+    falls back to a fixed token so the reason always validates.
+    """
+    name = type(exc).__name__
+    if not _DYNAMIC_REASON_RE.fullmatch(f"stage=prompt detail={name}"):
+        name = "exception"
+    return f"stage=prompt detail={name}"
+
+
 class ProtocolReject(Exception):
     """Internal signal: raise to have the app return a bounded ProtocolError.
 
-    ``reason`` is a member of a closed diagnostic enum written to the debug log.
-    It is never serialized into the HTTP response body.
+    ``reason`` is either a member of a closed diagnostic enum or a bounded
+    dynamic ``stage=... detail=...`` string matching ``_DYNAMIC_REASON_RE``
+    (derived from code, never from request or payload content); it is written
+    to the debug log only. It is never serialized into the HTTP response body
+    and never carries payload.
     """
 
     def __init__(
@@ -80,12 +105,16 @@ class ProtocolReject(Exception):
         code: str,
         *,
         correlation: Mapping[str, Any] | None = None,
-        reason: RejectReason | None = None,
+        reason: RejectReason | str | None = None,
     ) -> None:
         if code not in HTTP_STATUS_BY_CODE:
             raise ValueError(f"unknown ProtocolError code: {code}")
         if reason is not None and not isinstance(reason, RejectReason):
-            raise TypeError("reason must be a RejectReason")
+            if not (isinstance(reason, str) and _DYNAMIC_REASON_RE.fullmatch(reason)):
+                raise TypeError(
+                    "reason must be a RejectReason or a bounded "
+                    "'stage=... detail=...' string"
+                )
         self.code = code
         self.correlation = dict(correlation or {})
         self.reason = reason
