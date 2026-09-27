@@ -3,6 +3,10 @@ packages:
   - 'bench/*'
 allowBuilds:
   esbuild: true
+  # Denied deliberately. protobufjs is a transitive dependency of
+  # onnxruntime-web (C-02); its postinstall is not needed to use the library,
+  # and this project keeps install-time script execution to a minimum.
+  protobufjs: false
 minimumReleaseAgeExclude:
   - '@typescript-eslint/eslint-plugin@8.70.1'
   - '@typescript-eslint/parser@8.70.1'

@@ -147,6 +147,34 @@ Build tooling (`vite*.config.ts`, `vitest.config.ts`) is covered by `tsconfig.no
 so `pnpm typecheck` and type-aware lint both check it. Keep it that way — these files call
 into `src/`, and untyped config is where signature drift hides.
 
+A **third** pass, `vite.worker.config.ts`, builds the ML worker and its offscreen host. It
+emits ESM, unlike the content script — module workers support `import`.
+
+### Local inference runtime (C-02)
+
+| Context                                       | WebGPU               | Threaded WASM  | WASM |
+| --------------------------------------------- | -------------------- | -------------- | ---- |
+| Chrome, offscreen document → dedicated worker | if an adapter exists | **yes**        | yes  |
+| Firefox, background page → dedicated worker   | flagged, assume no   | **impossible** | yes  |
+
+Threaded WASM is pthreads over one `SharedArrayBuffer`, which requires cross-origin
+isolation, which requires the `cross_origin_embedder_policy` / `cross_origin_opener_policy`
+manifest keys. Chrome grants those to extension pages; **Firefox cannot**
+(bugzilla 1673477, blocked on per-extension process isolation). Firefox running
+single-threaded WASM is a platform ceiling, not a bug to fix.
+
+Consequences to respect:
+
+- **COEP `require-corp` applies to every extension page we own.** All UI assets must be
+  bundled locally — no CDN fonts or images in the side panel. It does not affect other
+  extensions, ordinary web pages, or our content scripts.
+- The manifest carries `'wasm-unsafe-eval'`, which permits WASM compilation **only** and is
+  the widest `script-src` MV3 allows. Never add `'unsafe-eval'` or `'unsafe-inline'`.
+- Models are hosted in an offscreen _document_, never the service worker: Chrome does not
+  implement cross-origin isolation for service workers, and they are killed while idle.
+- **Never report a backend that has not executed.** Feature detection lies; the ladder marks
+  a backend selected only after it has compiled and run a model.
+
 ## Tech stack
 
 - **Extension**: TypeScript, MV3, Vite + `@crxjs/vite-plugin` (Chrome) and `web-ext`
