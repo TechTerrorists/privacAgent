@@ -70,6 +70,19 @@ export interface SidePanelOptions {
   windowId?: number;
 }
 
+/** How the toolbar button relates to the side panel. */
+export interface SidePanelBehaviorOptions {
+  /**
+   * Whether clicking the toolbar icon opens the panel.
+   *
+   * Chrome defaults this to false: declaring `side_panel.default_path`
+   * registers a panel but nothing opens it, so the icon is inert until this is
+   * set. Firefox needs no equivalent — its `sidebar_action` button toggles the
+   * sidebar itself.
+   */
+  readonly openOnActionClick: boolean;
+}
+
 /**
  * Unified platform interface implemented by chrome.ts and firefox.ts.
  */
@@ -95,6 +108,12 @@ export interface PlatformAdapter {
    * Unsupported options reject with UnsupportedPlatformCapabilityError before any change.
    */
   setSidePanelOptions(options: SidePanelOptions): Promise<void>;
+
+  /**
+   * Sets whether the toolbar button opens the side panel (Chrome only).
+   * On Firefox, rejects with an UnsupportedPlatformCapabilityError.
+   */
+  setSidePanelBehavior(options: SidePanelBehaviorOptions): Promise<void>;
 
   /**
    * Creates an offscreen document (Chrome only).
