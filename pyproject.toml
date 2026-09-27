@@ -2,17 +2,24 @@
 name = "privacagent-workspace"
 version = "0.0.0"
 requires-python = ">=3.12"
-dependencies = ["privacagent-protocol", "privacagent-agent-api"]
+dependencies = [
+    "privacagent-protocol",
+    "privacagent-agent-api",
+    "privacagent-pii-ner-dataset",
+    "privacagent-pii-ner-model",
+]
 
 [tool.uv]
 package = false
 
 [tool.uv.workspace]
-members = ["packages/protocol", "services/agent-api"]
+members = ["packages/protocol", "services/agent-api", "bench/datasets/pii-ner", "packages/models/pii-ner"]
 
 [tool.uv.sources]
 privacagent-protocol = { workspace = true }
 privacagent-agent-api = { workspace = true }
+privacagent-pii-ner-dataset = { workspace = true }
+privacagent-pii-ner-model = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -23,7 +30,12 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["packages/protocol/tests", "services/agent-api/tests"]
+testpaths = [
+    "packages/protocol/tests",
+    "services/agent-api/tests",
+    "bench/datasets/pii-ner/tests",
+    "packages/models/pii-ner/tests",
+]
 
 [tool.black]
 target-version = ["py312"]

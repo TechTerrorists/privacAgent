@@ -1,0 +1,20 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "privacagent-pii-ner-dataset"
+version = "0.1.0"
+description = "D-07: seeded English/Hindi PII NER dataset generation, public corpus preparation, split and validation"
+requires-python = ">=3.12"
+dependencies = [
+    "faker>=30,<41",
+    "datasets>=3,<4",
+]
+
+[tool.black]
+line-length = 88
+target-version = ["py312"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/privacagent_pii_ner_dataset"]
