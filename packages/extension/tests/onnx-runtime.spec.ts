@@ -283,3 +283,44 @@ test('sessions are reused and released on disposal', async () => {
 
   await page.close();
 });
+
+test('the toolbar icon opens the side panel', async () => {
+  // Declaring `side_panel.default_path` only registers the panel; Chrome leaves
+  // `openPanelOnActionClick` false, so without the background opting in the
+  // icon is inert and the panel is reachable only by pasting its URL.
+  const background: Worker =
+    context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
+
+  await expect
+    .poll(
+      () =>
+        background.evaluate(async () => {
+          const sidePanel = chrome.sidePanel as typeof chrome.sidePanel & {
+            getPanelBehavior(): Promise<{ openPanelOnActionClick: boolean }>;
+          };
+          return (await sidePanel.getPanelBehavior()).openPanelOnActionClick;
+        }),
+      { timeout: 5_000 }
+    )
+    .toBe(true);
+
+  const options = await background.evaluate(() => chrome.sidePanel.getOptions({}));
+  expect(options.enabled).toBe(true);
+  expect(options.path).toBe('src/ui/sidepanel.html');
+});
+
+test('the built package exposes nothing to web pages', () => {
+  // Asserted against the BUILT manifest, not the factory output: @crxjs rewrites
+  // the manifest during the build and previously injected a blanket rule
+  // exposing `**/*` to `<all_urls>`, which a source-level test cannot see. That
+  // also silently disabled cross-origin isolation, taking threaded WASM with it.
+  const manifest = JSON.parse(
+    readFileSync(join(EXTENSION_PATH, 'manifest.json'), 'utf8')
+  ) as Record<string, unknown>;
+
+  const exposed = (manifest.web_accessible_resources ?? []) as unknown[];
+  expect(exposed).toEqual([]);
+
+  expect(manifest.cross_origin_embedder_policy).toEqual({ value: 'require-corp' });
+  expect(manifest.cross_origin_opener_policy).toEqual({ value: 'same-origin' });
+});

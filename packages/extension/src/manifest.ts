@@ -46,6 +46,23 @@ const OPTIONAL_HOST_PERMISSIONS = ['*://*/*'] as const;
 const SIDEPANEL_PATH = 'src/ui/sidepanel.html';
 
 /**
+ * Toolbar and store icons, copied verbatim from `public/` by the build.
+ *
+ * Without these the extension shows as an anonymous puzzle piece, which makes
+ * it unidentifiable in the toolbar and in Chrome's side-panel picker.
+ * Regenerate from `public/icons/icon.svg`, kept alongside them:
+ *
+ *     magick -background none icon.svg -resize 16x16 -depth 8 -strip \
+ *       PNG32:icon-16.png
+ */
+const ICONS = {
+  '16': 'icons/icon-16.png',
+  '32': 'icons/icon-32.png',
+  '48': 'icons/icon-48.png',
+  '128': 'icons/icon-128.png',
+} as const;
+
+/**
  * Minimum CSP that permits WebAssembly (C-02).
  *
  * `'wasm-unsafe-eval'` is required for any WASM compilation in MV3 from Chrome
@@ -92,16 +109,26 @@ export function createManifest(browser: Browser, version: string): Manifest {
     optional_host_permissions: [...OPTIONAL_HOST_PERMISSIONS],
     action: {
       default_title: NAME,
+      default_icon: { ...ICONS },
     },
+    icons: { ...ICONS },
+    web_accessible_resources: [],
     content_security_policy: {
       extension_pages: EXTENSION_PAGES_CSP,
     },
-    // Deliberately no `web_accessible_resources`. `scripting.executeScript`
-    // does not need the file to be web-accessible, and exposing anything at a
-    // stable `chrome-extension://<id>/…` URL lets any page fetch it and
-    // fingerprint the extension before perception has run — which would defeat
-    // the point of a product whose premise is that visiting a site reveals
-    // nothing. Anything added here later needs `use_dynamic_url: true`.
+    // Deliberately EMPTY rather than absent. `scripting.executeScript` does not
+    // need files to be web-accessible, and exposing anything at a stable
+    // `chrome-extension://<id>/…` URL lets any page fetch it and fingerprint the
+    // extension before perception has run.
+    //
+    // The empty array is load-bearing: omitting the key entirely makes @crxjs
+    // inject its own blanket rule exposing `**/*` to `<all_urls>` as soon as the
+    // manifest declares icons. That publishes every file in the package to every
+    // site AND silently disables cross-origin isolation, which takes threaded
+    // WASM down with it. Declaring it empty suppresses that and the key is then
+    // dropped from the built manifest.
+    //
+    // Anything added here later needs `use_dynamic_url: true`.
   };
 
   if (browser === 'chrome') {

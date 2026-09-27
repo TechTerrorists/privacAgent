@@ -80,7 +80,9 @@ describe('createManifest', () => {
     // chrome-extension://<id>/… URL, revealing the extension before perception
     // has run. If an entry ever becomes necessary it needs use_dynamic_url.
     for (const target of ['chrome', 'firefox'] as const) {
-      expect(createManifest(target, VERSION)).not.toHaveProperty('web_accessible_resources');
+      // Empty, not absent: omitting the key lets @crxjs inject a blanket
+      // `**/*` / `<all_urls>` rule. See the note in manifest.ts.
+      expect(createManifest(target, VERSION).web_accessible_resources).toEqual([]);
     }
   });
 
@@ -141,5 +143,22 @@ describe('cross-origin isolation (C-02)', () => {
 
     expect(manifest).not.toHaveProperty('cross_origin_embedder_policy');
     expect(manifest).not.toHaveProperty('cross_origin_opener_policy');
+  });
+});
+
+describe('toolbar presence (A-10 / A-15)', () => {
+  it('declares icons at every size both targets need', () => {
+    // Without these the extension is an anonymous puzzle piece in the toolbar
+    // and unidentifiable in Chrome's side-panel picker.
+    for (const target of ['chrome', 'firefox'] as const) {
+      const manifest = createManifest(target, VERSION);
+      expect(manifest.icons).toEqual({
+        '16': 'icons/icon-16.png',
+        '32': 'icons/icon-32.png',
+        '48': 'icons/icon-48.png',
+        '128': 'icons/icon-128.png',
+      });
+      expect((manifest.action as { default_icon?: unknown }).default_icon).toEqual(manifest.icons);
+    }
   });
 });
