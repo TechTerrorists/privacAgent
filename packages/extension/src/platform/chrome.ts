@@ -10,6 +10,7 @@ import { UnsupportedPlatformCapabilityError } from './errors.js';
 import type {
   OffscreenDocumentOptions,
   PlatformAdapter,
+  SidePanelBehaviorOptions,
   SidePanelOpenOptions,
   SidePanelOptions,
 } from './types.js';
@@ -52,6 +53,15 @@ export const chromePlatform: PlatformAdapter = {
       return chrome.sidePanel.setOptions(chromeOptions);
     }
     throw new Error('chrome.sidePanel.setOptions is not available in the current context');
+  },
+
+  async setSidePanelBehavior(options: SidePanelBehaviorOptions): Promise<void> {
+    if (typeof chrome !== 'undefined' && chrome.sidePanel?.setPanelBehavior) {
+      return chrome.sidePanel.setPanelBehavior({
+        openPanelOnActionClick: options.openOnActionClick,
+      });
+    }
+    throw new Error('chrome.sidePanel.setPanelBehavior is not available in the current context');
   },
 
   async createOffscreenDocument(options: OffscreenDocumentOptions): Promise<void> {

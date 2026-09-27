@@ -77,6 +77,15 @@ describe('Platform Adapter (A-02)', () => {
       expect(firefoxPlatform.capabilities.sidebarAction).toBe(true);
     });
 
+    it('rejects setSidePanelBehavior with UnsupportedPlatformCapabilityError', async () => {
+      // Firefox's sidebar_action button toggles the sidebar itself, so there is
+      // no behaviour to configure. The background guards on capability rather
+      // than calling this.
+      await expect(
+        firefoxPlatform.setSidePanelBehavior({ openOnActionClick: true })
+      ).rejects.toThrow(UnsupportedPlatformCapabilityError);
+    });
+
     it('rejects createOffscreenDocument with UnsupportedPlatformCapabilityError', async () => {
       await expect(
         firefoxPlatform.createOffscreenDocument({
@@ -309,6 +318,24 @@ describe('Platform Adapter (A-02)', () => {
 
       await chromePlatform.openSidePanel();
       expect(openMock).toHaveBeenCalledWith({ windowId: 101 });
+    });
+
+    it('delegates setSidePanelBehavior to chrome.sidePanel.setPanelBehavior', async () => {
+      // Chrome leaves openPanelOnActionClick false, so declaring the panel is
+      // not enough — without this call the toolbar icon does nothing.
+      const setPanelBehaviorMock = vi.fn().mockResolvedValue(undefined);
+      (
+        globalThis as unknown as {
+          chrome: { sidePanel: { setPanelBehavior: typeof setPanelBehaviorMock } };
+        }
+      ).chrome = {
+        sidePanel: {
+          setPanelBehavior: setPanelBehaviorMock,
+        },
+      };
+
+      await chromePlatform.setSidePanelBehavior({ openOnActionClick: true });
+      expect(setPanelBehaviorMock).toHaveBeenCalledWith({ openPanelOnActionClick: true });
     });
 
     it('delegates setSidePanelOptions to chrome.sidePanel.setOptions', async () => {

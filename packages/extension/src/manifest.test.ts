@@ -80,7 +80,9 @@ describe('createManifest', () => {
     // chrome-extension://<id>/… URL, revealing the extension before perception
     // has run. If an entry ever becomes necessary it needs use_dynamic_url.
     for (const target of ['chrome', 'firefox'] as const) {
-      expect(createManifest(target, VERSION)).not.toHaveProperty('web_accessible_resources');
+      // Empty, not absent: omitting the key lets @crxjs inject a blanket
+      // `**/*` / `<all_urls>` rule. See the note in manifest.ts.
+      expect(createManifest(target, VERSION).web_accessible_resources).toEqual([]);
     }
   });
 
@@ -94,5 +96,69 @@ describe('createManifest', () => {
 
   it('carries the version it was given', () => {
     expect(createManifest('chrome', '1.2.3').version).toBe('1.2.3');
+  });
+});
+
+describe('content security policy (C-02)', () => {
+  const cspFor = (target: 'chrome' | 'firefox'): string =>
+    (createManifest(target, VERSION).content_security_policy as { extension_pages: string })
+      .extension_pages;
+
+  it('permits WebAssembly on both targets', () => {
+    // Required for any WASM compilation in MV3 from Chrome 103 onwards.
+    for (const target of ['chrome', 'firefox'] as const) {
+      expect(cspFor(target)).toContain("'wasm-unsafe-eval'");
+    }
+  });
+
+  it('never relaxes script-src beyond WebAssembly', () => {
+    // `'wasm-unsafe-eval'` permits WASM compilation and nothing else. MV3
+    // rejects anything wider, and widening it here would silently hand the
+    // extension full eval.
+    for (const target of ['chrome', 'firefox'] as const) {
+      const csp = cspFor(target);
+      expect(csp).not.toContain("'unsafe-eval'");
+      expect(csp).not.toContain("'unsafe-inline'");
+      expect(csp).toContain("script-src 'self'");
+    }
+  });
+});
+
+describe('cross-origin isolation (C-02)', () => {
+  it('opts Chrome in, which is what makes threaded WASM possible', () => {
+    // WASM threads are pthreads over a SharedArrayBuffer, and SharedArrayBuffer
+    // requires cross-origin isolation. Extension pages cannot send headers, so
+    // these manifest keys are the only route.
+    const manifest = createManifest('chrome', VERSION);
+
+    expect(manifest.cross_origin_embedder_policy).toEqual({ value: 'require-corp' });
+    expect(manifest.cross_origin_opener_policy).toEqual({ value: 'same-origin' });
+  });
+
+  it('omits the keys on Firefox, which cannot honour them', () => {
+    // Firefox extension pages cannot be cross-origin isolated (bugzilla
+    // 1673477), so declaring the keys would imply a guarantee the platform
+    // does not provide. Firefox runs single-threaded WASM by design.
+    const manifest = createManifest('firefox', VERSION);
+
+    expect(manifest).not.toHaveProperty('cross_origin_embedder_policy');
+    expect(manifest).not.toHaveProperty('cross_origin_opener_policy');
+  });
+});
+
+describe('toolbar presence (A-10 / A-15)', () => {
+  it('declares icons at every size both targets need', () => {
+    // Without these the extension is an anonymous puzzle piece in the toolbar
+    // and unidentifiable in Chrome's side-panel picker.
+    for (const target of ['chrome', 'firefox'] as const) {
+      const manifest = createManifest(target, VERSION);
+      expect(manifest.icons).toEqual({
+        '16': 'icons/icon-16.png',
+        '32': 'icons/icon-32.png',
+        '48': 'icons/icon-48.png',
+        '128': 'icons/icon-128.png',
+      });
+      expect((manifest.action as { default_icon?: unknown }).default_icon).toEqual(manifest.icons);
+    }
   });
 });

@@ -90,6 +90,7 @@ function fnv1a(input: string): number {
 /** 2^32 — the exclusive upper bound of `createRandom`'s output. */
 const RANDOM_RANGE = 0x100000000;
 
+// wtf is this bruh??
 /** xorshift32. Small, dependency-free and identical across engines. */
 function createRandom(seed: number): () => number {
   let state = seed === 0 ? 1 : seed;
