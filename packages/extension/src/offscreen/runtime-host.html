@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>privacAgent ML host</title>
+  </head>
+  <body>
+    <!--
+      Offscreen document that owns the ML worker (C-02).
+
+      It has no UI and is never shown. It exists because the Chrome service
+      worker can be stopped while idle, cannot use DOM APIs, and is not
+      cross-origin isolated — so it can neither keep models warm nor run
+      threaded WASM. An offscreen document is a real extension page, so it
+      receives the COOP/COEP isolation declared in the manifest, and a
+      dedicated worker created from it inherits that isolation.
+
+      A-04 owns creating, keeping alive and tearing down this document. C-02
+      only needs it to exist so the runtime can be exercised in a real worker.
+    -->
+    <script type="module" src="./runtime-host.ts"></script>
+  </body>
+</html>
