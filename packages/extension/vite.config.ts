@@ -87,12 +87,23 @@ export default defineConfig(({ mode }): UserConfig => {
   } satisfies UserConfig;
 
   if (mode === 'chrome') {
+    const chromeHostInputs = {
+      [ENTRIES['src/host/offscreen'].replace(/\.html$/, '')]: ENTRIES['src/host/offscreen'],
+      [ENTRIES['src/host/ml-worker'].replace(/\.ts$/, '')]: ENTRIES['src/host/ml-worker'],
+    };
+
     return {
       ...shared,
       plugins: [
         ...shared.plugins,
         crx({ manifest: createManifest('chrome', VERSION) as ManifestV3Export }),
       ],
+      build: {
+        ...shared.build,
+        rollupOptions: {
+          input: chromeHostInputs,
+        },
+      },
       // @crxjs serves over a fixed port so the service worker can reconnect.
       server: { port: 5173, strictPort: true, hmr: { port: 5173 } },
     };

@@ -44,6 +44,16 @@ export type HostStatusRequest = Record<string, unknown>;
 
 export type HostStatusResponse = HostInfo;
 
+export interface HostSignalRequest {
+  event: 'ready' | 'error';
+  generation: number;
+  startupToken: string;
+}
+
+export interface HostSignalResponse {
+  accepted: boolean;
+}
+
 declare module '../messaging/types.js' {
   interface OperationMap {
     'host:acquire': {
@@ -57,6 +67,10 @@ declare module '../messaging/types.js' {
     'host:status': {
       request: HostStatusRequest;
       response: HostStatusResponse;
+    };
+    'host:signal': {
+      request: HostSignalRequest;
+      response: HostSignalResponse;
     };
   }
 }

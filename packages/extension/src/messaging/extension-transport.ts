@@ -55,8 +55,14 @@ export class ExtensionTransport implements Transport {
       let verifiedSender: EndpointAddress | undefined;
       const ownUrl = sender.url?.startsWith(platform.browser.runtime.getURL(''));
       if (ownUrl && sender.url) {
-        verifiedSender = options.extensionPeers?.[sender.url];
-        if (envelope.source.context === 'worker' && options.workerRelayUrls?.includes(sender.url)) {
+        const canonicalSenderUrl = sender.url.replace(/[?#].*$/, '');
+        verifiedSender =
+          options.extensionPeers?.[sender.url] ?? options.extensionPeers?.[canonicalSenderUrl];
+        if (
+          envelope.source.context === 'worker' &&
+          (options.workerRelayUrls?.includes(sender.url) ||
+            options.workerRelayUrls?.includes(canonicalSenderUrl))
+        ) {
           verifiedSender = { context: 'worker' };
         }
       } else if (sender.tab?.id !== undefined) {

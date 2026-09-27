@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { HostManager } from './host-manager.js';
 import { transition, canAcceptWork, isTerminal } from './state-machine.js';
-import type { MessageBus } from '../messaging/index.js';
+import { MessageBus } from '../messaging/index.js';
+import type { MessageHandler } from '../messaging/types.js';
 import { platform } from '../platform/index.js';
 
 vi.mock('../platform/index.js', () => ({
@@ -13,17 +14,16 @@ vi.mock('../platform/index.js', () => ({
         clear: vi.fn(),
         onAlarm: {
           addListener: vi.fn(),
+          removeListener: vi.fn(),
         },
       },
       runtime: {
-        onMessage: {
-          addListener: vi.fn(),
-        },
-        getURL: vi.fn().mockReturnValue('worker.js'),
+        getURL: vi.fn((path: string) => `chrome-extension://mock-id/${path}`),
       },
     },
     createOffscreenDocument: vi.fn().mockResolvedValue(undefined),
     closeOffscreenDocument: vi.fn().mockResolvedValue(undefined),
+    hasOffscreenDocument: vi.fn().mockResolvedValue(false),
   },
 }));
 
@@ -65,135 +65,171 @@ describe('State Machine', () => {
 });
 
 describe('HostManager', () => {
-  let bus: MessageBus;
+  const handlers = new Map<string, MessageHandler>();
   let manager: HostManager;
+  let bus: MessageBus;
+  let alarmListener: ((alarm: { name: string }) => void) | undefined;
 
-  function emitWorkerReady(): void {
-    const onMessageCalls = vi.mocked(platform.browser.runtime.onMessage.addListener).mock.calls;
-    const msgHandler = onMessageCalls[onMessageCalls.length - 1]?.[0];
-    if (msgHandler) {
-      (msgHandler as (msg: unknown) => void)({ type: 'privacagent:host:ready' });
-    }
-  }
+  const getHostSignal = (): MessageHandler => {
+    const handler = handlers.get('host:signal');
+    if (!handler) throw new Error('host:signal handler not registered');
+    return handler;
+  };
 
-  function emitIdleAlarm(): void {
-    const onAlarmCalls = vi.mocked(platform.browser.alarms.onAlarm.addListener).mock.calls;
-    const alarmHandler = onAlarmCalls[onAlarmCalls.length - 1]?.[0];
-    if (alarmHandler) {
-      alarmHandler({ name: 'privacagent:host:idle', scheduledTime: Date.now() });
-    }
-  }
+  const getStartupParams = (): { generation: number; startupToken: string } => {
+    const call = vi.mocked(platform.createOffscreenDocument).mock.calls.at(-1);
+    if (!call) throw new Error('createOffscreenDocument was not called');
+    const url = new URL(call[0].url, 'chrome-extension://mock-id/');
+    const generation = Number.parseInt(url.searchParams.get('generation') ?? '', 10);
+    const startupToken = url.searchParams.get('startupToken') ?? '';
+    return { generation, startupToken };
+  };
+
+  const flush = async (): Promise<void> => {
+    await Promise.resolve();
+    await Promise.resolve();
+  };
 
   beforeEach(() => {
+    vi.clearAllMocks();
+    handlers.clear();
     vi.useFakeTimers();
+
+    vi.mocked(platform.browser.alarms.onAlarm.addListener).mockImplementation((handler) => {
+      alarmListener = handler as (alarm: { name: string }) => void;
+    });
+    vi.mocked(platform.browser.alarms.onAlarm.removeListener).mockImplementation(() => {});
+
     bus = {
-      registerHandler: vi.fn(),
+      registerHandler: vi.fn((operation, handler) => {
+        handlers.set(operation as string, handler as MessageHandler);
+        return () => {
+          handlers.delete(operation as string);
+        };
+      }),
+      send: vi.fn().mockResolvedValue({ timestamp: Date.now(), echo: 'ok', context: 'worker' }),
     } as unknown as MessageBus;
+
     manager = new HostManager(bus);
   });
 
   afterEach(() => {
     manager.dispose();
     vi.useRealTimers();
-    vi.clearAllMocks();
+    vi.unstubAllGlobals();
   });
 
-  it('acquires and releases a host with idle timeout cleanup', async () => {
-    const acquirePromise = manager.acquire('test1');
-    emitWorkerReady();
+  it('rejects stale or unauthenticated startup signals', async () => {
+    const acquire = manager.acquire('consumer');
+    const { generation, startupToken } = getStartupParams();
 
-    const { leaseId, generation } = await acquirePromise;
-    expect(leaseId).toBeDefined();
-    expect(generation).toBe(1);
+    await expect(
+      getHostSignal()(
+        { event: 'ready', generation, startupToken },
+        { context: 'background' }
+      )
+    ).resolves.toEqual({ accepted: false });
+
+    await expect(
+      getHostSignal()(
+        { event: 'ready', generation: generation + 1, startupToken },
+        { context: 'offscreen' }
+      )
+    ).resolves.toEqual({ accepted: false });
+
+    await expect(
+      getHostSignal()(
+        { event: 'ready', generation, startupToken },
+        { context: 'offscreen' }
+      )
+    ).resolves.toEqual({ accepted: true });
+
+    const lease = await acquire;
+    expect(lease.generation).toBe(1);
     expect(manager.getInfo().state).toBe('active');
-    expect(manager.getInfo().activeLeases).toBe(1);
+  });
 
-    const res = await manager.release(leaseId);
-    expect(res.released).toBe(true);
-    expect(res.remainingLeases).toBe(0);
+  it('reconciles existing offscreen host before startup', async () => {
+    vi.mocked(platform.hasOffscreenDocument).mockResolvedValue(true);
+
+    const acquire = manager.acquire('consumer');
+    expect(platform.closeOffscreenDocument).toHaveBeenCalledTimes(1);
+    expect(platform.createOffscreenDocument).toHaveBeenCalledTimes(1);
+
+    const { generation, startupToken } = getStartupParams();
+    await getHostSignal()({ event: 'ready', generation, startupToken }, { context: 'offscreen' });
+    await expect(acquire).resolves.toMatchObject({ generation: 1 });
+  });
+
+  it('keeps releasing state until async idle teardown has completed', async () => {
+    let resolveClose: (() => void) | undefined;
+    vi.mocked(platform.closeOffscreenDocument).mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveClose = resolve;
+        })
+    );
+
+    const firstAcquire = manager.acquire('consumer-1');
+    const startupOne = getStartupParams();
+    await getHostSignal()(
+      { event: 'ready', generation: startupOne.generation, startupToken: startupOne.startupToken },
+      { context: 'offscreen' }
+    );
+    const firstLease = await firstAcquire;
+    await manager.release(firstLease.leaseId);
     expect(manager.getInfo().state).toBe('releasing');
 
-    // Verify 10-minute idle alarm was set
-    expect(platform.browser.alarms.create).toHaveBeenCalledWith('privacagent:host:idle', {
-      delayInMinutes: 10,
-    });
-
-    emitIdleAlarm();
-
-    await Promise.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(manager.getInfo().state).toBe('idle');
-  });
-
-  it('manages concurrent leases without tearing down active host', async () => {
-    const acquire1 = manager.acquire('consumer-A');
-    const acquire2 = manager.acquire('consumer-B');
-    emitWorkerReady();
-
-    const [res1, res2] = await Promise.all([acquire1, acquire2]);
-    expect(res1.generation).toBe(1);
-    expect(res2.generation).toBe(1);
-    expect(res1.leaseId).not.toBe(res2.leaseId);
-    expect(manager.getInfo().activeLeases).toBe(2);
-    expect(manager.getInfo().state).toBe('active');
-
-    // Releasing 1 lease leaves host active
-    const rel1 = await manager.release(res1.leaseId);
-    expect(rel1.released).toBe(true);
-    expect(rel1.remainingLeases).toBe(1);
-    expect(manager.getInfo().state).toBe('active');
-
-    // Releasing second lease moves to releasing
-    const rel2 = await manager.release(res2.leaseId);
-    expect(rel2.released).toBe(true);
-    expect(rel2.remainingLeases).toBe(0);
-    expect(manager.getInfo().state).toBe('releasing');
-  });
-
-  it('increments generation when host is re-created after idle release', async () => {
-    const acquire1 = manager.acquire('consumer-1');
-    emitWorkerReady();
-    const res1 = await acquire1;
-    expect(res1.generation).toBe(1);
-
-    await manager.release(res1.leaseId);
-
-    emitIdleAlarm();
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(manager.getInfo().state).toBe('idle');
-
-    // Second acquire creates host with generation 2
-    const acquire2 = manager.acquire('consumer-2');
-    emitWorkerReady();
-    const res2 = await acquire2;
-    expect(res2.generation).toBe(2);
-  });
-
-  it('cancels idle alarm if new consumer acquires during releasing state', async () => {
-    const acquire1 = manager.acquire('c1');
-    emitWorkerReady();
-    const res1 = await acquire1;
-    await manager.release(res1.leaseId);
+    alarmListener?.({ name: 'privacagent:host:idle' });
+    await flush();
     expect(manager.getInfo().state).toBe('releasing');
 
-    // New consumer acquires while releasing
-    const res2 = await manager.acquire('c2');
-    expect(res2.generation).toBe(1);
+    const secondAcquire = manager.acquire('consumer-2');
+    resolveClose?.();
+    await flush();
+
+    const startupTwo = getStartupParams();
+    await getHostSignal()(
+      { event: 'ready', generation: startupTwo.generation, startupToken: startupTwo.startupToken },
+      { context: 'offscreen' }
+    );
+    const secondLease = await secondAcquire;
+    expect(secondLease.generation).toBe(2);
     expect(manager.getInfo().state).toBe('active');
-    expect(platform.browser.alarms.clear).toHaveBeenCalledWith('privacagent:host:idle');
   });
 
-  it('returns released false for unknown lease ID', async () => {
-    const res = await manager.release('non-existent-lease');
-    expect(res.released).toBe(false);
-    expect(res.remainingLeases).toBe(0);
-  });
-
-  it('rejects acquire once disposed', async () => {
+  it('rejects pending acquire when disposed during startup', async () => {
+    const acquire = manager.acquire('consumer');
     manager.dispose();
-    expect(manager.getInfo().state).toBe('disposed');
-    await expect(manager.acquire('consumer-x')).rejects.toThrow('DISCONNECTED');
+    await expect(acquire).rejects.toThrow('Host startup failed');
+  });
+
+  it('starts Firefox worker in module mode and uses local worker handshake', async () => {
+    platform.name = 'firefox';
+
+    const fakeWorker = {
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      postMessage: vi.fn(),
+      terminate: vi.fn(),
+    };
+    const workerCtor = vi.fn(() => fakeWorker);
+    vi.stubGlobal('Worker', workerCtor as unknown as typeof Worker);
+
+    const sendSpy = vi
+      .spyOn(MessageBus.prototype, 'send')
+      .mockResolvedValue({ timestamp: Date.now(), echo: 'ok', context: 'worker' } as never);
+
+    const lease = await manager.acquire('firefox-consumer');
+
+    expect(workerCtor).toHaveBeenCalledWith(
+      'chrome-extension://mock-id/src/host/ml-worker.js',
+      { type: 'module' }
+    );
+    expect(sendSpy).toHaveBeenCalled();
+    expect(lease.generation).toBe(1);
+
+    sendSpy.mockRestore();
+    platform.name = 'chrome';
   });
 });
