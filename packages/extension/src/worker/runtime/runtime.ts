@@ -112,6 +112,8 @@ export class OnnxRuntime {
     sharedArrayBuffer: false,
     hardwareConcurrency: 1,
   };
+  /** Threads the engine settled on, observed after initialization. */
+  private threads = 1;
   private ort: OrtModule | undefined;
   private cache: SessionCache<OrtSession> | undefined;
   private disposed = false;
@@ -168,11 +170,36 @@ export class OnnxRuntime {
       // Usage still fails loudly: `loadModel` and `run` raise
       // RuntimeUnavailableError, so an unusable runtime cannot go unnoticed.
       this.status = 'unavailable';
+      this.backend = undefined;
+      this.threads = 1;
+      const orphaned = this.cache;
+      this.cache = undefined;
+      await orphaned?.dispose();
+      return this.diagnostics();
+    }
+
+    // A dispose() that landed while the probes were running must win. Without
+    // this the runtime would come back reporting `ready` after being shut down.
+    if (this.disposed) {
+      this.status = 'uninitialized';
       return this.diagnostics();
     }
 
     this.backend = selection.backend;
-    ort.env.wasm.numThreads = threadsFor(selection.backend);
+
+    // Read back what the probe left, rather than re-asserting the request. The
+    // engine settles on its own effective count — it may clamp, or fail to
+    // spawn its pool and fall back to one thread — and overwriting here would
+    // replace the observed value with the number we asked for, asserting a
+    // capability nothing verified.
+    this.threads = ort.env.wasm.numThreads ?? 1;
+
+    // Replace, but release first: a second initialize() would otherwise orphan
+    // every session the previous cache still held.
+    const previous = this.cache;
+    this.cache = undefined;
+    await previous?.dispose();
+
     this.status = 'ready';
     this.cache = new SessionCache<OrtSession>(
       (model, backend) =>
@@ -208,35 +235,36 @@ export class OnnxRuntime {
   ): Promise<Record<string, RuntimeOutput>> {
     const { cache, backend, ort } = this.requireReady();
 
-    let session: OrtSession;
-    try {
-      session = await cache.acquire(model, backend);
-    } catch (cause) {
-      throw new ModelLoadError(model.id, model.version, toReasonCode(cause));
-    }
+    // Compiled first so a load failure still surfaces as ModelLoadError rather
+    // than being flattened into an execution error by the borrow below.
+    await this.loadModel(model);
 
     try {
-      return await withTensorScope(async (scope) => {
-        const inputs: Record<string, OrtTensor> = {};
-        for (const [name, input] of Object.entries(feeds)) {
-          // Owned: built here from caller data, so freed on every path. The
-          // caller's Float32Array is untouched.
-          inputs[name] = scope.own(new ort.Tensor('float32', input.data, input.dims));
-        }
+      // `use` holds a lease for the whole run, so eviction or disposal cannot
+      // release the session out from under an in-flight inference.
+      return await cache.use(model, backend, (session) =>
+        withTensorScope(async (scope) => {
+          const inputs: Record<string, OrtTensor> = {};
+          for (const [name, input] of Object.entries(feeds)) {
+            // Owned: built here from caller data, so freed on every path. The
+            // caller's Float32Array is untouched.
+            inputs[name] = scope.own(new ort.Tensor('float32', input.data, input.dims));
+          }
 
-        const results = await session.run(inputs);
+          const results = await session.run(inputs);
 
-        const outputs: Record<string, RuntimeOutput> = {};
-        for (const [name, tensor] of Object.entries(results)) {
-          scope.own(tensor);
-          outputs[name] = {
-            // Copied: the tensor is disposed when the scope closes.
-            data: new Float32Array(tensor.data),
-            dims: [...tensor.dims],
-          };
-        }
-        return outputs;
-      });
+          const outputs: Record<string, RuntimeOutput> = {};
+          for (const [name, tensor] of Object.entries(results)) {
+            scope.own(tensor);
+            outputs[name] = {
+              // Copied: the tensor is disposed when the scope closes.
+              data: new Float32Array(tensor.data),
+              dims: [...tensor.dims],
+            };
+          }
+          return outputs;
+        })
+      );
     } catch (cause) {
       throw new InferenceExecutionError(model.id, toReasonCode(cause));
     }
@@ -249,7 +277,7 @@ export class OnnxRuntime {
       attempts: this.attempts,
       capabilities: this.capabilities,
       sessionCount: this.cache?.size ?? 0,
-      threads: this.backend ? threadsFor(this.backend) : 1,
+      threads: this.backend ? this.threads : 1,
     };
     return this.backend ? { ...diagnostics, backend: this.backend } : diagnostics;
   }

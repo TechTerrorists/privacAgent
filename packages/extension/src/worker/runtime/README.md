@@ -41,6 +41,11 @@ attempted by compiling **and running** the test model; only then is it marked
 Fallback is bounded by construction: each rung is tried exactly once, in fixed
 order, with no retries, so a broken driver cannot produce a retry storm.
 
+`diagnostics().threads` is the count the engine **settled on**, read back after
+initialization, not the number requested. The engine may clamp, or fail to
+spawn its pool and fall back to one thread; reporting the request would assert
+a capability nothing verified — the same failure the ladder exists to avoid.
+
 `initialize()` **returns** diagnostics rather than throwing when nothing works —
 the attempt log is the most valuable thing it produces, and throwing would
 discard it exactly when it matters. Usage still fails loudly: `loadModel()` and
@@ -64,9 +69,20 @@ Three behaviours matter more than the caching:
 - **Nothing here holds data.** Keys are identity and configuration. No
   screenshots, tensors or results are stored.
 
+**A session in use is never released.** `cache.use()` holds a lease for the
+duration of a run, and both eviction and disposal defer freeing a leased
+session until its last borrower finishes. `acquire()` only warms the cache —
+anything that actually executes inference must go through `use()`, or eviction
+under cache pressure can hand it a freed session, which on WebGPU means a
+destroyed GPU buffer.
+
 `dispose()` releases everything, including sessions that finish compiling after
-disposal began. A-04 calls it on shutdown or idle unload; this module
-implements no idle policy of its own.
+disposal began, and waits for in-flight runs first. A-04 calls it on shutdown
+or idle unload; this module implements no idle policy of its own.
+
+Calling `initialize()` twice releases the previous cache rather than orphaning
+the sessions it held, and a `dispose()` that lands mid-initialization wins — the
+runtime will not come back reporting `ready` after being shut down.
 
 ## Tensor ownership
 

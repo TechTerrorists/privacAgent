@@ -65,6 +65,19 @@ export interface SessionCacheOptions {
  */
 export class SessionCache<S extends ReleasableSession> {
   private readonly sessions = new Map<string, Promise<S>>();
+  /**
+   * Live borrowers per key.
+   *
+   * A session must not be released while a run is still executing on it —
+   * doing so hands the run freed memory, and on WebGPU a destroyed buffer.
+   * Eviction and disposal therefore defer releasing any key with a non-zero
+   * count until its last borrower finishes.
+   */
+  private readonly leases = new Map<string, number>();
+  /** Keys whose release is waiting on their last borrower. */
+  private readonly deferred = new Map<string, Promise<S>>();
+  /** Resolvers woken when a key's lease count reaches zero. */
+  private readonly drained = new Map<string, Array<() => void>>();
   private readonly maxSessions: number;
   private disposed = false;
 
@@ -123,6 +136,43 @@ export class SessionCache<S extends ReleasableSession> {
     }
   }
 
+  /**
+   * Borrows a session for the duration of `use`.
+   *
+   * The session is guaranteed not to be released while `use` is running, even
+   * if eviction or disposal happens concurrently. Callers that execute
+   * inference must go through this rather than {@link acquire}, which only
+   * warms the cache.
+   */
+  async use<T>(
+    model: ModelDescriptor,
+    backend: BackendName,
+    consumer: (session: S) => Promise<T>
+  ): Promise<T> {
+    const key = sessionKey(model, backend);
+    const session = await this.acquire(model, backend);
+
+    this.leases.set(key, (this.leases.get(key) ?? 0) + 1);
+    try {
+      return await consumer(session);
+    } finally {
+      const remaining = (this.leases.get(key) ?? 1) - 1;
+      if (remaining > 0) {
+        this.leases.set(key, remaining);
+      } else {
+        this.leases.delete(key);
+        // Anything that wanted this key gone now gets its turn.
+        const pending = this.deferred.get(key);
+        if (pending) {
+          this.deferred.delete(key);
+          void releaseQuietly(pending);
+        }
+        for (const wake of this.drained.get(key) ?? []) wake();
+        this.drained.delete(key);
+      }
+    }
+  }
+
   /** Releases one session and drops it. No-op if absent. */
   async evict(model: ModelDescriptor, backend: BackendName): Promise<void> {
     const key = sessionKey(model, backend);
@@ -144,18 +194,41 @@ export class SessionCache<S extends ReleasableSession> {
    */
   async dispose(): Promise<void> {
     this.disposed = true;
-    const pending = [...this.sessions.values()];
+    const entries = [...this.sessions.entries()];
     this.sessions.clear();
-    await Promise.all(pending.map(releaseQuietly));
+
+    // Wait for in-flight runs before freeing anything they are using.
+    await Promise.all(entries.map(([key]) => this.whenDrained(key)));
+    await Promise.all(entries.map(([, pending]) => releaseQuietly(pending)));
+  }
+
+  /** Resolves once nothing is borrowing `key`. */
+  private whenDrained(key: string): Promise<void> {
+    if ((this.leases.get(key) ?? 0) === 0) return Promise.resolve();
+    return new Promise<void>((resolve) => {
+      const waiters = this.drained.get(key) ?? [];
+      waiters.push(resolve);
+      this.drained.set(key, waiters);
+    });
   }
 
   private evictIfNeeded(justAdded: string): void {
     while (this.sessions.size > this.maxSessions) {
       const oldest = this.sessions.keys().next();
       if (oldest.done || oldest.value === justAdded) return;
+
       const evicted = this.sessions.get(oldest.value);
       this.sessions.delete(oldest.value);
-      if (evicted) void releaseQuietly(evicted);
+      if (!evicted) continue;
+
+      if ((this.leases.get(oldest.value) ?? 0) > 0) {
+        // Still in use. Drop it from the cache so it stops being handed out,
+        // but defer the release until the last borrower finishes — otherwise
+        // an unlucky caller runs inference on a freed session.
+        this.deferred.set(oldest.value, evicted);
+      } else {
+        void releaseQuietly(evicted);
+      }
     }
   }
 }

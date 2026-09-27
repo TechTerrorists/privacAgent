@@ -192,3 +192,68 @@ describe('bounded growth', () => {
     expect(created[2]!.released).toBe(0);
   });
 });
+
+describe('sessions in use', () => {
+  it('does not release a session that is being evicted while still borrowed', async () => {
+    // Eviction used to free the oldest entry immediately, so a caller mid-run
+    // kept executing against a released session.
+    const created: ReturnType<typeof fakeSession>[] = [];
+    const cache = new SessionCache(
+      () => {
+        const session = fakeSession();
+        created.push(session);
+        return Promise.resolve(session);
+      },
+      { maxSessions: 1 }
+    );
+
+    let finishUse!: () => void;
+    const holding = new Promise<void>((resolve) => {
+      finishUse = resolve;
+    });
+
+    const borrowed = cache.use({ ...MODEL, id: 'a' }, 'wasm', async () => {
+      await holding;
+      return 'done';
+    });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // Pushes the borrowed entry out of the cache.
+    await cache.acquire({ ...MODEL, id: 'b' }, 'wasm');
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    expect(created[0]!.released).toBe(0);
+
+    finishUse();
+    expect(await borrowed).toBe('done');
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // Freed only once the last borrower finished.
+    expect(created[0]!.released).toBe(1);
+  });
+
+  it('waits for an in-flight borrow before disposing', async () => {
+    const session = fakeSession();
+    const cache = new SessionCache(() => Promise.resolve(session));
+
+    let finishUse!: () => void;
+    const holding = new Promise<void>((resolve) => {
+      finishUse = resolve;
+    });
+
+    const borrowed = cache.use(MODEL, 'wasm', async () => {
+      await holding;
+      return 1;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    const disposing = cache.dispose();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(session.released).toBe(0);
+
+    finishUse();
+    await borrowed;
+    await disposing;
+    expect(session.released).toBe(1);
+  });
+});
