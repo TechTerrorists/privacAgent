@@ -46,15 +46,15 @@ export class HostManager {
   private startupTimer: ReturnType<typeof setTimeout> | null = null;
   private disposed = false;
   private startupPromise: Promise<void> | null = null;
-  private resolveStartup?: () => void;
-  private rejectStartup?: (e: Error) => void;
+  private resolveStartup: (() => void) | undefined;
+  private rejectStartup: ((e: Error) => void) | undefined;
   private startupGeneration = 0;
   private startupToken = '';
   private teardownPromise: Promise<void> | null = null;
   private readonly handlerCleanup: Array<() => void> = [];
-  private alarmListener?: (alarm: { name: string }) => void;
-  private workerErrorListener?: () => void;
-  private workerMessageErrorListener?: () => void;
+  private alarmListener: ((alarm: { name: string }) => void) | undefined;
+  private workerErrorListener: (() => void) | undefined;
+  private workerMessageErrorListener: (() => void) | undefined;
   private readonly teardownHooks = new Set<() => void | Promise<void>>();
 
   constructor(bgBus: MessageBus) {
@@ -374,9 +374,19 @@ export class HostManager {
     try {
       if (platform.name === 'firefox') {
         if (!this.workerBus) return false;
-        await this.workerBus.send('ping', { timestamp: Date.now() }, { context: 'worker' }, { timeoutMs: 1000 });
+        await this.workerBus.send(
+          'ping',
+          { timestamp: Date.now() },
+          { context: 'worker' },
+          { timeoutMs: 1000 }
+        );
       } else {
-        await this.bgBus.send('ping', { timestamp: Date.now() }, { context: 'worker' }, { timeoutMs: 1000 });
+        await this.bgBus.send(
+          'ping',
+          { timestamp: Date.now() },
+          { context: 'worker' },
+          { timeoutMs: 1000 }
+        );
       }
       return true;
     } catch {

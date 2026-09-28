@@ -1,13 +1,17 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { HostManager } from './host-manager.js';
 import { transition, canAcceptWork, isTerminal } from './state-machine.js';
-import { MessageBus } from '../messaging/index.js';
+import { MessageBus, MessageErrorCode } from '../messaging/index.js';
 import type { MessageHandler } from '../messaging/types.js';
 import { platform } from '../platform/index.js';
 
+const mockPlatformName = vi.hoisted(() => ({ value: 'chrome' }));
+
 vi.mock('../platform/index.js', () => ({
   platform: {
-    name: 'chrome',
+    get name() {
+      return mockPlatformName.value;
+    },
     browser: {
       alarms: {
         create: vi.fn(),
@@ -86,12 +90,13 @@ describe('HostManager', () => {
   };
 
   const flush = async (): Promise<void> => {
-    await Promise.resolve();
-    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(0);
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(platform.hasOffscreenDocument).mockResolvedValue(false);
+    vi.mocked(platform.closeOffscreenDocument).mockResolvedValue(undefined);
     handlers.clear();
     vi.useFakeTimers();
 
@@ -117,17 +122,17 @@ describe('HostManager', () => {
     manager.dispose();
     vi.useRealTimers();
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    mockPlatformName.value = 'chrome';
   });
 
   it('rejects stale or unauthenticated startup signals', async () => {
     const acquire = manager.acquire('consumer');
+    await flush();
     const { generation, startupToken } = getStartupParams();
 
     await expect(
-      getHostSignal()(
-        { event: 'ready', generation, startupToken },
-        { context: 'background' }
-      )
+      getHostSignal()({ event: 'ready', generation, startupToken }, { context: 'background' })
     ).resolves.toEqual({ accepted: false });
 
     await expect(
@@ -138,10 +143,7 @@ describe('HostManager', () => {
     ).resolves.toEqual({ accepted: false });
 
     await expect(
-      getHostSignal()(
-        { event: 'ready', generation, startupToken },
-        { context: 'offscreen' }
-      )
+      getHostSignal()({ event: 'ready', generation, startupToken }, { context: 'offscreen' })
     ).resolves.toEqual({ accepted: true });
 
     const lease = await acquire;
@@ -153,6 +155,7 @@ describe('HostManager', () => {
     vi.mocked(platform.hasOffscreenDocument).mockResolvedValue(true);
 
     const acquire = manager.acquire('consumer');
+    await flush();
     expect(platform.closeOffscreenDocument).toHaveBeenCalledTimes(1);
     expect(platform.createOffscreenDocument).toHaveBeenCalledTimes(1);
 
@@ -171,6 +174,7 @@ describe('HostManager', () => {
     );
 
     const firstAcquire = manager.acquire('consumer-1');
+    await flush();
     const startupOne = getStartupParams();
     await getHostSignal()(
       { event: 'ready', generation: startupOne.generation, startupToken: startupOne.startupToken },
@@ -201,11 +205,11 @@ describe('HostManager', () => {
   it('rejects pending acquire when disposed during startup', async () => {
     const acquire = manager.acquire('consumer');
     manager.dispose();
-    await expect(acquire).rejects.toThrow('Host startup failed');
+    await expect(acquire).rejects.toMatchObject({ code: MessageErrorCode.HANDLER_ERROR });
   });
 
   it('starts Firefox worker in module mode and uses local worker handshake', async () => {
-    platform.name = 'firefox';
+    mockPlatformName.value = 'firefox';
 
     const fakeWorker = {
       addEventListener: vi.fn(),
@@ -213,7 +217,9 @@ describe('HostManager', () => {
       postMessage: vi.fn(),
       terminate: vi.fn(),
     };
-    const workerCtor = vi.fn(() => fakeWorker);
+    const workerCtor = vi.fn(function () {
+      return fakeWorker;
+    });
     vi.stubGlobal('Worker', workerCtor as unknown as typeof Worker);
 
     const sendSpy = vi
@@ -222,14 +228,12 @@ describe('HostManager', () => {
 
     const lease = await manager.acquire('firefox-consumer');
 
-    expect(workerCtor).toHaveBeenCalledWith(
-      'chrome-extension://mock-id/src/host/ml-worker.js',
-      { type: 'module' }
-    );
+    expect(workerCtor).toHaveBeenCalledWith('chrome-extension://mock-id/src/host/ml-worker.js', {
+      type: 'module',
+    });
     expect(sendSpy).toHaveBeenCalled();
     expect(lease.generation).toBe(1);
 
     sendSpy.mockRestore();
-    platform.name = 'chrome';
   });
 });
