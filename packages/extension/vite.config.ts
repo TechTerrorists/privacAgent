@@ -102,6 +102,12 @@ export default defineConfig(({ mode }): UserConfig => {
         ...shared.build,
         rollupOptions: {
           input: chromeHostInputs,
+          output: {
+            entryFileNames: (chunk) =>
+              chunk.name === 'src/host/ml-worker'
+                ? 'src/host/ml-worker.js'
+                : 'assets/[name]-[hash].js',
+          },
         },
       },
       // @crxjs serves over a fixed port so the service worker can reconnect.

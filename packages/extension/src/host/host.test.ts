@@ -95,7 +95,8 @@ describe('HostManager', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(platform.hasOffscreenDocument).mockResolvedValue(false);
+    vi.mocked(platform.createOffscreenDocument).mockReset().mockResolvedValue(undefined);
+    vi.mocked(platform.hasOffscreenDocument).mockReset().mockResolvedValue(false);
     vi.mocked(platform.closeOffscreenDocument).mockResolvedValue(undefined);
     handlers.clear();
     vi.useFakeTimers();
@@ -118,8 +119,10 @@ describe('HostManager', () => {
     manager = new HostManager(bus);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    vi.mocked(platform.closeOffscreenDocument).mockResolvedValue(undefined);
     manager.dispose();
+    await flush();
     vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
@@ -208,6 +211,147 @@ describe('HostManager', () => {
     await expect(acquire).rejects.toMatchObject({ code: MessageErrorCode.HANDLER_ERROR });
   });
 
+  const acquireReady = async () => {
+    const pending = manager.acquire('consumer');
+    await flush();
+    const identity = getStartupParams();
+    await getHostSignal()({ event: 'ready', ...identity }, { context: 'offscreen' });
+    return { lease: await pending, identity };
+  };
+
+  it('cleans up every idle cycle and still disposes the replacement host', async () => {
+    for (let cycle = 1; cycle <= 3; cycle++) {
+      const { lease } = await acquireReady();
+      expect(lease.generation).toBe(cycle);
+      await manager.release(lease.leaseId);
+      alarmListener?.({ name: 'privacagent:host:idle' });
+      await flush();
+      expect(manager.getInfo().state).toBe('idle');
+      expect(platform.closeOffscreenDocument).toHaveBeenCalledTimes(cycle);
+    }
+    await acquireReady();
+    manager.dispose();
+    await flush();
+    expect(platform.closeOffscreenDocument).toHaveBeenCalledTimes(4);
+  });
+
+  it('recovers from authenticated active-host loss and rejects old host signals', async () => {
+    const { identity } = await acquireReady();
+    await expect(
+      getHostSignal()(
+        { event: 'error', ...identity, startupToken: 'wrong' },
+        { context: 'offscreen' }
+      )
+    ).resolves.toEqual({ accepted: false });
+    expect(manager.getInfo().activeLeases).toBe(1);
+    await expect(
+      getHostSignal()({ event: 'error', ...identity }, { context: 'offscreen' })
+    ).resolves.toEqual({ accepted: true });
+    await flush();
+    expect(manager.getInfo()).toMatchObject({ state: 'idle', activeLeases: 0 });
+    const { lease } = await acquireReady();
+    expect(lease.generation).toBe(2);
+    await expect(
+      getHostSignal()({ event: 'error', ...identity }, { context: 'offscreen' })
+    ).resolves.toEqual({ accepted: false });
+    expect(manager.getInfo().state).toBe('active');
+  });
+
+  it('runs all hooks and closes the host even when hooks throw or reject', async () => {
+    const nextHook = vi.fn();
+    manager.registerTeardownHook(() => {
+      throw new Error('sync failure');
+    });
+    manager.registerTeardownHook(() => Promise.reject(new Error('async failure')));
+    manager.registerTeardownHook(nextHook);
+    const { lease } = await acquireReady();
+    await manager.release(lease.leaseId);
+    alarmListener?.({ name: 'privacagent:host:idle' });
+    await flush();
+    expect(nextHook).toHaveBeenCalledOnce();
+    expect(platform.closeOffscreenDocument).toHaveBeenCalledOnce();
+    expect(manager.getInfo().state).toBe('idle');
+  });
+
+  it('waits for timed-out creation and cleanup before creating a replacement', async () => {
+    let finishCreation!: () => void;
+    vi.mocked(platform.createOffscreenDocument).mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishCreation = resolve;
+        })
+    );
+    const first = manager.acquire('first');
+    const rejected = expect(first).rejects.toMatchObject({ code: MessageErrorCode.HANDLER_ERROR });
+    await vi.advanceTimersByTimeAsync(30000);
+    await rejected;
+    const second = manager.acquire('second');
+    await flush();
+    expect(platform.createOffscreenDocument).toHaveBeenCalledTimes(1);
+    expect(platform.closeOffscreenDocument).not.toHaveBeenCalled();
+    finishCreation();
+    await flush();
+    expect(platform.closeOffscreenDocument).toHaveBeenCalledOnce();
+    expect(platform.createOffscreenDocument).toHaveBeenCalledTimes(2);
+    await getHostSignal()({ event: 'ready', ...getStartupParams() }, { context: 'offscreen' });
+    await expect(second).resolves.toMatchObject({ generation: 2 });
+  });
+
+  it('does not create a document after disposal during the existence check', async () => {
+    let finishCheck!: (exists: boolean) => void;
+    vi.mocked(platform.hasOffscreenDocument).mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          finishCheck = resolve;
+        })
+    );
+    const pending = manager.acquire('consumer');
+    const rejected = expect(pending).rejects.toMatchObject({
+      code: MessageErrorCode.HANDLER_ERROR,
+    });
+    manager.dispose();
+    finishCheck(false);
+    await rejected;
+    await flush();
+    expect(platform.createOffscreenDocument).not.toHaveBeenCalled();
+    expect(platform.closeOffscreenDocument).toHaveBeenCalledOnce();
+  });
+
+  it('does not grant a lease if disposal occurs during its health check', async () => {
+    const pending = manager.acquire('consumer');
+    const rejected = expect(pending).rejects.toMatchObject({ code: MessageErrorCode.DISCONNECTED });
+    await flush();
+    let finishPing!: () => void;
+    vi.mocked(bus.send).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishPing = () => resolve({ timestamp: 0, echo: 'ok', context: 'worker' });
+        })
+    );
+    await getHostSignal()({ event: 'ready', ...getStartupParams() }, { context: 'offscreen' });
+    await flush();
+    manager.dispose();
+    finishPing();
+    await rejected;
+    expect(manager.getInfo().activeLeases).toBe(0);
+  });
+
+  it('rejects acquire cleanly when the Firefox Worker constructor throws', async () => {
+    mockPlatformName.value = 'firefox';
+    vi.stubGlobal(
+      'Worker',
+      vi.fn(function () {
+        throw new Error('constructor failed');
+      })
+    );
+    const rejected = expect(manager.acquire('consumer')).rejects.toMatchObject({
+      code: MessageErrorCode.HANDLER_ERROR,
+    });
+    await flush();
+    await rejected;
+    expect(manager.getInfo()).toMatchObject({ state: 'idle', activeLeases: 0 });
+  });
+
   it('starts Firefox worker in module mode and uses local worker handshake', async () => {
     mockPlatformName.value = 'firefox';
 
@@ -234,6 +378,18 @@ describe('HostManager', () => {
     expect(sendSpy).toHaveBeenCalled();
     expect(lease.generation).toBe(1);
 
+    const errorListener = fakeWorker.addEventListener.mock.calls.find(
+      (call) => call[0] === 'error'
+    )?.[1] as (() => void) | undefined;
+    expect(errorListener).toBeDefined();
+    errorListener?.();
+    await flush();
+    expect(fakeWorker.terminate).toHaveBeenCalledOnce();
+    expect(manager.getInfo()).toMatchObject({ state: 'idle', activeLeases: 0 });
+    await expect(manager.acquire('replacement')).resolves.toMatchObject({ generation: 2 });
+    manager.dispose();
+    await flush();
+    expect(fakeWorker.terminate).toHaveBeenCalledTimes(2);
     sendSpy.mockRestore();
   });
 });

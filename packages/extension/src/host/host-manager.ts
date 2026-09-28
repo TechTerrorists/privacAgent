@@ -50,6 +50,7 @@ export class HostManager {
   private rejectStartup: ((e: Error) => void) | undefined;
   private startupGeneration = 0;
   private startupToken = '';
+  private creationPromise: Promise<void> | null = null;
   private teardownPromise: Promise<void> | null = null;
   private readonly handlerCleanup: Array<() => void> = [];
   private alarmListener: ((alarm: { name: string }) => void) | undefined;
@@ -125,6 +126,7 @@ export class HostManager {
     if (this.teardownPromise) {
       await this.teardownPromise;
     }
+    if (this.disposed) throw new MessageBusError(MessageErrorCode.DISCONNECTED);
 
     if (this.state === 'idle') {
       this.startGeneration();
@@ -142,7 +144,16 @@ export class HostManager {
     }
 
     if (canAcceptWork(this.state)) {
+      const generation = this.generation;
       const isHealthy = await this.verifyHostHealth();
+      if (
+        this.disposed ||
+        this.teardownPromise ||
+        generation !== this.generation ||
+        !canAcceptWork(this.state)
+      ) {
+        throw new MessageBusError(MessageErrorCode.DISCONNECTED);
+      }
       if (!isHealthy) {
         this.handleHostLoss();
         throw new MessageBusError(MessageErrorCode.DISCONNECTED, 'Host is unavailable');
@@ -199,20 +210,24 @@ export class HostManager {
       }, STARTUP_TIMEOUT_MS);
 
       if (platform.name === 'chrome') {
-        void (async () => {
+        this.creationPromise = (async () => {
           try {
             const hasExistingHost = await platform.hasOffscreenDocument().catch(() => false);
+            if (!this.isCurrentStartup(generation, startupToken)) return;
             if (hasExistingHost) {
               await platform.closeOffscreenDocument().catch(() => {});
             }
 
+            if (!this.isCurrentStartup(generation, startupToken)) return;
             await platform.createOffscreenDocument({
               url: `${HOST_DOCUMENT_PATH}?generation=${generation}&startupToken=${encodeURIComponent(startupToken)}`,
               reasons: ['WORKERS'],
               justification: 'ML inference worker host',
             });
           } catch (err) {
-            this.failStartup(err instanceof Error ? err.message : 'Worker error');
+            if (this.isCurrentStartup(generation, startupToken)) {
+              this.failStartup(err instanceof Error ? err.message : 'Worker error');
+            }
           }
         })();
       } else {
@@ -237,7 +252,11 @@ export class HostManager {
 
           void this.pingLocalWorker(generation, startupToken);
         } catch (err) {
-          this.failStartup(err instanceof Error ? err.message : 'Worker error');
+          queueMicrotask(() => {
+            if (this.isCurrentStartup(generation, startupToken)) {
+              this.failStartup(err instanceof Error ? err.message : 'Worker error');
+            }
+          });
         }
       }
     });
@@ -308,6 +327,15 @@ export class HostManager {
     );
   }
 
+  private isCurrentStartup(generation: number, token: string): boolean {
+    return (
+      !this.disposed &&
+      this.state === 'starting' &&
+      this.startupGeneration === generation &&
+      this.startupToken === token
+    );
+  }
+
   private isExpectedSignalSender(senderContext?: string): boolean {
     if (platform.name === 'chrome') {
       return senderContext === 'offscreen';
@@ -320,7 +348,9 @@ export class HostManager {
     sender?: { context: string }
   ): Promise<{ accepted: boolean }> {
     if (
-      this.state !== 'starting' ||
+      this.disposed ||
+      this.state === 'idle' ||
+      this.teardownPromise ||
       request.generation !== this.startupGeneration ||
       request.startupToken !== this.startupToken ||
       !this.isExpectedSignalSender(sender?.context)
@@ -329,9 +359,10 @@ export class HostManager {
     }
 
     if (request.event === 'ready') {
+      if (this.state !== 'starting') return { accepted: false };
       this.finishStartup();
     } else {
-      this.failStartup('Worker error');
+      this.handleHostLoss();
     }
 
     return { accepted: true };
@@ -359,15 +390,13 @@ export class HostManager {
     this.triggerEvent('ERROR');
     this.rejectStartup?.(new Error(reason));
     this.clearStartupWaiters();
-    void this.destroyHostResources();
+    void this.beginTeardown();
   }
 
   private clearStartupWaiters(): void {
     this.startupPromise = null;
     this.resolveStartup = undefined;
     this.rejectStartup = undefined;
-    this.startupGeneration = 0;
-    this.startupToken = '';
   }
 
   private async verifyHostHealth(): Promise<boolean> {
@@ -407,26 +436,25 @@ export class HostManager {
       return;
     }
 
-    if (!this.teardownPromise) {
-      const generation = this.generation;
-      const teardown = this.destroyHostResources()
-        .catch(() => {})
-        .then(() => {
-          if (
-            !this.disposed &&
-            this.state !== 'idle' &&
-            this.state !== 'disposed' &&
-            this.generation === generation
-          ) {
-            this.triggerEvent('ERROR');
-          }
-        });
-      this.teardownPromise = teardown.finally(() => {
-        if (this.teardownPromise === teardown) {
-          this.teardownPromise = null;
-        }
-      });
-    }
+    void this.beginTeardown();
+  }
+
+  private beginTeardown(): Promise<void> {
+    if (this.teardownPromise) return this.teardownPromise;
+    this.startupGeneration = 0;
+    this.startupToken = '';
+    const creation = this.creationPromise;
+    const teardown = (async () => {
+      // A delayed create must finish before closing the old host or allowing a replacement.
+      await creation;
+      this.creationPromise = null;
+      await this.destroyHostResources();
+      if (!this.disposed) this.triggerEvent('ERROR');
+    })().finally(() => {
+      if (this.teardownPromise === teardown) this.teardownPromise = null;
+    });
+    this.teardownPromise = teardown;
+    return teardown;
   }
 
   private async destroyHostResources(): Promise<void> {
@@ -436,7 +464,9 @@ export class HostManager {
       this.startupTimer = null;
     }
 
-    await Promise.allSettled(Array.from(this.teardownHooks, (hook) => Promise.resolve(hook())));
+    await Promise.allSettled(
+      Array.from(this.teardownHooks, (hook) => Promise.resolve().then(hook))
+    );
 
     this.relay?.dispose();
     this.relay = null;
@@ -488,25 +518,7 @@ export class HostManager {
       return;
     }
 
-    const releasingGeneration = this.generation;
-    const teardown = this.destroyHostResources()
-      .catch(() => {})
-      .then(() => {
-        if (
-          !this.disposed &&
-          this.state === 'releasing' &&
-          this.generation === releasingGeneration
-        ) {
-          this.triggerEvent('IDLE_TIMEOUT');
-        }
-      });
-    this.teardownPromise = teardown.finally(() => {
-      if (this.teardownPromise === teardown) {
-        this.teardownPromise = null;
-      }
-    });
-
-    await this.teardownPromise;
+    await this.beginTeardown();
   }
 
   getInfo(): HostInfo {
@@ -536,12 +548,7 @@ export class HostManager {
       this.failStartup('Host manager disposed');
     }
 
-    const inFlightTeardown = this.teardownPromise ?? this.destroyHostResources();
-    this.teardownPromise = inFlightTeardown.finally(() => {
-      if (this.teardownPromise === inFlightTeardown) {
-        this.teardownPromise = null;
-      }
-    });
+    void this.beginTeardown();
 
     this.triggerEvent('DISPOSE');
   }
