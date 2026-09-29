@@ -1,0 +1,167 @@
+/*
+ * B-08/F-03: the overlay gallery's own styles.
+ *
+ * Kept separate from `style.css` so the four functional mock pages are untouched by F-03, and so
+ * the gallery can be as fixed and as animation-free as the tests need. Every target has an
+ * explicit box, nothing here transitions, and there is no web font: a primitive's geometry has to
+ * be assertable, and a font swap would move it.
+ */
+.panel {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 24px 36px;
+  border-bottom: 1px solid #dce4e0;
+}
+.panel h2 {
+  margin: 0 0 4px;
+  font-size: 19px;
+  letter-spacing: -0.3px;
+}
+.panel-note,
+.cell-note {
+  margin: 0 0 14px;
+  color: #5b6b73;
+  font-size: 13px;
+}
+.cell-note {
+  margin: 8px 0 0;
+}
+.cell-label {
+  margin: 0 0 6px;
+  color: #5b6b73;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 16px;
+}
+.cell {
+  /* A fixed minimum so no target can collapse to zero on a narrow viewport, which is the case
+     the resolver would then have to report as hidden. */
+  min-height: 76px;
+  padding: 12px;
+  border: 1px solid #dce4e0;
+  border-radius: 8px;
+  background: #fff;
+}
+.cell.wide {
+  grid-column: 1 / -1;
+}
+
+.grid button,
+.edges button {
+  /* Explicit dimensions: the circle and underline primitives size themselves from the measured
+     box, and a fixed target makes those numbers assertable. */
+  min-width: 132px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid #22755e;
+  border-radius: 6px;
+  background: #22755e;
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.grid button:hover,
+.edges button:hover {
+  background: #1c614d;
+}
+
+/* Edge targets are pinned with *fixed* positioning, so they sit at the real edges of the
+   viewport wherever the document happens to be scrolled to. `absolute` positioning inside a
+   relatively-positioned wrapper was the earlier attempt and it does not deliver that: the
+   controls end up at the edges of the wrapper, wherever the wrapper happens to be, so the
+   positioner's viewport flipping and clamping is never exercised. The dashed box below is now
+   only a legend in the flow, and the four controls are viewport furniture. */
+.edges {
+  height: 260px;
+  border: 1px dashed #c3d2cb;
+  border-radius: 8px;
+  background: #fbfdfc;
+}
+.edges button {
+  position: fixed;
+  min-width: 84px;
+  z-index: 1;
+}
+#t-edge-top {
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+#t-edge-left {
+  top: 50%;
+  left: 6px;
+  transform: translateY(-50%);
+}
+#t-edge-right {
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+}
+#t-edge-bottom {
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.probe-form {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.probe-form label {
+  font-size: 13px;
+}
+.probe-form input {
+  min-width: 220px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid #b9c8c1;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 13px;
+}
+.probe-form button {
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid #1c614d;
+  border-radius: 6px;
+  background: #1c614d;
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.scroller {
+  width: 100%;
+  max-width: 420px;
+  height: 180px;
+  overflow: auto;
+  border: 1px solid #c3d2cb;
+  border-radius: 8px;
+  background: #fff;
+}
+.scroller-inner {
+  height: 900px;
+  padding: 16px;
+}
+
+/* Enough page to scroll, so the scroll-follow assertions have somewhere to go. */
+.spacer {
+  height: 1600px;
+}
+
+code {
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: #eef2f0;
+  font-size: 12px;
+}

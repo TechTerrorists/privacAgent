@@ -61,6 +61,8 @@ interface Harness {
    * there. A closed-root host is the only thing that should ever show up.
    */
   pageChildren: () => number;
+  /** Tags of the nodes the overlay appended to <html>, in order. */
+  pageNodes: () => string[];
   /** Window listeners the overlay added and removed, by event type. */
   listenerBalance: () => { added: number; removed: number };
   intervalBalance: () => { added: number; removed: number };
@@ -109,6 +111,8 @@ function createHarness(
       frames.flush();
     },
     pageChildren: () => document.documentElement.children.length - baseline,
+    pageNodes: () =>
+      [...document.documentElement.children].slice(baseline).map((n) => n.tagName.toLowerCase()),
     listenerBalance: () => ({
       added: count(addSpy.mock.calls as unknown[][]),
       removed: count(removeSpy.mock.calls as unknown[][]),
@@ -138,12 +142,36 @@ afterEach(() => {
   harness = null;
 });
 
+/**
+ * The CSS text of the critical-host sheet, from whichever path this DOM took: an adopted
+ * stylesheet (the normal case, and the one with no node in the page tree) or a `<style>`
+ * fallback. happy-dom adopts, so the adopted list is the one that matters here; the fallback is
+ * checked too so the assertion is not silently vacuous on a DOM that does not.
+ */
+function criticalHostCss(): string {
+  const marker = 'nth-of-type';
+  for (const sheet of document.adoptedStyleSheets ?? []) {
+    const text = [...sheet.cssRules].map((rule) => rule.cssText).join('\n');
+    if (text.includes(marker)) return text;
+  }
+  for (const element of document.querySelectorAll('style')) {
+    const text = element.textContent ?? '';
+    if (text.includes(marker)) return text;
+  }
+  return '';
+}
+
 describe('host isolation', () => {
   it('adds nothing to the page until the first annotation', () => {
     harness = createHarness();
     expect(harness.pageChildren()).toBe(0);
     harness.handle.mount();
-    expect(harness.pageChildren()).toBe(1);
+    // Exactly one host element reaches the page tree, and at most one attribute-free <style>
+    // alongside it on engines without adopted stylesheets. Nothing the walker could see: a
+    // `<style>` is in its ignored set, checked before its attribute rule.
+    const nodes = harness.pageNodes();
+    expect(nodes.filter((tag) => tag === 'div')).toEqual(['div']);
+    expect(nodes.every((tag) => tag === 'div' || tag === 'style')).toBe(true);
     harness.handle.dispose();
     expect(harness.pageChildren()).toBe(0);
   });
@@ -173,7 +201,42 @@ describe('host isolation', () => {
     harness.tick();
     // Nothing in the page tree can be selected, and the walker only ever sees the bare host.
     expect(document.querySelectorAll('.marker')).toHaveLength(0);
-    expect(harness.pageChildren()).toBe(1);
+    // Exactly one host element reaches the page tree, and at most one attribute-free <style>
+    // alongside it on engines without adopted stylesheets. Nothing the walker could see: a
+    // `<style>` is in its ignored set, checked before its attribute rule.
+    const nodes = harness.pageNodes();
+    expect(nodes.filter((tag) => tag === 'div')).toEqual(['div']);
+    expect(nodes.every((tag) => tag === 'div' || tag === 'style')).toBe(true);
+  });
+
+  it('holds its critical box against a page reset that outranks the shadow tree', () => {
+    harness = createHarness();
+    harness.handle.update(anchor('e1'));
+    harness.tick();
+    const host = harness.handle.host as HTMLElement;
+    expect(host).not.toBeNull();
+
+    // The cascade reverses importance across the shadow boundary, so an outer-tree `!important`
+    // beats a `:host { ... !important }` rule. A reset in the shape a CSS framework ships must
+    // therefore not be able to turn the host into a static, clickable block in the page's layout.
+    // happy-dom does not compute a cascade, so the guarantee is asserted structurally: the sheet
+    // exists, it targets the host, and every critical declaration in it is `!important`. The
+    // browser suite proves the computed values, because only a real engine has a real cascade.
+    const css = criticalHostCss();
+    expect(css).not.toBe('');
+    // `!important` on every one of these is the whole point: without it a page reset wins, and
+    // the lengths are compared loosely because the CSSOM reserialises `0` as `0px`.
+    for (const declaration of [
+      /position:\s*fixed\s*!important/,
+      /pointer-events:\s*none\s*!important/,
+      /width:\s*0(px)?\s*!important/,
+      /height:\s*0(px)?\s*!important/,
+      /z-index:\s*2147483647\s*!important/,
+    ]) {
+      expect(css, declaration.source).toMatch(declaration);
+    }
+    // Still no attributes on the host: this must not be solved with an inline style.
+    expect(host.attributes).toHaveLength(0);
   });
 
   it('writes a label as text and never as markup', () => {
@@ -351,7 +414,12 @@ describe('teardown', () => {
     const host = harness.handle.host;
     harness.handle.mount();
     expect(harness.handle.host).toBe(host);
-    expect(harness.pageChildren()).toBe(1);
+    // Exactly one host element reaches the page tree, and at most one attribute-free <style>
+    // alongside it on engines without adopted stylesheets. Nothing the walker could see: a
+    // `<style>` is in its ignored set, checked before its attribute rule.
+    const nodes = harness.pageNodes();
+    expect(nodes.filter((tag) => tag === 'div')).toEqual(['div']);
+    expect(nodes.every((tag) => tag === 'div' || tag === 'style')).toBe(true);
   });
 
   it('stops measuring once the last annotation is removed', () => {
@@ -476,7 +544,12 @@ describe('host removal by page script', () => {
     // The MutationObserver callback lands on a microtask.
     await Promise.resolve();
     expect(host.isConnected).toBe(true);
-    expect(harness.pageChildren()).toBe(1);
+    // Exactly one host element reaches the page tree, and at most one attribute-free <style>
+    // alongside it on engines without adopted stylesheets. Nothing the walker could see: a
+    // `<style>` is in its ignored set, checked before its attribute rule.
+    const nodes = harness.pageNodes();
+    expect(nodes.filter((tag) => tag === 'div')).toEqual(['div']);
+    expect(nodes.every((tag) => tag === 'div' || tag === 'style')).toBe(true);
   });
 
   it('gives up after the recovery budget and reports it instead of looping', async () => {

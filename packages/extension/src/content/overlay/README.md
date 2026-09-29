@@ -1,4 +1,9 @@
-# F-02 — Isolated overlay core
+# Overlay core and primitives
+
+F-02 is the isolated overlay core; F-03 adds the element-anchored primitives that draw on it.
+They are one module and one host: F-03 did not add a second controller, a second shadow root or a
+second frame loop, because two overlays on one page means two hosts to defend and two loops to
+budget. The old F-02 title is kept below for history.
 
 A guidance-only overlay anchored to element identity. It answers one question for later
 features — _where on screen is the element this id refers to, and is that answer still true?_ —
@@ -128,6 +133,93 @@ long-task budget. Exceeding it is reported as a `RangeError` rather than silentl
 - `tests/overlay.spec.ts` — real Chromium **and** Firefox: rendering, page scroll, nested scroll,
   viewport resize, event-less layout movement, style isolation in both directions, click
   pass-through, walker purity, host removal, and dispose.
+- `tests/primitives.spec.ts` — the F-03 safety rules in both engines (see below).
+
+## F-03 — Element-anchored primitives
+
+An annotation supplies a `primitive` and the core draws it in place of the F-02 dot marker. The
+seven kinds are `pointer`, `circle`, `arrow`, `badge`, `label`, `underline` and `spotlight`.
+
+### One renderer per layer, and why the marker is not a kind
+
+A layer is constructed with exactly one renderer: F-02's `markerRenderer` by default, or
+`createPrimitiveRenderer()` for primitives. An annotation therefore draws _either_ as the marker
+_or_ as a primitive, and a single layer cannot mix the two. That is a deliberate boundary rather
+than an unfinished feature — accepting `'marker'` in the primitive dispatcher's kind union would
+mean a `RangeError` on the default path, or a second renderer contract with no caller. A caller
+that wants markers and primitives at once uses two layers; the core supports that, and the cost is
+two hosts, which is why nothing inside the extension does it.
+
+### The safety rules, and where each one is proven
+
+Every rule below is asserted in `tests/primitives.spec.ts` against real Chromium and real
+Firefox, not only in the unit suite. A rule that is only unit-tested is a rule that has never
+fired in an engine.
+
+| rule              | how it is held                                                                                                                                                               | proven by                                                                  |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Click-through     | one `pointer-events: none !important` on the shadow root, not per node                                                                                                       | click lands on the page element, not the decoration                        |
+| Non-focusable     | primitives create no `tabindex` and nothing calls `focus()`; the root is not reachable by keyboard                                                                           | Tab order and `document.activeElement` are unchanged with annotations live |
+| Non-modal         | no `role`, no `aria-modal`, no `inert`, no focus trap, no event capture outside the root                                                                                     | AX tree gain is 0 and no page `keydown` is consumed                        |
+| Text is data      | `textContent` only, never `innerHTML`; label bounded by `MAX_LABEL_CHARS` and measured to fit                                                                                | hostile string in a label renders as literal text                          |
+| Status handling   | `data-status` on each node; the sheet hides everything that is not `visible`, so stale, missing, hidden, off-screen and unsupported targets each remove their own decoration | one test per status, plus stale/missing/hidden/offscreen                   |
+| Reduced motion    | layer answers `prefers-reduced-motion`; placement is applied immediately with no glide                                                                                       | mock of the media query; no animation at all                               |
+| No perpetual loop | a glide subscribes on arrival and unsubscribes **before** its final write                                                                                                    | settled frame count, in both the unit suite and the benchmark              |
+| Hostile page CSS  | the host's critical rules live in an adopted `CSSStyleSheet`                                                                                                                 | injected `!important` reset and `pointer-events` overrides lose            |
+
+### The hostile-CSS finding
+
+A page's `!important` declaration beats a shadow root's `:host { ... !important }` — the cascade
+resolves across the shadow boundary in the page's favour, which is correct per spec and hostile in
+practice. The two obvious fixes are both wrong here: inline styles on the host leak into the
+B-02 attribute evidence, and a `<style>` element is blocked outright by a strict
+`Content-Security-Policy`. So the host installs its critical rules as an adopted stylesheet, with
+a `<style>` fallback for engines without `replaceSync`, and a high-specificity
+`html > div:nth-of-type(n)` selector so the host wins on specificity as well as origin. The host
+stays attribute-free, which is what keeps the B-02 evidence check passing.
+
+### The glide bug worth knowing about
+
+`Glide.moveTo()` originally restarted `startedAt` on every call. With the core's 400 ms heartbeat
+requesting a frame, a settled layer re-issued `moveTo()` to the position it was already at, the
+elapsed time reset to zero every tick, and the rAF loop never terminated — 73 frames in 1.2 s
+instead of ~14. The fix is an early return when the requested destination equals the current one.
+The regression test asserts the frame count, and the benchmark's re-settled row asserts it again
+in a real engine, because a perpetual loop is precisely the failure a unit test can miss.
+
+### F-04 and E-12
+
+F-03 is the drawing half of F-04 ("annotate"): the primitives and the safe surface that an
+annotation needs are in place, and a planner-supplied annotation renders without the page being
+disturbed. What is deliberately not here is anything interactive — no leader line that a user can
+drag, no control, no confirmation affordance. The F-04 work is composing a screen state from
+several annotations and letting the planner choose among them, which is a planner change and
+depends on protocol work rather than on this module.
+
+E-12 is the local-model lane and is untouched by F-03. It is noted here only because the feature
+list lists both under the same milestone, and it would be easy to assume a primitives pass had
+moved it. It has not.
+
+### Frame timing
+
+`bench/mock-sites/tests/overlay-timing.spec.ts` measures the core's own tick count and per-tick
+cost against a 64-annotation layer (the cap) in both engines, and writes a report to
+`bench/mock-sites/tests/reports/`. Headless, the numbers are: ~0 long tasks, a longest tick of
+~2 ms in Chromium and ~3 ms in Firefox, and a settled layer falling back to 7–8 ticks per 3 s
+while the same layer in motion ticks on nearly every frame. The settled-versus-moving ratio is the
+"~0% idle CPU" claim as a measurement rather than an intention.
+
+Both projects run headless, so the absolute frame cadence is the headless cadence. **This is not a
+claim of 60 fps**, and the issue explicitly rules out claiming it from a requestAnimationFrame count:
+a headless browser has no display and no vsync, so the cadence it reports is not the cadence a user
+would see. What the measurement does establish is the part that does not depend on a display —
+long tasks (0), the cost of one tick (1.8 ms Chromium / 3 ms Firefox for a full 64-annotation layer),
+and the tick counts (7 per 3 s settled versus ~175 moving, which is the idle-cost claim). Each
+report records the machine, viewport, fixture and layer size it was measured against, read from the
+host at run time rather than typed in, so a report cannot claim hardware it was not measured on.
+
+Verifying this on real hardware, with a display attached, is the one item here that this
+environment cannot close, and it is recorded as such rather than approximated.
 
 The `hostChildCount` / `positionOf` / `statusOf` accessors exist because a closed shadow root
 leaves no other way to observe a marker from outside. They are ordinary API, used by the tests
