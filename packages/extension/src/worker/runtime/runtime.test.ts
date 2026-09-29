@@ -44,7 +44,7 @@ function stubOrt(options: { onCreate?: () => void; threadsAfterInit?: number } =
         return {
           id,
           run: vi.fn(async () => ({
-            output: { data: new Float32Array([1]), dims: [1], dispose() {} },
+            output: { type: 'float32', data: new Float32Array([1]), dims: [1], dispose() {} },
           })),
           release: vi.fn(async () => {
             released.push(id);
@@ -59,6 +59,57 @@ function stubOrt(options: { onCreate?: () => void; threadsAfterInit?: number } =
 
 afterEach(() => {
   vi.restoreAllMocks();
+});
+
+describe('int64 tensors', () => {
+  it('constructs an int64 input and copies out an int64 output as a fresh buffer', async () => {
+    const seenTypes: string[] = [];
+    const { ort } = stubOrt();
+    const int64Ort = {
+      ...ort,
+      Tensor: class {
+        constructor(
+          public type: string,
+          public data: Float32Array | BigInt64Array,
+          public dims: readonly number[]
+        ) {
+          seenTypes.push(type);
+        }
+        dispose(): void {}
+      },
+      InferenceSession: {
+        create: async () => ({
+          run: async (feeds: Record<string, { data: BigInt64Array }>) => ({
+            output: {
+              type: 'int64',
+              data: feeds.input!.data,
+              dims: [1, 4],
+              dispose(): void {},
+            },
+          }),
+          release: async () => undefined,
+        }),
+      },
+    };
+
+    const runtime = new OnnxRuntime({
+      backendOrder: ['wasm'],
+      loadOrt: () => Promise.resolve(int64Ort as never),
+    });
+    await runtime.initialize(PROBE);
+
+    const inputData = new BigInt64Array([101n, 2054n, 2003n, 102n]);
+    const outputs = await runtime.run(MODEL, {
+      input: { type: 'int64', data: inputData, dims: [1, 4] },
+    });
+
+    expect(seenTypes).toContain('int64');
+    expect(outputs.output!.type).toBe('int64');
+    expect(outputs.output!.data).toEqual(inputData);
+    expect(outputs.output!.data).not.toBe(inputData);
+
+    await runtime.dispose();
+  });
 });
 
 describe('repeated initialization', () => {
@@ -194,7 +245,9 @@ describe('disposal during inference', () => {
     });
     await runtime.initialize(PROBE);
 
-    const running = runtime.run(MODEL, { input: { data: new Float32Array([1]), dims: [1] } });
+    const running = runtime.run(MODEL, {
+      input: { type: 'float32', data: new Float32Array([1]), dims: [1] },
+    });
     // Wait until inference has genuinely started. Disposing earlier would race
     // the borrow rather than exercise it.
     await started;

@@ -1,4 +1,4 @@
-# Worker PII engine API (D-01, extended by D-02, D-03, D-05)
+# Worker PII engine API (D-01, extended by D-02, D-03, D-05, D-08)
 
 Finding and redaction types, a callable `PiiEngineApi`, and a conservative
 stub that masks or withholds everything, so other lanes can integrate with
@@ -275,21 +275,32 @@ span gets. Re-scanning already-redacted output is therefore safe in effect
 the literal text changes on a second pass — `vault-integration.test.ts`
 asserts this directly.
 
+## Local NER (D-08)
+
+`ner/` runs D-07's exported model through C-02's ONNX runtime and feeds its
+spans into the exact same union `layered.ts` already drives for L2 — see
+`ner/README.md` for the full pipeline (tokenizer, window stitching, BIO
+decode) and, critically, its "Quality blocker" section: this model's real
+measured recall is far below the coverage target, so every finding it
+produces stays `synthetic: true` unconditionally via `createLayeredPiiEngine`'s
+optional `ner` option.
+
 ## Boundaries
 
-| Concern                                                | Owner               |
-| ------------------------------------------------------ | ------------------- |
-| L2 pattern/checksum detectors                          | D-02 (`l2/`)        |
-| Semantic DOM classification (L1)                       | D-03 (`semantic/`)  |
-| Per-site/per-user policy (L5)                          | D-03 (`policy/`)    |
-| NER (L3), vision (L4)                                  | D-07, D-08          |
-| Vault storage                                          | D-04                |
-| Consistent session vault mappings, destination binding | D-04, D-09          |
-| Span-aware, vault-backed text substitution             | D-05 (`redact.ts`)  |
-| Text/pixel crop redaction                              | D-13, D-14          |
-| Restricted egress mode                                 | D-10                |
-| Final outbound scan, fail-closed enforcement           | D-11 (Egress Guard) |
-| Intercepting-proxy leak harness                        | C-16                |
+| Concern                                                | Owner                                      |
+| ------------------------------------------------------ | ------------------------------------------ |
+| L2 pattern/checksum detectors                          | D-02 (`l2/`)                               |
+| Semantic DOM classification (L1)                       | D-03 (`semantic/`)                         |
+| Per-site/per-user policy (L5)                          | D-03 (`policy/`)                           |
+| Local NER (L3)                                         | D-08 (`ner/`)                              |
+| Vision (L4)                                            | D-07 (models), C-05–C-09 (vision pipeline) |
+| Vault storage                                          | D-04                                       |
+| Consistent session vault mappings, destination binding | D-04, D-09                                 |
+| Span-aware, vault-backed text substitution             | D-05 (`redact.ts`)                         |
+| Text/pixel crop redaction                              | D-13, D-14                                 |
+| Restricted egress mode                                 | D-10                                       |
+| Final outbound scan, fail-closed enforcement           | D-11 (Egress Guard)                        |
+| Intercepting-proxy leak harness                        | C-16                                       |
 
 This engine must never perform network I/O, and its decisions never
 authorize a network send by themselves — the Egress Guard's own scan is

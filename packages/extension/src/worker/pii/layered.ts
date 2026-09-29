@@ -3,6 +3,8 @@ import type { PiiClass } from '@privacagent/protocol';
 import { buildPiiEngine } from './engineBase.js';
 import { scanText as l2ScanText } from './l2/scan.js';
 import type { L2Match } from './l2/types.js';
+import type { NerEngineDeps } from './ner/engine.js';
+import { runNerScan } from './ner/engine.js';
 import {
   composeSpanRedaction,
   createLocalPlaceholderMinter,
@@ -59,8 +61,13 @@ function toRawSpanMatch(match: L2Match): RawSpanMatch {
   };
 }
 
-export function createLayeredPiiEngine(): PiiEngineApi {
+export interface LayeredPiiEngineOptions {
+  readonly ner?: NerEngineDeps;
+}
+
+export function createLayeredPiiEngine(options: LayeredPiiEngineOptions = {}): PiiEngineApi {
   const localMinter = createLocalPlaceholderMinter();
+  const { ner } = options;
 
   function minterFor(vaultContext: PiiTextInput['vaultContext']): PlaceholderMinter {
     return vaultContext ? createVaultPlaceholderMinter(vaultContext) : localMinter;
@@ -99,6 +106,11 @@ export function createLayeredPiiEngine(): PiiEngineApi {
     const l2Result = l2ScanText(text, evidence);
     const l2Ran = l2Result.status === 'ok';
     const rawMatches: RawSpanMatch[] = l2Ran ? l2Result.matches.map(toRawSpanMatch) : [];
+
+    if (ner) {
+      const nerResult = await runNerScan(text, ner);
+      if (nerResult.status === 'ok') rawMatches.push(...nerResult.spans);
+    }
 
     if (rawMatches.length === 0) {
       if (isValueField) {

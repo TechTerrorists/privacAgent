@@ -30,22 +30,22 @@ room.
 
 ## Base model / tokenizer
 
-| | |
-| --- | --- |
-| Architecture | `BertForTokenClassification` (`transformers==4.57.6`), trained from scratch — no pretrained checkpoint loaded |
-| Hidden size / layers / heads | 128 / 2 / 2 |
-| Intermediate size | 512 |
-| Max position embeddings | 128 |
-| Parameters | 1,438,859 |
-| Tokenizer | WordPiece, trained from scratch on the training split (`tokenizers==0.22.2`, vocab size 8,000), case-sensitive, accents/combining marks preserved (`strip_accents=False`, `do_lower_case=False` — see **Known tokenizer pitfall** below) |
-| License suitability | No pretrained weights are reused, so no upstream license applies to the model weights. `transformers`/`tokenizers`/`torch`/`onnxruntime` are all Apache-2.0/BSD-family, commercial-use-compatible. |
+|                              |                                                                                                                                                                                                                                          |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Architecture                 | `BertForTokenClassification` (`transformers==4.57.6`), trained from scratch — no pretrained checkpoint loaded                                                                                                                            |
+| Hidden size / layers / heads | 128 / 2 / 2                                                                                                                                                                                                                              |
+| Intermediate size            | 512                                                                                                                                                                                                                                      |
+| Max position embeddings      | 128                                                                                                                                                                                                                                      |
+| Parameters                   | 1,438,859                                                                                                                                                                                                                                |
+| Tokenizer                    | WordPiece, trained from scratch on the training split (`tokenizers==0.22.2`, vocab size 8,000), case-sensitive, accents/combining marks preserved (`strip_accents=False`, `do_lower_case=False` — see **Known tokenizer pitfall** below) |
+| License suitability          | No pretrained weights are reused, so no upstream license applies to the model weights. `transformers`/`tokenizers`/`torch`/`onnxruntime` are all Apache-2.0/BSD-family, commercial-use-compatible.                                       |
 
 ### Known tokenizer pitfall (fixed, regression-tested)
 
 `tokenizers.normalizers.BertNormalizer` and `transformers.BertTokenizerFast`
 both silently re-enable lowercasing and Unicode accent/combining-mark
 stripping unless `strip_accents=False` is passed to **both** the normalizer
-*and* the `BertTokenizerFast` constructor (the latter's `do_lower_case`
+_and_ the `BertTokenizerFast` constructor (the latter's `do_lower_case`
 default reconstructs the normalizer on `from_pretrained`, discarding a
 custom normalizer embedded in a saved `tokenizer.json` otherwise). Before
 this was fixed, Devanagari vowel signs (मात्रा, e.g. the े in "मेरा") were
@@ -54,17 +54,17 @@ this exact bug.
 
 ## Training
 
-| | |
-| --- | --- |
-| Seed | 20260215 (dataset generation, split, and `torch.manual_seed`) |
-| Epochs | 10 |
-| Batch size | 8 |
-| Optimizer | AdamW, lr 7e-4 |
+|                              |                                                                                                 |
+| ---------------------------- | ----------------------------------------------------------------------------------------------- |
+| Seed                         | 20260215 (dataset generation, split, and `torch.manual_seed`)                                   |
+| Epochs                       | 10                                                                                              |
+| Batch size                   | 8                                                                                               |
+| Optimizer                    | AdamW, lr 7e-4                                                                                  |
 | Max sequence length / stride | 64 / 16 (sliding window for longer input — see `packages/models/pii-ner/tests/test_dataset.py`) |
-| Hardware | CPU only (no GPU used or required) |
-| Environment | Python 3.12.13, `torch==2.14.0+cpu`, `transformers==4.57.6`, Windows |
-| Wall-clock training time | 78.1 seconds |
-| Training loss by epoch | 1.086 → 0.501 → 0.210 → 0.118 → 0.079 → 0.063 → 0.061 → 0.044 → 0.049 → 0.037 |
+| Hardware                     | CPU only (no GPU used or required)                                                              |
+| Environment                  | Python 3.12.13, `torch==2.14.0+cpu`, `transformers==4.57.6`, Windows                            |
+| Wall-clock training time     | 78.1 seconds                                                                                    |
+| Training loss by epoch       | 1.086 → 0.501 → 0.210 → 0.118 → 0.079 → 0.063 → 0.061 → 0.044 → 0.049 → 0.037                   |
 
 Reproduce with:
 
@@ -99,32 +99,32 @@ comparator): 0.000 precision/recall/F1 on every class, by construction.
 
 **Trained model — overall (micro/macro), by class:**
 
-| Class | Precision | Recall | F1 | Support |
-| --- | ---: | ---: | ---: | ---: |
-| NAME | 0.227 | 0.476 | 0.307 | 397 |
-| ADDRESS | 0.004 | 0.014 | 0.006 | 219 |
-| ORG | 0.046 | 0.317 | 0.080 | 142 |
-| LOCATION | 0.049 | 0.229 | 0.081 | 166 |
-| DOB | 0.247 | 0.342 | 0.287 | 111 |
-| **micro avg** | **0.090** | **0.302** | **0.139** | 1035 |
-| macro avg | 0.115 | 0.276 | 0.152 | 1035 |
+| Class         | Precision |    Recall |        F1 | Support |
+| ------------- | --------: | --------: | --------: | ------: |
+| NAME          |     0.227 |     0.476 |     0.307 |     397 |
+| ADDRESS       |     0.004 |     0.014 |     0.006 |     219 |
+| ORG           |     0.046 |     0.317 |     0.080 |     142 |
+| LOCATION      |     0.049 |     0.229 |     0.081 |     166 |
+| DOB           |     0.247 |     0.342 |     0.287 |     111 |
+| **micro avg** | **0.090** | **0.302** | **0.139** |    1035 |
+| macro avg     |     0.115 |     0.276 |     0.152 |    1035 |
 
 **By language:**
 
-| Lang | Class | Precision | Recall | F1 | Support |
-| --- | --- | ---: | ---: | ---: | ---: |
-| en | NAME | 0.155 | 0.319 | 0.209 | 251 |
-| en | ADDRESS | 0.000 | 0.000 | 0.000 | 160 |
-| en | ORG | 0.005 | 0.056 | 0.009 | 72 |
-| en | LOCATION | 0.029 | 0.152 | 0.049 | 112 |
-| en | DOB | 0.089 | 0.138 | 0.108 | 80 |
-| **en micro avg** | | **0.043** | **0.166** | **0.068** | 675 |
-| hi | NAME | 0.343 | 0.747 | 0.470 | 146 |
-| hi | ADDRESS | 0.018 | 0.051 | 0.027 | 59 |
-| hi | ORG | 0.244 | 0.586 | 0.345 | 70 |
-| hi | LOCATION | 0.111 | 0.389 | 0.173 | 54 |
-| hi | DOB | 0.871 | 0.871 | 0.871 | 31 |
-| **hi micro avg** | | **0.231** | **0.558** | **0.327** | 360 |
+| Lang             | Class    | Precision |    Recall |        F1 | Support |
+| ---------------- | -------- | --------: | --------: | --------: | ------: |
+| en               | NAME     |     0.155 |     0.319 |     0.209 |     251 |
+| en               | ADDRESS  |     0.000 |     0.000 |     0.000 |     160 |
+| en               | ORG      |     0.005 |     0.056 |     0.009 |      72 |
+| en               | LOCATION |     0.029 |     0.152 |     0.049 |     112 |
+| en               | DOB      |     0.089 |     0.138 |     0.108 |      80 |
+| **en micro avg** |          | **0.043** | **0.166** | **0.068** |     675 |
+| hi               | NAME     |     0.343 |     0.747 |     0.470 |     146 |
+| hi               | ADDRESS  |     0.018 |     0.051 |     0.027 |      59 |
+| hi               | ORG      |     0.244 |     0.586 |     0.345 |      70 |
+| hi               | LOCATION |     0.111 |     0.389 |     0.173 |      54 |
+| hi               | DOB      |     0.871 |     0.871 |     0.871 |      31 |
+| **hi micro avg** |          | **0.231** | **0.558** | **0.327** |     360 |
 
 Val overall micro (secondary check, not used to pick these numbers):
 precision 0.148, recall 0.369, F1 0.212, support 566.
@@ -166,13 +166,13 @@ evidence of safety).
 
 ## Export & size
 
-| | FP32 ONNX | Quantized ONNX (dynamic, int8 weights) |
-| --- | ---: | ---: |
-| Size | 5,803,637 bytes (5.53 MiB) | 1,535,301 bytes (1.46 MiB) |
+|         |                                                          FP32 ONNX |                             Quantized ONNX (dynamic, int8 weights) |
+| ------- | -----------------------------------------------------------------: | -----------------------------------------------------------------: |
+| Size    |                                         5,803,637 bytes (5.53 MiB) |                                         1,535,301 bytes (1.46 MiB) |
 | SHA-256 | `d65863b6f669a8410a100e9e3fa7b0f66f4ce48a997b3c5512ee86d60803d166` | `3e4e6f527cf6a140814dc2875f1a870cfa29de471d3fe4a4f1936efca29a1df4` |
 
 - Opset: 17. Inputs: `input_ids`, `attention_mask` (both `int64[batch,
-  sequence]`, dynamic on both axes). Output: `logits`
+sequence]`, dynamic on both axes). Output: `logits`
   (`float32[batch, sequence, 11]`, 11 = `len(LABEL_LIST)`).
 - **1.46 MiB quantized** is a small fraction of the shared 40 MB core-model
   budget — this model does not need to (and should not) consume the whole
@@ -182,10 +182,33 @@ evidence of safety).
 
 ### Native vs. ONNX parity (measured on the 30-record committed fixture set)
 
-| Comparison | Max abs. logit diff | Label agreement |
-| --- | ---: | ---: |
-| PyTorch (native) vs. FP32 ONNX | 4.29e-06 | 100.0% (643/643 tokens) |
-| PyTorch (native) vs. quantized ONNX | 0.250 | 100.0% (643/643 tokens) |
+| Comparison                          | Max abs. logit diff |         Label agreement |
+| ----------------------------------- | ------------------: | ----------------------: |
+| PyTorch (native) vs. FP32 ONNX      |            4.29e-06 | 100.0% (643/643 tokens) |
+| PyTorch (native) vs. quantized ONNX |               0.250 | 100.0% (643/643 tokens) |
+
+### D-08 re-measurement on the held-out test set (quantized ONNX)
+
+D-08's browser integration loads `model.quant.onnx`, not the fp32 torch
+model, so its `evaluate.py`'s new `onnx_model_predict_fn` was run against the
+full held-out `test.jsonl` (1,035 gold tokens) to confirm the parity above
+holds at recall-measurement scale, not just on the 30-record fixture set:
+
+```json
+{ "precision": 0.0901, "recall": 0.3024, "f1-score": 0.1389, "support": 1035 }
+```
+
+Identical to `test_metrics_trained.overall.micro avg` above (0.3024) — the
+100% label agreement measured on the small fixture set holds at full test-set
+scale too; quantization does not change recall here. The D-08 issue (#89)
+states a "corrected" recall of 13.34% for this same artifact; this
+reproduction, using the real exported model and the real held-out test set,
+does not confirm that lower figure. Both numbers are recorded in
+`packages/extension/src/worker/pii/ner/capability.ts` rather than silently
+preferring one — full result at
+`artifacts/run3/quantized_onnx_test_recall.json`. Either way the conclusion
+is unchanged: nowhere near the ≥98% target, so D-08 grants this model no
+real detector coverage.
 
 Quantization introduces measurable numeric drift (0.25 max logit diff) but
 **zero observed prediction (argmax) disagreement** on this fixture set —
@@ -198,11 +221,11 @@ predicted label here. Reproduce:
 Single sequence, 64 tokens, 50 runs after 5 warmup runs, this development
 machine (not a guaranteed SLA):
 
-| | |
-| --- | --- |
-| Mean | 0.486 ms |
+|        |          |
+| ------ | -------- |
+| Mean   | 0.486 ms |
 | Median | 0.487 ms |
-| p95 | 0.540 ms |
+| p95    | 0.540 ms |
 
 ## Long-input windowing and truncation
 

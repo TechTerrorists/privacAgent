@@ -27,6 +27,25 @@ def torch_model_predict_fn(model) -> PredictFn:
     return predict
 
 
+def onnx_model_predict_fn(onnx_path: str) -> PredictFn:
+    import numpy as np
+    import onnxruntime as ort
+
+    session = ort.InferenceSession(onnx_path, providers=["CPUExecutionProvider"])
+
+    def predict(input_ids: list[int], attention_mask: list[int]) -> list[int]:
+        logits = session.run(
+            ["logits"],
+            {
+                "input_ids": np.array([input_ids], dtype=np.int64),
+                "attention_mask": np.array([attention_mask], dtype=np.int64),
+            },
+        )[0]
+        return logits.argmax(axis=-1)[0].tolist()
+
+    return predict
+
+
 def baseline_predict_fn() -> PredictFn:
     outside_id = LABEL_TO_ID["O"]
 
