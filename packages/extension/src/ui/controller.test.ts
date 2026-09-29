@@ -1,10 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   createDemoController,
-  createMemoryCompanionStore,
   createMemoryThemeStore,
   type SidePanelController,
-  type CompanionStore,
   type ThemeStore,
 } from './controller.js';
 
@@ -174,110 +172,5 @@ describe('demo side-panel controller', () => {
     expect(await store.read()).toBe('light');
     await store.write('dark');
     expect(await store.read()).toBe('dark');
-  });
-});
-
-describe('the companion preference in the side panel', () => {
-  it('starts off, and does not write anything until asked', () => {
-    const store = createMemoryCompanionStore();
-    const write = vi.spyOn(store, 'write');
-    const controller = createDemoController({ companionStore: store });
-
-    expect(controller.getState().companionEnabled).toBe(false);
-    expect(write).not.toHaveBeenCalled();
-  });
-
-  it('persists the value the user chose', async () => {
-    const store = createMemoryCompanionStore();
-    const controller = createDemoController({ companionStore: store });
-
-    await controller.setCompanionEnabled(true);
-
-    expect(controller.getState().companionEnabled).toBe(true);
-    expect(await store.read()).toBe(true);
-  });
-
-  it('applies to the panel immediately, before the write resolves', async () => {
-    // The companion's state comes from storage, so the panel must not wait on the write to show
-    // the user's choice — and because the content script hears about the change from storage too,
-    // there is nothing to roll back if the write later fails.
-    let release: (() => void) | undefined;
-    const store: CompanionStore = {
-      read: async () => false,
-      write: () =>
-        new Promise<void>((resolve) => {
-          release = resolve;
-        }),
-    };
-    const controller = createDemoController({ companionStore: store });
-
-    const pending = controller.setCompanionEnabled(true);
-    expect(controller.getState().companionEnabled).toBe(true);
-
-    release?.();
-    await pending;
-  });
-
-  it('reports a failed write without flipping the value back', async () => {
-    const store: CompanionStore = {
-      read: async () => false,
-      write: async () => {
-        throw new Error('quota exceeded');
-      },
-    };
-    const controller = createDemoController({ companionStore: store });
-
-    await controller.setCompanionEnabled(true);
-
-    // The panel keeps showing what the user asked for and surfaces the failure, rather than
-    // silently reverting a control they deliberately operated.
-    expect(controller.getState().companionEnabled).toBe(true);
-    expect(controller.getState().error).toContain('Companion');
-  });
-
-  it('restores the stored value on hydrate', async () => {
-    const controller = createDemoController({
-      companionStore: createMemoryCompanionStore(true),
-    });
-
-    await controller.hydrate();
-
-    expect(controller.getState().companionEnabled).toBe(true);
-  });
-
-  it('does not let a late hydrate overwrite a choice the user just made', async () => {
-    // The panel is created and the user can reach the toggle before storage has answered, so the
-    // read has to lose to a deliberate write.
-    let releaseRead: (() => void) | undefined;
-    const store: CompanionStore = {
-      read: () =>
-        new Promise<boolean>((resolve) => {
-          releaseRead = () => resolve(false);
-        }),
-      write: async () => undefined,
-    };
-    const controller = createDemoController({ companionStore: store });
-
-    const hydrating = controller.hydrate();
-    await controller.setCompanionEnabled(true);
-    releaseRead?.();
-    await hydrating;
-
-    expect(controller.getState().companionEnabled).toBe(true);
-  });
-
-  it('ignores a non-boolean', async () => {
-    const store = createMemoryCompanionStore();
-    const write = vi.spyOn(store, 'write');
-    const controller = createDemoController({ companionStore: store });
-
-    await controller.setCompanionEnabled('yes' as unknown as boolean);
-
-    expect(write).not.toHaveBeenCalled();
-  });
-
-  it('applies an explicit initial value', () => {
-    const controller = createDemoController({ initialCompanionEnabled: true });
-    expect(controller.getState().companionEnabled).toBe(true);
   });
 });

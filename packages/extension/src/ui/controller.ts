@@ -1,5 +1,3 @@
-import { COMPANION_ENABLED_DEFAULT } from '../preferences.js';
-
 export type Theme = 'system' | 'light' | 'dark';
 export type Route = 'home' | 'settings';
 /**
@@ -25,12 +23,6 @@ export interface SidePanelState {
   readonly actions: readonly ActionEntry[];
   readonly error: string | null;
   readonly savingTheme: boolean;
-  /**
-   * F-08: whether the cursor companion is on. The panel is the only place this is set — the
-   * companion itself is inert and has no controls — and the value is read by the content script
-   * in every open tab, so this flag is the single source of truth for all of them.
-   */
-  readonly companionEnabled: boolean;
   readonly demo: boolean;
 }
 
@@ -43,8 +35,6 @@ export interface SidePanelController {
   stop(): void;
   navigate(route: Route): void;
   setTheme(theme: Theme): Promise<void>;
-  /** F-08: turns the companion on or off. Persisted, and applied in every open tab at once. */
-  setCompanionEnabled(enabled: boolean): Promise<void>;
   hydrate(): Promise<void>;
   dispose(): void;
 }
@@ -54,23 +44,9 @@ export interface ThemeStore {
   write(theme: Theme): Promise<void>;
 }
 
-/**
- * F-08's store. Separate from `ThemeStore` rather than folded into a `Preferences` object because
- * they have different failure semantics: a failed theme read falls back to `system`, whereas a
- * failed companion read must *enable* the companion, so a storage hiccup never leaves the user
- * with a character they cannot account for.
- */
-export interface CompanionStore {
-  read(): Promise<boolean>;
-  write(enabled: boolean): Promise<void>;
-}
-
 export interface DemoControllerOptions {
   readonly themeStore?: ThemeStore;
   readonly initialTheme?: Theme;
-  /** F-08. Injected alongside the theme store so both preferences persist the same way. */
-  readonly companionStore?: CompanionStore;
-  readonly initialCompanionEnabled?: boolean;
   /**
    * Resolves once the run acknowledges a stop request. Injected rather than faked inline so the
    * demo still models the real handshake, and so a test can hold a run in `stopping` for as long
@@ -105,20 +81,6 @@ export function createMemoryThemeStore(initialTheme: Theme = DEFAULT_THEME): The
   };
 }
 
-export function createMemoryCompanionStore(
-  initial: boolean = COMPANION_ENABLED_DEFAULT
-): CompanionStore {
-  let enabled = initial;
-  return {
-    async read(): Promise<boolean> {
-      return enabled;
-    },
-    async write(next: boolean): Promise<void> {
-      enabled = next;
-    },
-  };
-}
-
 class DemoSidePanelController implements SidePanelController {
   private state: SidePanelState = {
     route: 'home',
@@ -128,28 +90,20 @@ class DemoSidePanelController implements SidePanelController {
     actions: INITIAL_ACTIONS,
     error: null,
     savingTheme: false,
-    companionEnabled: COMPANION_ENABLED_DEFAULT,
     demo: true,
   };
 
   private readonly listeners = new Set<() => void>();
   private readonly themeStore: ThemeStore;
-  private readonly companionStore: CompanionStore;
   private readonly acknowledgeStop: () => Promise<void>;
   private disposed = false;
   private themeWriteStarted = false;
-  private companionWriteStarted = false;
 
   constructor(options: DemoControllerOptions = {}) {
     this.themeStore = options.themeStore ?? createMemoryThemeStore(options.initialTheme);
-    this.companionStore =
-      options.companionStore ?? createMemoryCompanionStore(options.initialCompanionEnabled);
     this.acknowledgeStop = options.acknowledgeStop ?? (() => Promise.resolve());
     if (options.initialTheme !== undefined && isTheme(options.initialTheme)) {
       this.state = { ...this.state, theme: options.initialTheme };
-    }
-    if (options.initialCompanionEnabled !== undefined) {
-      this.state = { ...this.state, companionEnabled: options.initialCompanionEnabled };
     }
   }
 
@@ -216,37 +170,12 @@ class DemoSidePanelController implements SidePanelController {
     }
   }
 
-  async setCompanionEnabled(enabled: boolean): Promise<void> {
-    if (this.disposed || typeof enabled !== 'boolean') return;
-    this.companionWriteStarted = true;
-    // Applied to the panel before the write lands, and the content script hears about the change
-    // from storage rather than from this controller. Deliberately not optimistic-then-reverted:
-    // the companion's state is driven by one write, so there is nothing to roll back.
-    this.update({ companionEnabled: enabled });
-    try {
-      await this.companionStore.write(enabled);
-    } catch {
-      if (!this.disposed) {
-        this.update({ error: 'Companion setting could not be saved.' });
-      }
-    }
-  }
-
   async hydrate(): Promise<void> {
     if (this.disposed) return;
     try {
       const theme = await this.themeStore.read();
       if (!this.disposed && !this.themeWriteStarted && isTheme(theme)) {
         this.update({ theme });
-      }
-    } catch {
-      if (!this.disposed) this.update({ error: 'Saved settings could not be loaded.' });
-    }
-
-    try {
-      const enabled = await this.companionStore.read();
-      if (!this.disposed && !this.companionWriteStarted) {
-        this.update({ companionEnabled: enabled });
       }
     } catch {
       if (!this.disposed) this.update({ error: 'Saved settings could not be loaded.' });

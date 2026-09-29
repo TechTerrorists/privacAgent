@@ -181,9 +181,8 @@ function Home(props: {
 function Settings(props: {
   readonly state: SidePanelState;
   readonly onThemeChange: (theme: Theme) => void;
-  readonly onCompanionChange: (enabled: boolean) => void;
 }): JSX.Element {
-  const { state, onThemeChange, onCompanionChange } = props;
+  const { state, onThemeChange } = props;
   return (
     <section class="flex flex-col gap-3 p-3">
       <h2 class="text-sm font-semibold text-pa-text">Settings</h2>
@@ -201,57 +200,10 @@ function Settings(props: {
         {state.savingTheme ? 'Saving theme…' : 'Theme saved locally in this browser.'}
       </p>
 
-      <div class="border-t border-pa-border pt-3">
-        <CompanionToggle enabled={state.companionEnabled} onChange={onCompanionChange} />
-        <p class="mt-1 text-xs text-pa-muted" data-testid="companion-status">
-          {state.companionEnabled
-            ? 'A small character follows your cursor to show what PrivacAgent is doing. It is drawn on the page, cannot be clicked, and never captures anything itself.'
-            : 'The cursor companion is off. Nothing is drawn on the page.'}
-        </p>
-      </div>
-
       {state.error ? (
         <ErrorState title="Something needs attention" message={state.error} testId="panel-error" />
       ) : null}
     </section>
-  );
-}
-
-/**
- * F-08's switch.
- *
- * A native checkbox inside its own label, not a `div` with `role="switch"`. The whole of this
- * feature's risk is that a page ends up with something that looks interactive, so the control that
- * turns the companion on has to be the boring one: real focus order, real Space/Enter handling, a
- * real label association, and announced state, with none of that hand-rolled. It lives in the
- * trusted side panel, never on the page — the companion itself is inert and has no controls at all.
- *
- * It is deliberately not added to the UI kit. The kit holds components the panel and the page share,
- * and this one is referenced from exactly one place in one app.
- */
-function CompanionToggle(props: {
-  readonly enabled: boolean;
-  readonly onChange: (enabled: boolean) => void;
-}): JSX.Element {
-  return (
-    <label
-      class="flex cursor-pointer items-start gap-2 text-sm text-pa-text"
-      data-testid="companion-toggle"
-    >
-      <input
-        type="checkbox"
-        class="mt-0.5 h-4 w-4 shrink-0 accent-pa-accent focus-visible:outline-2 focus-visible:outline-pa-ring"
-        checked={props.enabled}
-        onChange={(event) => props.onChange((event.currentTarget as HTMLInputElement).checked)}
-        data-testid="companion-input"
-      />
-      <span>
-        <span class="font-medium">Cursor companion</span>
-        <span class="block text-xs text-pa-muted">
-          Shows idle, listening, thinking, acting, and needs-approval near your pointer.
-        </span>
-      </span>
-    </label>
   );
 }
 
@@ -287,9 +239,6 @@ function Panel(props: {
             state={state}
             onThemeChange={(theme) => {
               void controller.setTheme(theme);
-            }}
-            onCompanionChange={(enabled) => {
-              void controller.setCompanionEnabled(enabled);
             }}
           />
         ) : (

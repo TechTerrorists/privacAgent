@@ -20,10 +20,9 @@ const bundle = await build({
 });
 /** @type {Map<string, {type: string, body: string}>} */
 const routes = new Map();
-// `overlay` is the F-03 primitives gallery and `companion` is the F-08 one: the same fixture pack,
-// plus a page of deterministic targets for each overlay browser suite. Both are local and
-// synthetic like the other four.
-for (const page of ['index', 'profile', 'settings', 'search', 'overlay', 'companion']) {
+// `overlay` is the F-03 primitives gallery: the same fixture pack, plus a page of deterministic
+// targets for the overlay browser suite. It is local and synthetic like the other four.
+for (const page of ['index', 'profile', 'settings', 'search', 'overlay']) {
   routes.set(page === 'index' ? '/' : `/${page}`, {
     type: 'text/html; charset=utf-8',
     body: await readFile(new URL(`./${page}.html`, import.meta.url), 'utf8'),
