@@ -84,6 +84,18 @@ Calling `initialize()` twice releases the previous cache rather than orphaning
 the sessions it held, and a `dispose()` that lands mid-initialization wins — the
 runtime will not come back reporting `ready` after being shut down.
 
+## Tensor types
+
+`RuntimeInput`/`RuntimeOutput` carry an explicit `type: 'float32' | 'int64'`
+(D-08). `int64` exists because BERT-style token-classification models take
+`input_ids`/`attention_mask` as 64-bit integers, not floats — ONNX Runtime
+Web's own `Tensor` constructor already distinguishes element types, this
+facade just stopped hard-coding `'float32'` and started forwarding whichever
+type the caller declared. `copyTensorData()` picks the right typed-array
+constructor (`BigInt64Array` vs `Float32Array`) when copying an output out of
+the runtime's memory, so a `BigInt64Array` output is never silently
+truncated through a `Float32Array` copy.
+
 ## Tensor ownership
 
 Three categories, one of which is ours:

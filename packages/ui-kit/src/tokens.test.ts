@@ -2,7 +2,10 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-const tokens = readFileSync(fileURLToPath(new URL('./tokens.css', import.meta.url)), 'utf8');
+const tokens = readFileSync(
+  fileURLToPath(new URL('./tokens.css', import.meta.url)),
+  'utf8'
+).replace(/\r\n/g, '\n');
 
 function blockFor(selector: string): string {
   const start = tokens.indexOf(selector);

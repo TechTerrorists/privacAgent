@@ -15,7 +15,7 @@
  * those bytes.
  */
 
-import { OnnxRuntime } from './runtime.js';
+import { OnnxRuntime, type RuntimeTensorType } from './runtime.js';
 import type { BackendName, ModelDescriptor, RuntimeDiagnostics } from './types.js';
 
 /** Requests this worker understands. */
@@ -31,7 +31,10 @@ export type RuntimeWorkerRequest =
       readonly id: number;
       readonly kind: 'run';
       readonly model: { id: string; version: string; bytes: ArrayBuffer };
-      readonly feeds: Record<string, { data: Float32Array; dims: readonly number[] }>;
+      readonly feeds: Record<
+        string,
+        { type: RuntimeTensorType; data: Float32Array | BigInt64Array; dims: readonly number[] }
+      >;
     }
   | { readonly id: number; readonly kind: 'diagnostics' }
   | { readonly id: number; readonly kind: 'dispose' };
@@ -42,7 +45,10 @@ export type RuntimeWorkerResponse =
   | {
       readonly id: number;
       readonly ok: true;
-      readonly outputs: Record<string, { data: Float32Array; dims: readonly number[] }>;
+      readonly outputs: Record<
+        string,
+        { type: RuntimeTensorType; data: Float32Array | BigInt64Array; dims: readonly number[] }
+      >;
     }
   | { readonly id: number; readonly ok: false; readonly error: string };
 
