@@ -35,7 +35,7 @@ export function createFrameScheduler(win: Window): FrameScheduler {
  */
 export class FrameCoalescer {
   private readonly scheduler: FrameScheduler;
-  private readonly subscribers = new Set<() => void>();
+  private readonly subscribers = new Set<(timestamp: number) => void>();
   private cancelPending: (() => void) | undefined;
 
   constructor(scheduler: FrameScheduler) {
@@ -51,14 +51,20 @@ export class FrameCoalescer {
     return this.subscribers.size;
   }
 
-  /** Requests a frame. Repeated calls inside one frame collapse into a single callback. */
-  schedule(subscriber: () => void): void {
+  /**
+   * Requests a frame. Repeated calls inside one frame collapse into a single callback.
+   *
+   * Subscribers receive the frame's own timestamp rather than reading the clock themselves, so a
+   * subscriber that animates measures from the moment the frame is presented. F-03's glide driver
+   * relies on this: under a test-controlled clock it is what makes a transition deterministic.
+   */
+  schedule(subscriber: (timestamp: number) => void): void {
     this.subscribers.add(subscriber);
     if (this.cancelPending) return;
     this.cancelPending = this.scheduler.request(this.run);
   }
 
-  unsubscribe(subscriber: () => void): void {
+  unsubscribe(subscriber: (timestamp: number) => void): void {
     this.subscribers.delete(subscriber);
   }
 
@@ -69,10 +75,10 @@ export class FrameCoalescer {
     this.subscribers.clear();
   }
 
-  private run = (): void => {
+  private run = (timestamp: number): void => {
     this.cancelPending = undefined;
     // Snapshot: a subscriber may unsubscribe while the frame is being serviced.
-    for (const subscriber of [...this.subscribers]) subscriber();
+    for (const subscriber of [...this.subscribers]) subscriber(timestamp);
   };
 }
 

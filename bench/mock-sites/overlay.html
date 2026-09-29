@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>Overlay primitives gallery · Local Lab</title>
+    <link rel="icon" href="/favicon.svg" />
+    <link rel="stylesheet" href="/assets/style.css" />
+    <link rel="stylesheet" href="/assets/gallery.css" />
+    <script defer src="/assets/app.js"></script>
+  </head>
+  <body data-scenario="overlay">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header>
+      <a class="brand" href="/">Local<span>Lab</span><span class="tag">B-08 · F-03</span></a>
+      <nav aria-label="Mock sites">
+        <a href="/">Overview</a><a href="/profile">Profile</a><a href="/settings">Settings</a
+        ><a href="/search">Catalog</a>
+      </nav>
+    </header>
+    <main id="main">
+      <div class="intro">
+        <p class="eyebrow">F-03 · ELEMENT-ANCHORED OVERLAY PRIMITIVES</p>
+        <h1>Overlay primitives gallery.</h1>
+        <p class="lead">
+          Deterministic targets for every primitive and every annotation state. All text here is
+          synthetic.
+        </p>
+      </div>
+
+      <section class="panel" aria-labelledby="h-kinds">
+        <h2 id="h-kinds">One target per primitive</h2>
+        <p class="panel-note">
+          Fixed sizes and fixed order, so a browser test can assert geometry rather than pixels.
+        </p>
+        <div class="grid">
+          <div class="cell"><button id="t-pointer" type="button">Pointer target</button></div>
+          <div class="cell"><button id="t-circle" type="button">Circle target</button></div>
+          <div class="cell"><button id="t-arrow" type="button">Arrow target</button></div>
+          <div class="cell"><button id="t-badge" type="button">Badge target</button></div>
+          <div class="cell"><button id="t-label" type="button">Label target</button></div>
+          <div class="cell"><button id="t-underline" type="button">Underline target</button></div>
+          <div class="cell wide">
+            <button id="t-spotlight" type="button">Spotlight target</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="h-states">
+        <h2 id="h-states">Annotation states</h2>
+        <div class="grid">
+          <div class="cell">
+            <p class="cell-label">Detachable</p>
+            <button id="t-detach" type="button">Detachable target</button>
+            <p class="cell-note">Removed from the DOM by the driver.</p>
+          </div>
+          <div class="cell">
+            <p class="cell-label">Hidden</p>
+            <button id="t-hidden" type="button">Hidden target</button>
+            <p class="cell-note">
+              Toggled to <code>display: none</code> and to <code>visibility: hidden</code>.
+            </p>
+          </div>
+          <div class="cell">
+            <p class="cell-label">Replaced</p>
+            <button id="t-replace" type="button">Replacement target</button>
+            <p class="cell-note">Re-annotated with a different primitive kind.</p>
+          </div>
+          <div class="cell">
+            <p class="cell-label">Multi</p>
+            <button id="t-multi-a" type="button">Multi A</button>
+            <button id="t-multi-b" type="button">Multi B</button>
+            <button id="t-multi-c" type="button">Multi C</button>
+            <p class="cell-note">Three simultaneous annotations on one layer.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="h-edges">
+        <h2 id="h-edges">Viewport edges</h2>
+        <p class="panel-note">
+          Pinned to the edges so the positioner flips and clamps, and the arrow has a real leader to
+          draw.
+        </p>
+        <div class="edges">
+          <button id="t-edge-top" type="button">Top</button>
+          <button id="t-edge-left" type="button">Left</button>
+          <button id="t-edge-right" type="button">Right</button>
+          <button id="t-edge-bottom" type="button">Bottom</button>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="h-input">
+        <h2 id="h-input">Page input</h2>
+        <p class="panel-note">
+          A real form control, so a test can prove the overlay does not intercept pointer, keyboard
+          or focus events.
+        </p>
+        <form class="probe-form" id="probe-form" autocomplete="off">
+          <label for="probe-input">Type here</label>
+          <input id="probe-input" name="probe" type="text" value="" />
+          <button id="probe-submit" type="submit">Submit</button>
+        </form>
+        <p class="status" id="probe-status" role="status"></p>
+      </section>
+
+      <section class="panel" aria-labelledby="h-nested">
+        <h2 id="h-nested">Nested scroll</h2>
+        <div id="scroller" class="scroller" tabindex="0">
+          <div class="scroller-inner">
+            <button id="t-nested" type="button">Nested target</button>
+            <p class="cell-note">Scrolls inside a container, not the page.</p>
+          </div>
+        </div>
+      </section>
+
+      <div class="spacer" aria-hidden="true"></div>
+    </main>
+  </body>
+</html>

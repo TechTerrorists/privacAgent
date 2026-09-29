@@ -7,12 +7,11 @@
  * about page scroll, image space, or frame-local space; converting into viewport space is
  * A-08's job, and the overlay refuses to guess.
  */
-import type { Placement, ViewportRect } from './types.js';
+import type { MarkerSize, Placement, ViewportRect } from './types.js';
 
-export interface MarkerSize {
-  readonly width: number;
-  readonly height: number;
-}
+// Re-exported so `index.ts` keeps a single import site for the positioner's public types, while
+// the one definition of `MarkerSize` lives in `types.ts` next to the renderer seam that uses it.
+export type { MarkerSize } from './types.js';
 
 export interface PlacementRequest {
   readonly placement?: Placement;
