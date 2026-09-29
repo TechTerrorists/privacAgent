@@ -36,7 +36,7 @@ export function live(node: Element): boolean {
     return false;
   }
 }
-/** One-use indexes. Never retain them across a mutation or observation. */
+/** Structural indexes; reuse requires an observer owner to invalidate on structure/id/for/type changes. */
 export class SemanticEngine {
   private indexes = new Map<SemanticScope, ScopeIndex>();
   readonly maxWork: number;
@@ -54,6 +54,9 @@ export class SemanticEngine {
     }
     if (this.maxDepth > 256 || this.maxText > 65536)
       throw new RangeError('Invalid semantic extraction limits');
+  }
+  invalidateIndexes(): void {
+    this.indexes.clear();
   }
   *index(root: SemanticScope): Work<ScopeIndex> {
     const existing = this.indexes.get(root);

@@ -32,6 +32,8 @@ export interface FrameBoundary {
 
 export interface WalkOptions extends Omit<SchedulingOptions, 'scheduler'> {
   scheduler?: SchedulingOptions['scheduler'];
+  /** Install observation before a newly discovered root is read. Local callback only. */
+  onRoot?: (context: TraversalContext) => void;
 }
 
 export type WalkResult =

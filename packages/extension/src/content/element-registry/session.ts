@@ -1,5 +1,7 @@
 /** F-02: one owner per on-demand content-script injection. */
 import browser from 'webextension-polyfill';
+import { IncrementalSession } from '../incremental/index.js';
+import { ownedNodes } from '../owned-nodes.js';
 import { ElementRegistry } from './index.js';
 import {
   createOverlay,
@@ -10,6 +12,8 @@ import {
 
 export interface ContentSession {
   registry: ElementRegistry;
+  /** Lazily installed, on-demand B-06 observation owner. */
+  readonly extraction: IncrementalSession;
   /**
    * The overlay core, owned here so it is torn down with the session that created it. It is
    * constructed but not mounted: a page that never annotates gets no nodes, no observers and
@@ -52,10 +56,19 @@ export function startContentSession(document: Document): ContentSession {
     else overlay.refresh();
   });
 
+  let extraction: IncrementalSession | undefined;
+  let disposed = false;
   return {
+    get extraction() {
+      if (disposed) throw new Error('Content session disposed');
+      return (extraction ??= new IncrementalSession(document, { ownedNodes }, registry));
+    },
     registry,
     overlay,
     dispose: () => {
+      if (disposed) return;
+      disposed = true;
+      extraction?.dispose();
       browser.runtime.onMessage.removeListener(probe);
       unsubscribeGeneration();
       // Overlay first: its targets are registry nodes, and nothing should be able to resolve

@@ -17,6 +17,22 @@ export async function walkDocument(
   document: Document,
   options: WalkOptions = {}
 ): Promise<WalkResult> {
+  return walkRoot(document, options);
+}
+
+/** Same B-02 traversal, limited to an attached subtree (including its root element). */
+export async function walkSubtree(
+  element: Element,
+  options: WalkOptions = {}
+): Promise<WalkResult> {
+  return walkRoot(element.ownerDocument, options, element);
+}
+
+async function walkRoot(
+  document: Document,
+  options: WalkOptions,
+  subtree?: Element
+): Promise<WalkResult> {
   const win = document.defaultView;
   if (!win) throw new TypeError('DOM walker requires a live document');
   const controller = new AbortController();
@@ -30,7 +46,7 @@ export async function walkDocument(
   const evidence: LocalEvidence = { textNodes: [], attributeElements: [] };
   const frames: FrameBoundary[] = [];
   const contexts: TraversalContext[] = [];
-  const queue: { context: TraversalContext; walker: TreeWalker }[] = [];
+  const queue: { context: TraversalContext; walker: TreeWalker; first?: Element }[] = [];
   const visited = new WeakSet<Node>();
   const roots = new WeakSet<Node>();
   const excluded = new WeakSet<Node>();
@@ -40,13 +56,18 @@ export async function walkDocument(
   let cleanupIndex = 0;
   let phase: 'walk' | 'validate' | 'cleanup' = 'walk';
 
-  const addRoot = (context: TraversalContext) => {
+  const addRoot = (context: TraversalContext, start?: Element) => {
     if (roots.has(context.root)) return;
     roots.add(context.root);
+    options.onRoot?.(context);
     contexts.push(context);
     // No candidate filter inside nextNode(): it must return even non-candidates,
     // so a long run of skipped elements cannot bypass the scheduling budget.
-    queue.push({ context, walker: context.document.createTreeWalker(context.root) });
+    queue.push({
+      context,
+      walker: context.document.createTreeWalker(start ?? context.root),
+      ...(start ? { first: start } : {}),
+    });
   };
   const current = (context: TraversalContext): boolean => {
     try {
@@ -136,7 +157,8 @@ export async function walkDocument(
         job.walker.currentNode.getRootNode() !== job.context.root)
     )
       return skip(job.context);
-    const node = job.walker.nextNode();
+    const node = job.first ?? job.walker.nextNode();
+    delete job.first;
     if (!node) {
       queueIndex++;
       return true;
@@ -204,7 +226,21 @@ export async function walkDocument(
     if (options.signal?.aborted) controller.abort();
     else options.signal?.addEventListener('abort', cancel, { once: true });
     win.addEventListener('pagehide', hide, { once: true });
-    addRoot({ document, root: document, frameElement: null, parent: null });
+    const root = subtree?.getRootNode() ?? document;
+    if (
+      root.nodeType !== 9 &&
+      !(root.nodeType === 11 && 'host' in root && (root as ShadowRoot).mode === 'open')
+    )
+      throw new Error('Inaccessible traversal root');
+    addRoot(
+      {
+        document,
+        root: root as Document | ShadowRoot,
+        frameElement: document.defaultView?.frameElement as HTMLIFrameElement | null,
+        parent: null,
+      },
+      subtree
+    );
     const result = await runInChunks(step, {
       ...options,
       signal: controller.signal,
