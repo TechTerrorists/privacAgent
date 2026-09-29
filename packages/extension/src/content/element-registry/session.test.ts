@@ -11,11 +11,11 @@ vi.mock('webextension-polyfill', () => ({
     storage: {
       local: {
         get: vi.fn().mockResolvedValue({}),
-        set: vi.fn().mockResolvedValue(undefined)
+        set: vi.fn().mockResolvedValue(undefined),
       },
-      onChanged: { addListener: vi.fn(), removeListener: vi.fn() }
-    }
-  }
+      onChanged: { addListener: vi.fn(), removeListener: vi.fn() },
+    },
+  },
 }));
 import { startContentSession } from './session.js';
 it('owns lazy incremental extraction and retires it with the content session', async () => {
