@@ -1,0 +1,6 @@
+artifacts/
+*.log
+train_pid.txt
+train2_pid.txt
+train3_pid.txt
+export_pid.txt

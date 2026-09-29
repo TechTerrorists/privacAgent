@@ -43,12 +43,21 @@ import type {
   RuntimeStatus,
 } from './types.js';
 
+/** Tensor element types this facade will construct. Extend here, not by bypassing it. */
+export type RuntimeTensorType = 'float32' | 'int64';
+
+type RuntimeTensorData = Float32Array | BigInt64Array;
+
 /** Minimal shape of the ONNX Runtime Web module, so this file needs no `any`. */
 interface OrtModule {
   env: {
     wasm: { wasmPaths?: string; numThreads?: number };
   };
-  Tensor: new (type: 'float32', data: Float32Array, dims: readonly number[]) => OrtTensor;
+  Tensor: new (
+    type: RuntimeTensorType,
+    data: RuntimeTensorData,
+    dims: readonly number[]
+  ) => OrtTensor;
   InferenceSession: {
     create(
       model: Uint8Array,
@@ -58,7 +67,8 @@ interface OrtModule {
 }
 
 interface OrtTensor {
-  readonly data: Float32Array;
+  readonly type: RuntimeTensorType;
+  readonly data: RuntimeTensorData;
   readonly dims: readonly number[];
   dispose(): void;
 }
@@ -67,15 +77,17 @@ interface OrtSession extends ReleasableSession {
   run(feeds: Record<string, OrtTensor>): Promise<Record<string, OrtTensor>>;
 }
 
-/** A named float32 input. */
+/** A named input, typed so a caller cannot feed float data where a model expects int64 IDs. */
 export interface RuntimeInput {
-  readonly data: Float32Array;
+  readonly type: RuntimeTensorType;
+  readonly data: RuntimeTensorData;
   readonly dims: readonly number[];
 }
 
-/** A named float32 output, copied out of the runtime's memory. */
+/** A named output, copied out of the runtime's memory. */
 export interface RuntimeOutput {
-  readonly data: Float32Array;
+  readonly type: RuntimeTensorType;
+  readonly data: RuntimeTensorData;
   readonly dims: readonly number[];
 }
 
@@ -247,8 +259,8 @@ export class OnnxRuntime {
           const inputs: Record<string, OrtTensor> = {};
           for (const [name, input] of Object.entries(feeds)) {
             // Owned: built here from caller data, so freed on every path. The
-            // caller's Float32Array is untouched.
-            inputs[name] = scope.own(new ort.Tensor('float32', input.data, input.dims));
+            // caller's typed array is untouched.
+            inputs[name] = scope.own(new ort.Tensor(input.type, input.data, input.dims));
           }
 
           const results = await session.run(inputs);
@@ -257,8 +269,9 @@ export class OnnxRuntime {
           for (const [name, tensor] of Object.entries(results)) {
             scope.own(tensor);
             outputs[name] = {
+              type: tensor.type,
               // Copied: the tensor is disposed when the scope closes.
-              data: new Float32Array(tensor.data),
+              data: copyTensorData(tensor),
               dims: [...tensor.dims],
             };
           }
@@ -316,6 +329,12 @@ export class OnnxRuntime {
  */
 function buildProbeFeeds(ort: OrtModule): Record<string, OrtTensor> {
   return { input: new ort.Tensor('float32', new Float32Array([1, 2, 3, 4]), [1, 4]) };
+}
+
+function copyTensorData(tensor: OrtTensor): RuntimeTensorData {
+  return tensor.type === 'int64'
+    ? new BigInt64Array(tensor.data as BigInt64Array)
+    : new Float32Array(tensor.data as Float32Array);
 }
 
 /**

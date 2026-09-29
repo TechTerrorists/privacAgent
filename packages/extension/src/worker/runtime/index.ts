@@ -29,5 +29,6 @@ export {
   type OnnxRuntimeOptions,
   type RuntimeInput,
   type RuntimeOutput,
+  type RuntimeTensorType,
 } from './runtime.js';
 export { createOnnxInferenceApi } from './onnx-engine.js';

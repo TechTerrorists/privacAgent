@@ -16,8 +16,8 @@ from privacagent_protocol import (
 )
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
-VALID = json.loads((FIXTURES / "valid.json").read_text())
-INVALID = json.loads((FIXTURES / "invalid.json").read_text())
+VALID = json.loads((FIXTURES / "valid.json").read_text(encoding="utf-8"))
+INVALID = json.loads((FIXTURES / "invalid.json").read_text(encoding="utf-8"))
 
 
 @pytest.mark.parametrize("case", VALID, ids=lambda c: c["name"])
