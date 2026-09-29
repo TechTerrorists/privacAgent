@@ -12,6 +12,8 @@
 
 import type { BBox, DocumentId, ElementId, Placeholder, PiiClass } from '@privacagent/protocol';
 
+import type { InternResult, UseBinding, VaultScopeId } from '../vault/index.js';
+
 export type { BBox, DocumentId, ElementId, Placeholder, PiiClass };
 
 /**
@@ -21,8 +23,14 @@ export type { BBox, DocumentId, ElementId, Placeholder, PiiClass };
  * scanned independently: an image button whose DOM label reads "Profile" may
  * render a person's name in pixels, and merging the two evidence streams
  * would destroy the distinction redaction needs.
+ *
+ * `dom_structure` (D-03) is not text evidence at all: a site/user policy
+ * finding comes from matching an element via a CSS selector, never from
+ * reading its text content, so it needs a provenance value that does not
+ * imply any text was scanned.
  */
-export type EvidenceSource = 'dom_text' | 'dom_attribute' | 'ocr' | 'user_text' | 'task_text';
+export type EvidenceSource =
+  'dom_text' | 'dom_attribute' | 'ocr' | 'user_text' | 'task_text' | 'dom_structure';
 
 /** Character offsets into the original evidence text, for provenance only. */
 export interface TextSpan {
@@ -43,6 +51,11 @@ export type TextField = 'name' | 'value' | 'text_context' | 'title' | 'url';
  * is no free-floating "somewhere in the page" location, because the Egress
  * Guard's coverage check (PRD §10.2) needs to attribute every finding to a
  * field it can then verify was actually redacted.
+ *
+ * `element_scope` (D-03) is coarser than `element_field`: it covers every
+ * field an element carries, for callers (site/user policy) that decide by
+ * matching the element itself — a CSS selector, not a specific text field —
+ * and cannot know in advance which fields that element will turn out to have.
  */
 export type FindingLocation =
   | {
@@ -58,7 +71,8 @@ export type FindingLocation =
       readonly kind: 'user_task_text';
       readonly source: 'user_turn' | 'task';
       readonly span?: TextSpan;
-    };
+    }
+  | { readonly kind: 'element_scope'; readonly elementId: ElementId; readonly docId: DocumentId };
 
 /**
  * Which detector layer produced a finding (CLAUDE.md, PII detector layers).
@@ -91,6 +105,14 @@ export interface PiiFinding {
   /** 0..1. The stub always reports 1 — it is certain only in the sense that it never guesses "safe". */
   readonly confidence: number;
   readonly decision: RedactionDecision;
+  /**
+   * Which specific rule or policy within `detector` produced this finding
+   * (D-03), e.g. `'input_type:email'`, `'label_keyword:phone'`,
+   * `'always_redact_selector'`. Optional and free-form: `detector` names the
+   * layer, this names the rule inside it, for diagnostics and for telling two
+   * findings from the same layer apart. Never derived from page content.
+   */
+  readonly rule?: string;
   /**
    * True when this finding was fabricated by a stand-in rather than produced
    * by a real detector pass. Mirrors `worker/inference`'s `synthetic` flag:
@@ -138,7 +160,16 @@ export interface PiiTextResult {
   readonly outcome: PiiTextOutcome;
   readonly value: string;
   readonly piiClass?: PiiClass;
+  /** The first (or only) finding, for callers that only ever handled one. Equal to `findings?.[0]`. */
   readonly finding?: PiiFinding;
+  /**
+   * Every finding produced while scanning this text, in text order (D-05).
+   * Span-aware redaction can mask several distinct spans plus a residual
+   * "unchecked free text withheld" finding for whatever text is not covered
+   * by any span, so a single `finding` can no longer represent everything a
+   * caller (D-11's coverage check) needs to see.
+   */
+  readonly findings?: readonly PiiFinding[];
 }
 
 /** Optional DOM semantic hints (PRD L1) that help classify, never authorize, a redaction. */
@@ -148,12 +179,35 @@ export interface TextEvidenceHints {
   readonly labelKeywords?: readonly string[];
 }
 
+/**
+ * Optional binding to D-04's vault for stable, session-consistent placeholders
+ * (D-05). Only the `intern` method is depended on, so a test double needs no
+ * more than that one method. When absent, an engine may fall back to a
+ * locally value-memoized placeholder that is consistent only within the
+ * current call chain, never across separate elements or observations.
+ */
+export interface VaultTextContext {
+  readonly vault: {
+    readonly intern: (
+      scopeId: VaultScopeId,
+      input: {
+        readonly piiClass: PiiClass;
+        readonly value: string;
+        readonly binding: UseBinding;
+      }
+    ) => InternResult;
+  };
+  readonly scopeId: VaultScopeId;
+  readonly binding: UseBinding;
+}
+
 /** Input to a text scan. */
 export interface PiiTextInput {
   readonly evidence: EvidenceSource;
   readonly text: string;
   readonly location: FindingLocation;
   readonly hints?: TextEvidenceHints;
+  readonly vaultContext?: VaultTextContext;
 }
 
 /**
