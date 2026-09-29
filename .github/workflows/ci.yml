@@ -77,7 +77,23 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium firefox
+      - name: Install browsers
+        # `--with-deps` shells out to apt, and apt fetches every configured source list before it
+        # installs anything. GitHub's runner image includes a `packages.microsoft.com` entry that
+        # intermittently answers `403 Forbidden` for its `InRelease`. apt treats a failed repo as
+        # fatal, so the whole step died with exit 100 and the job reported "DOM walker browser
+        # tests" as failed without running a single test — a network blip masquerading as a code
+        # failure.
+        #
+        # The fallback drops `--with-deps` rather than dropping the tests. The runner image already
+        # ships the shared libraries Playwright needs; `--with-deps` only guarantees that, so
+        # without it a missing library surfaces as a clear browser launch error naming the `.so`
+        # instead of an opaque apt failure. Retried first because a flake should not permanently
+        # take the weaker path.
+        run: |
+          pnpm exec playwright install --with-deps chromium firefox \
+            || pnpm exec playwright install --with-deps chromium firefox \
+            || pnpm exec playwright install chromium firefox
       - name: Test DOM walker and B-08 mock sites
         run: pnpm test:browser
       - uses: actions/upload-artifact@v4
