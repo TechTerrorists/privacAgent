@@ -10,9 +10,9 @@ export type * from './types.js';
 /** Independent local semantics. Does not read/replace the B-02 privacy evidence arrays. */
 export async function extractSemantics(
   targets: readonly Element[],
-  options: SemanticOptions = {}
+  options: SemanticOptions = {},
+  engine: SemanticEngine = new SemanticEngine(options)
 ): Promise<SemanticBatch> {
-  const engine = new SemanticEngine(options);
   const win = targets[0]?.ownerDocument.defaultView;
   if (!win && !options.scheduler) {
     if (targets.length) throw new TypeError('Semantic extraction requires a live document');

@@ -38,7 +38,7 @@ export interface SemanticOptions extends WalkOptions {
   maxWork?: number;
   maxDepth?: number;
   maxTextLength?: number;
-  /** Per tree scope; indexes are shared only within a single extraction call. */
+  /** Per tree scope; standalone calls use fresh indexes, B-06 owns observed invalidation. */
   maxScopeNodes?: number;
 }
 export type SemanticBatch =

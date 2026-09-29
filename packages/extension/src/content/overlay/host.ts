@@ -1,3 +1,4 @@
+import { ownedNodes } from '../owned-nodes.js';
 /**
  * F-02: the overlay host and its closed shadow root.
  *
@@ -191,6 +192,7 @@ function installCriticalHostStyle(doc: Document): CriticalHostStyle {
   // Firefox below 101. A page with `style-src 'self'` will block this silently, which leaves the
   // `:host` rules as the only defence — the documented position, not a pretend guarantee.
   const element = doc.createElement('style');
+  ownedNodes.add(element);
   element.textContent = HOST_ELEMENT_STYLES;
   const parent = doc.head ?? doc.documentElement;
   parent.append(element);
@@ -210,6 +212,7 @@ export function mountOverlayHost(
   }: { maxRecoveries?: number; onUnrecoverable?: () => void } = {}
 ): OverlayHost {
   const host = document.createElement('div');
+  ownedNodes.add(host);
   const root = host.attachShadow({ mode: 'closed' });
 
   const style = document.createElement('style');
