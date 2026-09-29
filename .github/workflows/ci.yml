@@ -109,6 +109,11 @@ jobs:
       - name: Build
         run: pnpm build:${{ matrix.target }}
 
+      - name: Verify lifecycle host entry points
+        run: |
+          test -f packages/extension/dist/${{ matrix.target }}/src/host/offscreen.html
+          test -f packages/extension/dist/${{ matrix.target }}/src/host/ml-worker.js
+
       - name: Lint the Firefox build with web-ext
         if: matrix.target == 'firefox'
         run: pnpm --filter @privacagent/extension lint:firefox
