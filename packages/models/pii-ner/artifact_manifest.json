@@ -1,0 +1,9 @@
+{
+  "version": "d07-ner-pr58-v2",
+  "url": "https://github.com/TechTerrorists/privacAgent/releases/download/d07-ner-pr58-v2/pii-ner-d07-v2.zip",
+  "sha256": "fa3992b33f8551bdb588eb6056bda101e8def60234ac9ed3fcc44a45dde6f248",
+  "size_bytes": 6620668,
+  "detector_coverage_validated": false,
+  "dataset_manifest": "../../../bench/datasets/pii-ner/dataset_manifest.json",
+  "runtime_manifest": "export_manifest.json"
+}

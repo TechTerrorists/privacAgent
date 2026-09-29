@@ -1,0 +1,54 @@
+{
+  "format_version": 1,
+  "detector_coverage_validated": false,
+  "python_offset_unit": "unicode_code_point",
+  "browser_offset_unit": "utf16_code_unit",
+  "window_merge": "max_context_token_then_decode_bio",
+  "files": {
+    "label_map.json": {
+      "sha256": "5a356af552d83c9f637bc392caaf329debbd150409a8760ab1fb68d0395f3e32",
+      "size_bytes": 174
+    },
+    "model.onnx": {
+      "sha256": "b642953e9fce49dc09a1302b94b3996f4656e8978a8e2c33c9d52163bc5e7a32",
+      "size_bytes": 5803637
+    },
+    "model.quant.onnx": {
+      "sha256": "41bf3154dcac578111d1fff10560653dc0060ecf9fbeba7d6debcc8c91d22a3b",
+      "size_bytes": 1535301
+    },
+    "tokenizer/special_tokens_map.json": {
+      "sha256": "5d5b662e421ea9fac075174bb0688ee0d9431699900b90662acd44b2a350503a",
+      "size_bytes": 695
+    },
+    "tokenizer/tokenizer.json": {
+      "sha256": "6e385656e55d06345dddf1ddf7a85708c78634e863af695eec861d7e870f483a",
+      "size_bytes": 184243
+    },
+    "tokenizer/tokenizer_config.json": {
+      "sha256": "9ec5e18caf73c9d9138e32186bdd121fd7acdb8a7e99644e82288bd5502a92d4",
+      "size_bytes": 1434
+    },
+    "tokenizer/vocab.txt": {
+      "sha256": "27f70f6b6433d09267b2fb72b42ae015adff363bd88938858c777a490e968347",
+      "size_bytes": 62523
+    }
+  },
+  "opset": 17,
+  "max_length": 64,
+  "input_names": ["input_ids", "attention_mask"],
+  "output_names": ["logits"],
+  "dynamic_axes": ["batch", "sequence"],
+  "artifacts": {
+    "fp32_onnx": {
+      "path": "model.onnx",
+      "size_bytes": 5803637,
+      "sha256": "b642953e9fce49dc09a1302b94b3996f4656e8978a8e2c33c9d52163bc5e7a32"
+    },
+    "quantized_onnx": {
+      "path": "model.quant.onnx",
+      "size_bytes": 1535301,
+      "sha256": "41bf3154dcac578111d1fff10560653dc0060ecf9fbeba7d6debcc8c91d22a3b"
+    }
+  }
+}

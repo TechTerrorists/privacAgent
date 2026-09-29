@@ -9,3 +9,7 @@ docs/**/*.pdf
 services/
 test-results/
 playwright-report/
+
+# Local training corpora and exported binaries/manifests are not source files.
+bench/datasets/pii-ner/artifacts/
+packages/models/pii-ner/artifacts/

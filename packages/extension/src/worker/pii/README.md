@@ -1,4 +1,4 @@
-# Worker PII engine API (D-01)
+# Worker PII engine API (D-01, extended by D-02)
 
 Finding and redaction types, a callable `PiiEngineApi`, and a conservative
 stub that masks or withholds everything, so other lanes can integrate with
@@ -9,11 +9,15 @@ the privacy pipeline before any real detector exists. Mirrors the
 that masks everything so early end-to-end runs are safe; a canary case list
 for C-16.
 
-This feature ships **no detection**. Real semantic (L1), pattern (L2), NER
-(L3) and vision (L4) detectors, per-site/per-user policy (L5), consistent
-session vault mappings, and restricted-egress enforcement are D-02 through
-D-14. Crop pixel redaction does not exist yet — the stub withholds every
-crop.
+D-01 itself ships **no detection** — this stub's job was always to be a safe
+default, not the final word. D-02 (`l2/`) now adds real pattern-and-checksum
+detection (email, phone, cards, Aadhaar, PAN, IFSC, UPI, IBAN, JWT, API keys,
+contextual OTP), wired into D-01's contracts through `layered.ts`'s
+`createLayeredPiiEngine()` — see `l2/README.md` for that module in full. NER
+(L3), vision (L4), per-site/per-user policy (L5), consistent session vault
+mappings, and restricted-egress enforcement remain D-03 and D-07 through
+D-14. Crop pixel redaction does not exist yet — every engine here withholds
+every crop.
 
 ## Using it
 
@@ -138,28 +142,37 @@ outcome and that the marker is absent from the returned value — not merely
 that some value came back. `pii.test.ts` shows the reference assertions;
 C-16's harness runs the same cases against whatever engine is active.
 
-## How D-02+ replaces the stub
+## How D-02's layered engine replaces the stub
 
 ```ts
-import { setPiiEngineApi } from './index.js';
+import { createLayeredPiiEngine, setPiiEngineApi } from './index.js';
 
-setPiiEngineApi(createLayeredPiiEngine(...)); // D-02 onward
+setPiiEngineApi(createLayeredPiiEngine()); // installs D-02's L2-backed engine
 ```
 
-`getPiiEngineApi()` returns the stub until that call happens. Tests that
+`getPiiEngineApi()` still returns the stub by default — `worker/pii/index.ts`
+does not call this automatically. Activating the layered engine in the real
+worker is a separate bootstrap decision for whoever wires up the session
+(D-02 depends only on D-01, not on A-03/A-04's transport/hosting). Tests that
 swap the engine must call `resetPiiEngineApi()` afterwards, since the
 registry is module-level state — same pattern as `worker/inference`.
 
 A real engine must keep the guarantees this module documents: no network
 client, no vault-value persistence, no raw-evidence logging, and `synthetic:
-false` only on a finding a real detector pass actually produced.
+false` only on a finding a real detector pass actually produced. See
+`l2/README.md` for exactly how `createLayeredPiiEngine` upholds this while
+preserving D-01's conservative fallback.
 
 ## Boundaries
 
 | Concern                                                | Owner               |
 | ------------------------------------------------------ | ------------------- |
-| Real L1–L5 detectors                                   | D-02–D-09           |
-| Consistent session vault mappings, destination binding | D-02–D-14           |
+| L2 pattern/checksum detectors                          | D-02 (`l2/`)        |
+| Semantic DOM / site policy (L1/L5)                     | D-03                |
+| NER (L3), vision (L4)                                  | D-07, D-08          |
+| Vault storage                                          | D-04                |
+| Consistent session vault mappings, destination binding | D-04, D-09          |
+| Text substitution using vault placeholders             | D-05                |
 | Text/pixel crop redaction                              | D-13, D-14          |
 | Restricted egress mode                                 | D-10                |
 | Final outbound scan, fail-closed enforcement           | D-11 (Egress Guard) |

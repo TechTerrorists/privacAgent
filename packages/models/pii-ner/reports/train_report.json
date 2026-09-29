@@ -1,0 +1,436 @@
+{
+  "seed": 20260215,
+  "vocab_size": 8000,
+  "epochs": 10,
+  "batch_size": 8,
+  "learning_rate": 0.0007,
+  "max_length": 64,
+  "stride": 16,
+  "num_parameters": 1438859,
+  "training_seconds": 42.51281261444092,
+  "epoch_losses": [
+    1.0529112215317673, 0.4488629540007318, 0.16607246249352567, 0.08748140343085829,
+    0.05562632650033987, 0.04459341017449808, 0.03412537068484267, 0.034610294678421624,
+    0.03447771151128913, 0.03135020410333147
+  ],
+  "environment": {
+    "python": "3.13.14 (main, Jul 23 2026, 14:44:45) [Clang 22.1.3 ]",
+    "platform": "Linux-7.1.5-arch1-2-legion-x86_64-with-glibc2.44",
+    "torch": "2.14.0+cpu",
+    "transformers": "4.57.6"
+  },
+  "val_metrics_trained": {
+    "matching": "exact_original_code_point_span_and_label",
+    "overall": {
+      "NAME": {
+        "precision": 0.06695331695331695,
+        "recall": 0.2523148148148148,
+        "f1-score": 0.10582524271844661,
+        "support": 432
+      },
+      "ADDRESS": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1-score": 0.0,
+        "support": 41
+      },
+      "ORG": {
+        "precision": 0.02335279399499583,
+        "recall": 0.07756232686980609,
+        "f1-score": 0.035897435897435895,
+        "support": 361
+      },
+      "LOCATION": {
+        "precision": 0.05093555093555094,
+        "recall": 0.13573407202216067,
+        "f1-score": 0.07407407407407407,
+        "support": 361
+      },
+      "DOB": {
+        "precision": 0.01282051282051282,
+        "recall": 0.024390243902439025,
+        "f1-score": 0.01680672268907563,
+        "support": 41
+      },
+      "micro avg": {
+        "precision": 0.04483337329177655,
+        "recall": 0.15129449838187703,
+        "f1-score": 0.069169594969484,
+        "support": 1236
+      },
+      "macro avg": {
+        "precision": 0.03081243494087531,
+        "recall": 0.09800029152184411,
+        "f1-score": 0.04652069507580644,
+        "support": 1236
+      }
+    },
+    "by_lang": {
+      "en": {
+        "NAME": {
+          "precision": 0.06774519716885744,
+          "recall": 0.24723247232472326,
+          "f1-score": 0.10634920634920635,
+          "support": 271
+        },
+        "ADDRESS": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 40
+        },
+        "ORG": {
+          "precision": 0.015706806282722512,
+          "recall": 0.05217391304347826,
+          "f1-score": 0.024144869215291753,
+          "support": 230
+        },
+        "LOCATION": {
+          "precision": 0.024154589371980676,
+          "recall": 0.07389162561576355,
+          "f1-score": 0.03640776699029127,
+          "support": 203
+        },
+        "DOB": {
+          "precision": 0.0136986301369863,
+          "recall": 0.025,
+          "f1-score": 0.017699115044247787,
+          "support": 40
+        },
+        "micro avg": {
+          "precision": 0.034900808229243206,
+          "recall": 0.1211734693877551,
+          "f1-score": 0.054192812321734174,
+          "support": 784
+        },
+        "macro avg": {
+          "precision": 0.024261044592109385,
+          "recall": 0.07965960219679301,
+          "f1-score": 0.03692019151980743,
+          "support": 784
+        }
+      },
+      "hi": {
+        "NAME": {
+          "precision": 0.06572769953051644,
+          "recall": 0.2608695652173913,
+          "f1-score": 0.10500000000000001,
+          "support": 161
+        },
+        "ADDRESS": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 1
+        },
+        "ORG": {
+          "precision": 0.0367816091954023,
+          "recall": 0.12213740458015267,
+          "f1-score": 0.05653710247349823,
+          "support": 131
+        },
+        "LOCATION": {
+          "precision": 0.09970674486803519,
+          "recall": 0.21518987341772153,
+          "f1-score": 0.13627254509018036,
+          "support": 158
+        },
+        "DOB": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 1
+        },
+        "micro avg": {
+          "precision": 0.06349206349206349,
+          "recall": 0.20353982300884957,
+          "f1-score": 0.0967911625460284,
+          "support": 452
+        },
+        "macro avg": {
+          "precision": 0.040443210718790784,
+          "recall": 0.11963936864305309,
+          "f1-score": 0.05956192951273572,
+          "support": 452
+        }
+      }
+    }
+  },
+  "test_metrics_trained": {
+    "matching": "exact_original_code_point_span_and_label",
+    "overall": {
+      "NAME": {
+        "precision": 0.048252911813643926,
+        "recall": 0.1467116357504216,
+        "f1-score": 0.07262103505843073,
+        "support": 593
+      },
+      "ADDRESS": {
+        "precision": 0.034055727554179564,
+        "recall": 0.11956521739130435,
+        "f1-score": 0.05301204819277108,
+        "support": 92
+      },
+      "ORG": {
+        "precision": 0.027308192457737322,
+        "recall": 0.11444141689373297,
+        "f1-score": 0.04409448818897638,
+        "support": 367
+      },
+      "LOCATION": {
+        "precision": 0.04795117698343505,
+        "recall": 0.1510989010989011,
+        "f1-score": 0.07279947054930509,
+        "support": 364
+      },
+      "DOB": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1-score": 0.0,
+        "support": 46
+      },
+      "micro avg": {
+        "precision": 0.03992628992628992,
+        "recall": 0.13337893296853626,
+        "f1-score": 0.061456035297825395,
+        "support": 1462
+      },
+      "macro avg": {
+        "precision": 0.03151360176179917,
+        "recall": 0.106363434226872,
+        "f1-score": 0.04850540839789665,
+        "support": 1462
+      }
+    },
+    "by_lang": {
+      "en": {
+        "NAME": {
+          "precision": 0.03822222222222222,
+          "recall": 0.10311750599520383,
+          "f1-score": 0.05577172503242542,
+          "support": 417
+        },
+        "ADDRESS": {
+          "precision": 0.03618421052631579,
+          "recall": 0.1375,
+          "f1-score": 0.05729166666666667,
+          "support": 80
+        },
+        "ORG": {
+          "precision": 0.016933207902163686,
+          "recall": 0.07563025210084033,
+          "f1-score": 0.02767102229054573,
+          "support": 238
+        },
+        "LOCATION": {
+          "precision": 0.03350515463917526,
+          "recall": 0.125,
+          "f1-score": 0.052845528455284556,
+          "support": 208
+        },
+        "DOB": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 40
+        },
+        "micro avg": {
+          "precision": 0.029341317365269463,
+          "recall": 0.09969481180061038,
+          "f1-score": 0.04533888503354152,
+          "support": 983
+        },
+        "macro avg": {
+          "precision": 0.02496895905797539,
+          "recall": 0.08824955161920883,
+          "f1-score": 0.03871598848898448,
+          "support": 983
+        }
+      },
+      "hi": {
+        "NAME": {
+          "precision": 0.06489675516224189,
+          "recall": 0.25,
+          "f1-score": 0.10304449648711943,
+          "support": 176
+        },
+        "ADDRESS": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 12
+        },
+        "ORG": {
+          "precision": 0.05052631578947368,
+          "recall": 0.18604651162790697,
+          "f1-score": 0.07947019867549669,
+          "support": 129
+        },
+        "LOCATION": {
+          "precision": 0.07816711590296496,
+          "recall": 0.1858974358974359,
+          "f1-score": 0.11005692599620492,
+          "support": 156
+        },
+        "DOB": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 6
+        },
+        "micro avg": {
+          "precision": 0.06282383419689119,
+          "recall": 0.20250521920668058,
+          "f1-score": 0.09589718240237272,
+          "support": 479
+        },
+        "macro avg": {
+          "precision": 0.03871803737093611,
+          "recall": 0.12438878950506857,
+          "f1-score": 0.05851432423176421,
+          "support": 479
+        }
+      }
+    }
+  },
+  "test_metrics_baseline": {
+    "matching": "exact_original_code_point_span_and_label",
+    "overall": {
+      "NAME": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1-score": 0.0,
+        "support": 593
+      },
+      "ADDRESS": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1-score": 0.0,
+        "support": 92
+      },
+      "ORG": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1-score": 0.0,
+        "support": 367
+      },
+      "LOCATION": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1-score": 0.0,
+        "support": 364
+      },
+      "DOB": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1-score": 0.0,
+        "support": 46
+      },
+      "micro avg": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1-score": 0.0,
+        "support": 1462
+      },
+      "macro avg": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1-score": 0.0,
+        "support": 1462
+      }
+    },
+    "by_lang": {
+      "en": {
+        "NAME": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 417
+        },
+        "ADDRESS": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 80
+        },
+        "ORG": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 238
+        },
+        "LOCATION": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 208
+        },
+        "DOB": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 40
+        },
+        "micro avg": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 983
+        },
+        "macro avg": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 983
+        }
+      },
+      "hi": {
+        "NAME": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 176
+        },
+        "ADDRESS": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 12
+        },
+        "ORG": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 129
+        },
+        "LOCATION": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 156
+        },
+        "DOB": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 6
+        },
+        "micro avg": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 479
+        },
+        "macro avg": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 479
+        }
+      }
+    }
+  },
+  "train_records": 1585,
+  "val_records": 841,
+  "test_records": 938
+}

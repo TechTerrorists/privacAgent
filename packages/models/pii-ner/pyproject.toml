@@ -1,0 +1,35 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "privacagent-pii-ner-model"
+version = "0.1.0"
+description = "D-07: PII NER training, evaluation, ONNX export and quantization"
+requires-python = ">=3.12"
+dependencies = [
+    "privacagent-pii-ner-dataset",
+    "torch>=2.4,<3",
+    "transformers>=4.44,<5",
+    "tokenizers>=0.19,<1",
+    "seqeval>=1.2,<2",
+    "onnx>=1.16,<2",
+    "onnxruntime>=1.19,<2",
+    "numpy>=1.26,<3",
+]
+
+[tool.uv.sources]
+privacagent-pii-ner-dataset = { workspace = true }
+torch = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.black]
+line-length = 88
+target-version = ["py312"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/privacagent_pii_ner_model"]
