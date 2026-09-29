@@ -10,12 +10,32 @@
 
 import browser from 'webextension-polyfill';
 import { installRegistryNavigation } from './registry-navigation.js';
+import { MessageBus, ExtensionTransport } from '../messaging/index.js';
+import { HostManager } from '../host/index.js';
 import { activePlatform } from '../platform/active.js';
 
 installRegistryNavigation();
 
 const BUILD_TARGET = __BROWSER__;
 
+// Background messaging bus
+const offscreenUrl = browser.runtime.getURL('src/host/offscreen.html');
+const sidepanelUrl = browser.runtime.getURL('src/ui/sidepanel.html');
+
+const bgTransport = new ExtensionTransport(
+  { context: 'background' },
+  {
+    extensionPeers: {
+      [offscreenUrl]: { context: 'offscreen' },
+      [sidepanelUrl]: { context: 'ui' },
+    },
+    workerRelayUrls: [offscreenUrl],
+  }
+);
+const bgBus = new MessageBus({ context: 'background' }, bgTransport);
+
+// Host lifecycle manager (A-04)
+const hostManager = new HostManager(bgBus);
 /**
  * Makes the toolbar button open the side panel.
  *
@@ -39,3 +59,6 @@ installSidePanelOpener();
 browser.runtime.onInstalled.addListener(() => {
   console.info(`[privacAgent] background ready (${BUILD_TARGET})`);
 });
+
+// Keep reference alive for service worker
+(globalThis as Record<string, unknown>).__privacagent_host = hostManager;
