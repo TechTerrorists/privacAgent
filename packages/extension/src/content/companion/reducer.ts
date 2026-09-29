@@ -119,6 +119,29 @@ export function reduceCompanion(
   const incoming = event.identity;
   const staleness = classifyStale(previous.identity, previous.retired, incoming);
   if (staleness !== null) {
+    if (isCaptureStop(event.type) && previous.captureConfirmed) {
+      // The one way a refused event still changes something, and the change is strictly subtractive.
+      // Note what is *not* touched: the identity stays whatever it was. Letting the incoming
+      // identity become the live one would resurrect the very run the floor just rejected, and
+      // that run's own late events would then be accepted as current. `retired` is left alone too,
+      // so a second retraction is refused normally instead of being quietly re-honoured.
+      const captureConfirmed = false;
+      return {
+        ...previous,
+        state: chooseState(
+          event.type,
+          {
+            approvalPending: previous.approvalPending,
+            actionInFlight: previous.actionInFlight,
+          },
+          captureConfirmed
+        ),
+        captureConfirmed,
+        reason: event.type,
+        lastRejected: null,
+        lastRejectedDetail: null,
+      };
+    }
     // The state is carried through byte for byte: a rejected event must not move the companion,
     // and a rejected event must not clear a flag the user is still waiting on either.
     return refuse(
@@ -193,6 +216,28 @@ function nextCapture(current: boolean, type: CompanionEvent['type']): boolean {
   if (type === 'audio-capture-confirmed') return true;
   if (type === 'audio-capture-ended' || type === 'audio-capture-denied') return false;
   return current;
+}
+
+/**
+ * Whether the event is one that can only *retract* a capture claim.
+ *
+ * This exists because staleness and capture have different jobs. Staleness protects a *run*: a
+ * late event from a cancelled or finished run must not resurrect it, and the tombstone does that.
+ * But capture is not part of a run, it is a fact about the microphone, and it outlives any one
+ * task. `task-finished` deliberately keeps the confirmed-capture flag, so the companion can keep
+ * reporting "listening" after a task ends — and that leaves exactly one hole: the run that
+ * confirmed capture has been retired, so the eventual `audio-capture-ended` arrives carrying a
+ * retired identity and is refused as stale. The companion then claims to be listening to a
+ * microphone nobody has stopped, and nothing will ever correct it, because the only event that
+ * could is the one being refused.
+ *
+ * Retractions are therefore exempt from the staleness floor. It is safe because these events can
+ * only *remove* a claim, never add one: accepting a stale "capture ended" makes the companion
+ * quieter, never louder, and cannot bring back a run or a state. A stale `audio-capture-confirmed`
+ * is *not* exempt — that one would let a dead run assert that it is listening.
+ */
+function isCaptureStop(type: CompanionEvent['type']): boolean {
+  return type === 'audio-capture-ended' || type === 'audio-capture-denied';
 }
 
 function nextApproval(current: boolean, type: CompanionEvent['type']): boolean {

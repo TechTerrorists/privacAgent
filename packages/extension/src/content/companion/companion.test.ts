@@ -417,6 +417,49 @@ describe('the pointer resolver', () => {
     expect(seen).toEqual([pageAnchor]);
   });
 
+  it('redraws after the overlay drops its annotations, because pointer movement cannot', () => {
+    // The bug this pins: on a top-level navigation the session calls `overlay.clear()`, which
+    // removes every annotation without telling the companion. The companion kept its anchor id,
+    // and since a pointer move only asks the layer to `refresh()` — re-measure what exists, create
+    // nothing — the character never came back. Enabled, and gone for the rest of the session.
+    h.controller.setEnabled(true);
+    h.pointer.moveTo(300, 200);
+    h.runFrames();
+    const before = h.controller.anchorId();
+    expect(before).not.toBeNull();
+    expect(h.overlay.size).toBe(1);
+
+    // What the session does on a top-level generation change.
+    h.overlay.clear();
+    expect(h.overlay.size).toBe(0);
+    expect(h.controller.anchorId()).not.toBeNull();
+
+    // Redraw happens inside `forgetAnchor`, so the id is replaced rather than left null. The
+    // replacement id is the same *string* — it is derived from doc and element, and both are the
+    // same — so the size going back up is the evidence that this is a new annotation and not the
+    // old dead reference read back.
+    h.controller.forgetAnchor();
+    h.runFrames();
+    expect(h.overlay.size).toBe(1);
+    expect(h.controller.anchorId()).toBe(before);
+  });
+
+  it('stays absent after the overlay is cleared if the user had switched it off', () => {
+    // `forgetAnchor` redraws, so it must not resurrect a companion the user turned off between the
+    // navigation and the redraw. `draw` is a no-op while disabled, and that has to be the reason
+    // the character does not come back.
+    h.controller.setEnabled(true);
+    h.pointer.moveTo(300, 200);
+    h.runFrames();
+    h.overlay.clear();
+    h.controller.setEnabled(false);
+
+    h.controller.forgetAnchor();
+    h.runFrames();
+    expect(h.controller.anchorId()).toBeNull();
+    expect(h.overlay.size).toBe(0);
+  });
+
   it('withdraws the anchor when the document generation is retired', () => {
     // `null` is the resolver's way of saying "this document is no longer addressable", and the
     // companion's anchor factory turns it into no anchor at all.

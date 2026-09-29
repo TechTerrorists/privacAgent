@@ -240,6 +240,48 @@ describe('terminal events', () => {
     );
   });
 
+  it('honours a capture stop that arrives after the confirming run was retired', () => {
+    // The bug this pins. `task-finished` keeps the confirmed-capture flag on purpose, so the
+    // companion falls back to "listening" instead of under-reporting an open microphone. But it
+    // also retires that run's identity, and the `audio-capture-ended` that eventually arrives
+    // carries exactly that retired identity — so the staleness floor refused it, and the companion
+    // claimed to be listening to a microphone nobody had stopped, with no event left that could
+    // ever correct it.
+    const finished = run([event('audio-capture-confirmed', 4), event('task-finished', 4)]);
+    expect(finished.state).toBe('listening');
+    expect(finished.captureConfirmed).toBe(true);
+
+    const stopped = reduceCompanion(finished, event('audio-capture-ended', 4), AVAILABLE);
+    expect(stopped.captureConfirmed).toBe(false);
+    expect(stopped.state).toBe('idle');
+  });
+
+  it('honours a capture denial that arrives after the confirming run was retired', () => {
+    const finished = run([event('audio-capture-confirmed', 4), event('task-finished', 4)]);
+    const denied = reduceCompanion(finished, event('audio-capture-denied', 4), AVAILABLE);
+    expect(denied.captureConfirmed).toBe(false);
+  });
+
+  it('still refuses a stale capture confirmation, so a dead run cannot claim it is listening', () => {
+    // The exemption is deliberately one-directional. Accepting a stale "capture ended" can only
+    // retract a claim, but accepting a stale "capture confirmed" would let a run that no longer
+    // exists assert that it is listening — which is the failure the staleness floor exists to
+    // prevent, pointed the other way.
+    const cancelled = run([event('audio-capture-confirmed', 7), event('task-cancelled', 7)]);
+    const stale = reduceCompanion(cancelled, event('audio-capture-confirmed', 7), AVAILABLE);
+    expect(stale.captureConfirmed).toBe(false);
+    expect(stale.lastRejected).toBe('stale-generation');
+  });
+
+  it('still refuses a stale capture stop once capture is already closed, as noise', () => {
+    // Nothing to retract, so the event is not exempt and is recorded as refused rather than
+    // silently accepted: "nothing happened" and "something was ignored" stay distinguishable.
+    const closed = run([event('audio-capture-confirmed', 4), event('task-finished', 4)]);
+    const stopped = reduceCompanion(closed, event('audio-capture-ended', 4), AVAILABLE);
+    const again = reduceCompanion(stopped, event('audio-capture-ended', 4), AVAILABLE);
+    expect(again.lastRejected).toBe('stale-generation');
+  });
+
   it('closes capture on cancellation and on a lost host, but not on a finished task', () => {
     const open = run([event('audio-capture-confirmed')]);
     expect(reduceCompanion(open, event('task-cancelled'), AVAILABLE).captureConfirmed).toBe(false);

@@ -77,6 +77,15 @@ export interface CompanionController {
    * is what lets a caller (or a test) ask where the character actually ended up.
    */
   anchorId(): string | null;
+  /**
+   * Tells the controller the overlay dropped every annotation underneath it, so it mints a fresh
+   * one on the next draw.
+   *
+   * Called by the session when a top-level document generation retires. Without it the controller
+   * keeps a dead anchor id, and because pointer movement only re-measures existing annotations,
+   * nothing would ever recreate the character.
+   */
+  forgetAnchor(): void;
   /** Delivers an event. Exposed so a test or a future provider can drive the layer directly. */
   accept(event: CompanionEvent): void;
   /**
@@ -173,6 +182,28 @@ export function createCompanionController(
 
   return {
     setEnabled,
+    /**
+     * The overlay lost every annotation, and the controller has to accept that rather than argue
+     * with it.
+     *
+     * A top-level generation change means a navigation: the layer drops its annotations outright
+     * because every element id it was holding has just been retired. The companion's own
+     * `anchorId` is now a reference to an annotation that no longer exists, and left alone that
+     * reference is a lie the controller cannot see. Every later `draw()` would take the
+     * re-point path for a dead annotation, and because pointer movement only asks the layer to
+     * `refresh()` — which re-measures what is already there and creates nothing — the character
+     * would never come back for the rest of the session. Still enabled, permanently absent.
+     *
+     * Forgetting the id is the whole fix: the next `draw()` mints a fresh anchor against the new
+     * document generation, which is exactly what a first enable would have done. `draw` is called
+     * rather than trusted to happen, because the user may also have switched the companion off in
+     * the meantime, and `draw` is a no-op when disabled.
+     */
+    forgetAnchor() {
+      if (disposed) return;
+      anchorId = null;
+      draw();
+    },
     get isEnabled() {
       return enabled;
     },

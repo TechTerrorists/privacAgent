@@ -56,9 +56,10 @@ export interface ThemeStore {
 
 /**
  * F-08's store. Separate from `ThemeStore` rather than folded into a `Preferences` object because
- * they have different failure semantics: a failed theme read falls back to `system`, whereas a
- * failed companion read must *enable* the companion, so a storage hiccup never leaves the user
- * with a character they cannot account for.
+ * they have different failure semantics: a failed theme read falls back to `system`, which is a
+ * cosmetic guess, whereas a failed companion read leaves the companion *off* — a character the
+ * user never asked for is one they cannot account for or get rid of. Both stores reject rather
+ * than guess, and this class is where the fallback to the default actually happens.
  */
 export interface CompanionStore {
   read(): Promise<boolean>;

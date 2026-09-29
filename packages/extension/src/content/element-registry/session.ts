@@ -137,8 +137,17 @@ export function startContentSession(document: Document): ContentSession {
   // invalidates that subtree's ids, so the survivors are re-measured instead. Without this the
   // overlay would keep drawing against ids that no longer mean anything until the next scroll.
   const unsubscribeGeneration = registry.onGenerationChange((change) => {
-    if (change.scope === 'top') overlay.clear();
-    else overlay.refresh();
+    if (change.scope === 'top') {
+      // Order matters: the layer is told first, because it is the one that knows its annotations
+      // are gone, and the companion only learns about it second-hand.
+      overlay.clear();
+      // The companion is still enabled, and enabling is a user setting that survives a navigation,
+      // so it has to redraw against the new generation. Pointer movement cannot do this for it:
+      // it asks the layer to re-measure what it already holds, and it now holds nothing.
+      companion.forgetAnchor();
+    } else {
+      overlay.refresh();
+    }
   });
 
   let extraction: IncrementalSession | undefined;
