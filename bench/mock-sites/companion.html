@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Cursor companion gallery · Local Lab</title>
+    <link rel="icon" href="/favicon.svg" />
+    <link rel="stylesheet" href="/assets/style.css" />
+    <link rel="stylesheet" href="/assets/gallery.css" />
+    <script defer src="/assets/app.js"></script>
+    <style>
+      /*
+       * A hostile author stylesheet, in the shape a CSS-framework reset actually takes.
+       *
+       * The companion draws inside a closed shadow root with its own adopted stylesheet, so none of
+       * this should reach it. It is here so the browser suite proves that rather than assuming it:
+       * `* { all: revert }` is the most aggressive thing a page can do to an inherited style, and a
+       * companion that lost its colours to it would be unreadable on a page like this.
+       */
+      div,
+      span,
+      svg,
+      button {
+        all: revert;
+      }
+      body {
+        color: CanvasText;
+        background: Canvas;
+      }
+    </style>
+  </head>
+  <body data-scenario="companion">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header>
+      <a class="brand" href="/">Local<span>Lab</span><span class="tag">B-08 · F-08</span></a>
+      <nav aria-label="Mock sites">
+        <a href="/">Overview</a><a href="/profile">Profile</a><a href="/settings">Settings</a
+        ><a href="/search">Catalog</a>
+      </nav>
+    </header>
+    <main id="main">
+      <div class="intro">
+        <p class="eyebrow">F-08 · OPTIONAL CURSOR COMPANION</p>
+        <h1>Cursor companion gallery.</h1>
+        <p class="lead">
+          A page with ordinary controls for checking that the companion can be drawn over it without
+          interfering with any of them. All text here is synthetic.
+        </p>
+      </div>
+
+      <section class="panel">
+        <h2>What the companion must never break</h2>
+        <p>
+          Everything below is a real control. The character follows the cursor across this page and
+          is expected to sit over these elements without swallowing a single click or keystroke.
+        </p>
+
+        <div class="grid">
+          <div class="cell">
+            <button id="t-button" type="button">Clickable target</button>
+            <p>Clicks: <output id="t-clicks">0</output></p>
+          </div>
+
+          <div class="cell">
+            <label for="t-input">Typing target</label>
+            <input id="t-input" type="text" autocomplete="off" placeholder="Type here" />
+          </div>
+
+          <div class="cell">
+            <label for="t-secret">Text that must never be drawn</label>
+            <input id="t-secret" type="text" autocomplete="off" value="" />
+            <p>The companion is decorative and carries no text of any kind.</p>
+          </div>
+
+          <div class="cell">
+            <label for="t-select">Select target</label>
+            <select id="t-select">
+              <option>One</option>
+              <option>Two</option>
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Scroll and resize</h2>
+        <p>
+          The companion is positioned in viewport coordinates, so scrolling the page under a
+          stationary cursor must leave it exactly where it was. This region exists to scroll.
+        </p>
+        <div style="height: 1200px" aria-hidden="true"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Hostile page styles</h2>
+        <p>
+          The document stylesheet above resets every element with <code>all: revert</code>. The
+          companion draws inside its own closed shadow root and must keep its own colours,
+          silhouettes and <code>pointer-events</code> regardless.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>State</th>
+              <th>Shape</th>
+              <th>Motion</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>idle</td>
+              <td>small ring</td>
+              <td>none</td>
+            </tr>
+            <tr>
+              <td>listening</td>
+              <td>ring with radiating arcs</td>
+              <td>arcs breathe</td>
+            </tr>
+            <tr>
+              <td>thinking</td>
+              <td>ring broken at the top</td>
+              <td>rotates</td>
+            </tr>
+            <tr>
+              <td>acting</td>
+              <td>solid chevron</td>
+              <td>none</td>
+            </tr>
+            <tr>
+              <td>needs-approval</td>
+              <td>ring with pause bars</td>
+              <td>none</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          Every state is a different <em>shape</em>, not only a different colour, so the five stay
+          distinguishable with the colour removed entirely — in forced-colours mode, or for a user
+          who cannot separate the hues.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

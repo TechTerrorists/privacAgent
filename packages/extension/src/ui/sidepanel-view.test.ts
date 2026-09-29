@@ -195,3 +195,99 @@ describe('side-panel shell', () => {
     expect(root.querySelector('[data-testid="theme-select"]')).toBeNull();
   });
 });
+
+describe('the cursor companion toggle', () => {
+  // A handle local to this block: the outer `handle` belongs to another describe's scope, and a
+  // second mounted panel would fight the first for the same root.
+  let companionHandle: SidePanelHandle | undefined;
+
+  afterEach(() => {
+    companionHandle?.dispose();
+    companionHandle = undefined;
+  });
+
+  /**
+   * Mounts the panel on the settings route and hands the handle to this block's `afterEach`.
+   *
+   * The handle is deliberately *not* disposed here. Disposing unmounts the tree, so a test that
+   * disposed in the helper and then queried the root for status text would find an empty document
+   * and conclude the text was missing.
+   */
+  async function openSettings(initialEnabled = false): Promise<{
+    root: HTMLElement;
+    input: HTMLInputElement;
+  }> {
+    const root = createRoot();
+    window.location.hash = '#settings';
+    companionHandle?.dispose();
+    companionHandle = mountSidePanel(
+      root,
+      createDemoController({ initialCompanionEnabled: initialEnabled })
+    );
+    await tick();
+    const input = root.querySelector<HTMLInputElement>('[data-testid="companion-input"]');
+    if (!input) throw new Error('Companion toggle was not rendered');
+    return { root, input };
+  }
+
+  it('renders in settings, checked only when enabled', async () => {
+    const off = await openSettings(false);
+    expect(off.input.checked).toBe(false);
+
+    const on = await openSettings(true);
+    expect(on.input.checked).toBe(true);
+  });
+
+  it('is off by default', async () => {
+    const { input } = await openSettings();
+    expect(input.checked).toBe(false);
+  });
+
+  it('is a real checkbox inside a label, so it is focusable and keyboard-operable', async () => {
+    const { input } = await openSettings();
+    // A hand-rolled div with role="switch" would fail all three of these and would be a
+    // regression in the one control the user relies on to make this feature go away.
+    expect(input.tagName).toBe('INPUT');
+    expect(input.type).toBe('checkbox');
+    expect(input.closest('label')).not.toBeNull();
+  });
+
+  it('explains what it does, in the panel, without claiming to capture anything', async () => {
+    const { root } = await openSettings(true);
+    const status = root.querySelector('[data-testid="companion-status"]')?.textContent ?? '';
+    expect(status).toContain('follows your cursor');
+    expect(status).toContain('cannot be clicked');
+  });
+
+  it('says plainly that nothing is drawn when off', async () => {
+    const { root } = await openSettings(false);
+    const status = root.querySelector('[data-testid="companion-status"]')?.textContent ?? '';
+    expect(status).toContain('off');
+    expect(status).toContain('Nothing is drawn');
+  });
+
+  it('persists the choice through the controller', async () => {
+    const root = createRoot();
+    window.location.hash = '#settings';
+    let written: boolean | undefined;
+    companionHandle = mountSidePanel(
+      root,
+      createDemoController({
+        companionStore: {
+          read: async () => false,
+          write: async (enabled) => {
+            written = enabled;
+          },
+        },
+      })
+    );
+    await tick();
+
+    const input = root.querySelector<HTMLInputElement>('[data-testid="companion-input"]');
+    input?.click();
+    await tick();
+
+    expect(written).toBe(true);
+    expect(input?.checked).toBe(true);
+  });
+});
